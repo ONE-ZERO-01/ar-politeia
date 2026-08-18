@@ -17,14 +17,14 @@
     "research/jobs/E2-CHANNEL-ABLATION/workspace"
   ],
   "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
-  "commit_id": "375d5aad8cdab1ed0ee3f541382c7c7a5c414a88",
+  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
   "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
   "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
-    "dependency_calibration": "E0 calibration must pass and is loaded from its immutable job workspace before claim analysis",
-    "parameter_lock": "62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95"
+    "dependency_calibration": "After E0 passes, bind the SHA-256 of tracked research/jobs/E0-NUMERICS/numerical_calibration.json before execution",
+    "parameter_lock": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352"
   },
   "artifacts": [
     "result.json",

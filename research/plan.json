@@ -68,11 +68,49 @@
     ],
     "uncertainty": "paired effect sizes with bootstrap 95% confidence intervals",
     "multiplicity": "Holm correction within each confirmatory metric family",
-    "equivalence_rule": "SESOI is fixed from E0 numerical-noise calibration before E1-E3 outcomes are inspected",
+    "equivalence_rule": "SESOI is frozen from paired same-seed dt/2-versus-dt/4 discretization differences in E0 before E1-E3 outcomes are inspected; it is a simulation-resolution limit, not a substantive social-science effect size",
     "missing_runs": "No seed replacement after outcomes are observed; failed runs are reported and rerun only under the declared failure policy.",
     "steady_state_rule": "Use preregistered drift and integrated-autocorrelation diagnostics; do not extend runs because an outcome is close to a desired threshold."
   },
   "experiments": [
+    {
+      "id": "B0-DYNAMICS-PILOT",
+      "claim_ids": [],
+      "objective": "在不设置 shuffled 对照、不估计景观效应的前提下，测量候选参数的运行成本并检查动力学健康状态。",
+      "priority": "P1",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "local_preflight_passed_server_prepare_pending",
+      "non_evidentiary": true,
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "B0-DYNAMICS-PILOT",
+        "--config",
+        "research/jobs/B0-DYNAMICS-PILOT/config.json",
+        "--output-dir",
+        "research/jobs/B0-DYNAMICS-PILOT/workspace"
+      ],
+      "baseline": "Only clustered-active landscapes at N=500 and 64x64 resolution; there is deliberately no shuffled control.",
+      "seeds": [7103, 7207, 7309],
+      "metrics": [
+        "wall_clock_seconds",
+        "stationarity_diagnostics",
+        "minimum_wealth",
+        "particle_count",
+        "finite_metric_audit"
+      ],
+      "acceptance": [
+        "All three runs complete within the declared timeout.",
+        "Wealth remains non-negative and population remains fixed.",
+        "All analysis metrics are finite and the preregistered steady-window gate passes."
+      ],
+      "artifacts": ["result.json", "replicate_metrics.csv", "pilot_health.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
+      "timeout_seconds": 7200,
+      "gpu_count": 0,
+      "failure_policy": "A failure keeps the parameter lock in candidate status. Amendments may use only runtime, stability and health diagnostics and must not inspect a landscape contrast."
+    },
     {
       "id": "E0-NUMERICS",
       "claim_ids": ["C1-NUM"],
@@ -109,7 +147,7 @@
         "Closed-system relative wealth drift <= 1e-8.",
         "Minimum wealth >= -1e-12.",
         "Halving dt changes primary observables by <= 2%.",
-        "SESOI for later experiments is frozen from replicate numerical noise before E1-E3 are analyzed."
+        "SESOI for later experiments is frozen from paired same-seed dt/2-versus-dt/4 discretization differences before E1-E3 are analyzed."
       ],
       "artifacts": ["result.json", "replicate_metrics.csv", "numerical_calibration.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
       "timeout_seconds": 28800,
@@ -255,7 +293,7 @@
     "gpu_hours": null,
     "agent_seconds": null,
     "status": "awaiting_human_budget_before_submission",
-    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and an explicit CPU-time budget are complete. Cycle 1 currently requests no GPU. E0 has 25 prepared runs; E1 and E2 have 80 and 160 prepared runs but remain dependency-blocked until E0 passes."
+    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and an explicit CPU-time budget are complete. Cycle 1 currently requests no GPU. B0 requests a separate small pilot budget. E0 has 25 prepared runs; E1 and E2 have 80 and 160 prepared runs but remain blocked until B0 finalizes the parameter lock and E0 passes with a tracked calibration hash."
   },
   "computational_strategy": {
     "approach": "Small-system calibration followed by matched paired ensembles and a fixed holdout stage on umi.",
@@ -287,8 +325,8 @@
   },
   "readiness": {
     "scientific_design": "cycle1_scope_and_falsification_rules_frozen",
-    "experiment_implementation": "E0-E2_ready_without_execution; E3_implemented_and_local_preflighted",
-    "preflight": "E0-E2_passed_on_local_and_umi_with_inputs_prepared; E3_local_passed_server_pending",
-    "execution": "awaiting_explicit_cpu_time_budget; server_only_on_umi"
+    "experiment_implementation": "B0_and_E0-E3_implemented; confirmatory execution hard-blocked by candidate lock and pending E0 hash",
+    "preflight": "B0/E0-E3 local directory and structured preflight passed; umi revalidation pending",
+    "execution": "awaiting explicit B0 CPU-time budget; server only on umi"
   }
 }

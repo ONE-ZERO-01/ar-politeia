@@ -1,0 +1,39 @@
+{
+  "id": "B0-DYNAMICS-PILOT",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": [],
+  "non_evidentiary": true,
+  "objective": "Measure runtime and verify outcome-blind dynamics health under the candidate parameters without a shuffled control or any landscape-effect estimate.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "B0-DYNAMICS-PILOT",
+    "--config",
+    "research/jobs/B0-DYNAMICS-PILOT/config.json",
+    "--output-dir",
+    "research/jobs/B0-DYNAMICS-PILOT/workspace"
+  ],
+  "config": "research/jobs/B0-DYNAMICS-PILOT/config.json",
+  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
+  "env_snapshot": "research/jobs/B0-DYNAMICS-PILOT/env.txt",
+  "seeds": [7103, 7207, 7309],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "pilot_health.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "run_specs.json"
+  ],
+  "timeout_seconds": 7200,
+  "gpu_count": 0,
+  "evidence_boundary": "Runtime and health calibration only. This job has no shuffled control and cannot support C2-C4.",
+  "failure_policy": "A failed health gate keeps the parameter lock in candidate status. Parameter changes may use only runtime, stability and health diagnostics, never a clustered-minus-shuffled effect."
+}

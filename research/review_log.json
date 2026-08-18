@@ -3,7 +3,7 @@
   "reviewed_at": "2026-08-18T23:30:00+08:00",
   "plan": "research/plan.json",
   "status": "server_validation_pending",
-  "summary": "E0-E2 have immutable source bindings, local and umi preflight and deterministic inputs. E3 now implements a correlated-random-field holdout, 3x2 population-resolution expansion, within-seed cross-scale aggregation, direction consistency and resolution sensitivity; its local directory and structured preflight pass. E3 server sync/input preparation is pending because the current approval service could not authorize the push. No numerical experiment has executed, and an explicit CPU-time budget remains required.",
+  "summary": "The post-review hardening pass now derives SESOI from paired same-seed dt/2-versus-dt/4 discretization differences, promotes E0 calibration to a tracked checksum-bound dependency, adds per-run fingerprinted recovery, and introduces a non-evidentiary B0 dynamics pilot. The parameter lock is explicitly candidate-only, and E1-E3 execution is blocked in code until B0 health, E0 calibration binding and CPU budget requirements are satisfied. All 118 tests plus B0/E0-E3 directory and structured local preflights pass under source commit 029820d0161941b88cbf73580f0ccc557608a392; umi revalidation remains pending and no numerical experiment has executed.",
   "code_sources_reviewed": [
     "research/imports/politeia-ds/src/main.cpp",
     "research/imports/politeia-ds/src/core/config.hpp",
@@ -32,10 +32,12 @@
         "automatic conservation and non-negativity audit",
         "equal-state absorbing check",
         "dt convergence audit",
-        "numerical-noise-derived SESOI freeze",
+        "paired dt/2-versus-dt/4 simulation-resolution SESOI freeze",
         "formal stationarity and effective-sample-size gate",
         "local and umi preflight",
-        "deterministic preparation of 25 run inputs"
+        "deterministic preparation of 25 run inputs",
+        "tracked numerical calibration result and downstream SHA-256 binding",
+        "fingerprinted per-run completion and recovery markers"
       ],
       "missing": [
         "numerical execution and result reconciliation after budget approval"
@@ -43,7 +45,7 @@
     },
     {
       "claim_id": "C2-LANDSCAPE",
-      "status": "implemented_preflighted_dependency_blocked",
+      "status": "implemented_rebinding_pending",
       "covered": [
         "ESRI ASCII and binary grid loading",
         "terrain force",
@@ -62,12 +64,14 @@
         "deterministic preparation of 80 run inputs"
       ],
       "missing": [
+        "final parameter lock after B0 health pilot",
+        "tracked E0 calibration SHA-256 binding",
         "confirmatory execution after E0 passes"
       ]
     },
     {
       "claim_id": "C3-CHANNELS",
-      "status": "implemented_preflighted_dependency_blocked",
+      "status": "implemented_rebinding_pending",
       "covered": [
         "independent terrain force switch and scale",
         "independent terrain production switch and scale",
@@ -82,12 +86,14 @@
         "deterministic preparation of 160 run inputs"
       ],
       "missing": [
+        "final parameter lock after B0 health pilot",
+        "tracked E0 calibration SHA-256 binding",
         "confirmatory execution after E0 passes"
       ]
     },
     {
       "claim_id": "C4-ROBUSTNESS",
-      "status": "implemented_local_preflight_pending_server",
+      "status": "implemented_rebinding_pending",
       "covered": [
         "particle count is configurable",
         "grid resolution is configurable",
@@ -101,7 +107,8 @@
         "versioned E3 manifest and local structured preflight"
       ],
       "missing": [
-        "umi preflight and deterministic input preparation",
+        "local and umi preflight under source commit 029820d0161941b88cbf73580f0ccc557608a392",
+        "final parameter lock and tracked E0 calibration hash",
         "robustness execution after E1-E2 complete"
       ]
     }
@@ -110,8 +117,14 @@
     {
       "id": "B1",
       "severity": "P0",
-      "finding": "E3 implementation and local preflight pass, but source commit 1b982db4446a5a8e33ab20eda73034ff610b8e6e and its manifest have not reached umi because the approval service disconnected twice and sandboxed network access is denied.",
-      "required_action": "After explicit approval is available, push main to umi, run E3 server preflight and --prepare-only, then verify the expected 240-run input matrix and both matching and parameter-lock audits."
+      "finding": "The hardened source commit 029820d0161941b88cbf73580f0ccc557608a392 and rebound B0/E0-E3 manifests pass all local checks but have not yet reached umi.",
+      "required_action": "Commit manifest updates, push main to umi, rebuild, run B0/E0-E3 server preflight and --prepare-only, then verify run matrices and audit hashes."
+    },
+    {
+      "id": "B2",
+      "severity": "P0",
+      "finding": "The confirmatory parameter lock is deliberately candidate-only and numerical_calibration_sha256 remains pending until B0 and E0 complete.",
+      "required_action": "Approve a small B0 CPU-time budget, use only runtime/stability/health diagnostics to finalize the lock, then execute E0 and bind its tracked calibration SHA-256 before E1-E3."
     }
   ],
   "non_blocking_assets": [
@@ -122,8 +135,9 @@
     "Random seeds and time step are configurable."
   ],
   "implementation_order": [
-    "Push the completed E3 implementation and manifest to umi, then run server preflight and input-only preparation.",
-    "Obtain an explicit CPU-time budget, execute E0 on umi, reconcile its result and only then authorize E1-E2."
+    "Revalidate and push the hardened B0/E0-E3 manifests, rebuild on umi and run input-only preparation.",
+    "Obtain a small explicit B0 CPU-time budget and finalize or revise the candidate lock using only outcome-blind health diagnostics.",
+    "Execute E0, commit its tracked calibration result and bind its SHA-256 into E1-E3 before any confirmatory execution."
   ],
   "resolved_findings": [
     {
@@ -132,7 +146,7 @@
     },
     {
       "id": "R2",
-      "finding": "E0 has a versioned manifest bound to source commit 2dbefc41d76bcfade1261f5ad1004a51c87e50ca and passes both directory and structured preflight."
+      "finding": "E0 previously passed local and umi preflight; its updated manifest is now bound to hardened source commit 029820d0161941b88cbf73580f0ccc557608a392 and awaits revalidation."
     },
     {
       "id": "R3",
@@ -140,15 +154,23 @@
     },
     {
       "id": "R4",
-      "finding": "E1 and E2 have versioned manifests bound to source commit 375d5aad8cdab1ed0ee3f541382c7c7a5c414a88, pass local and umi preflight, and have 80 and 160 deterministic run inputs prepared without execution."
+      "finding": "E1 and E2 previously passed local and umi preflight with 80 and 160 deterministic inputs; their updated manifests are rebound to hardened source commit 029820d0161941b88cbf73580f0ccc557608a392 and await revalidation."
     },
     {
       "id": "R5",
-      "finding": "Parameter lock 62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95 authorizes E1-E3; E1/E2 already validate its checksum and every locked field before preparation or analysis."
+      "finding": "Candidate parameter lock 0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352 is checksum-enforced for preparation, while the runner blocks E1-E3 execution until its status becomes final."
     },
     {
       "id": "R6",
-      "finding": "E3 correlated-random-field holdouts and cross-scale analysis are implemented at source commit 1b982db4446a5a8e33ab20eda73034ff610b8e6e; 116 tests and both local E3 preflight modes pass."
+      "finding": "E3 correlated-random-field holdouts and cross-scale analysis remain implemented under hardened source commit 029820d0161941b88cbf73580f0ccc557608a392; the full suite now contains 118 passing tests."
+    },
+    {
+      "id": "R7",
+      "finding": "The runner now records fingerprinted completion markers and safely reuses only runs whose binary, config, inputs, thread count, snapshot count and final snapshot checksum still match."
+    },
+    {
+      "id": "R8",
+      "finding": "E0 writes a tracked calibration artifact; E1-E3 require its exact SHA-256 before binary execution, preventing untracked workspace calibration from becoming a cross-device dependency."
     }
   ],
   "technical_notes": [

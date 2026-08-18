@@ -1,7 +1,9 @@
 {
   "lock_id": "ar-politeia-cycle1-confirmatory-v1",
+  "status": "candidate_pending_non_evidentiary_runtime_pilot_and_e0",
+  "confirmatory_execution_authorized": false,
   "locked_before_confirmatory_outcomes": true,
-  "source_commit": "375d5aad8cdab1ed0ee3f541382c7c7a5c414a88",
+  "source_commit": "029820d0161941b88cbf73580f0ccc557608a392",
   "authorized_experiments": [
     "E1-MATCHED-LANDSCAPES",
     "E2-CHANNEL-ABLATION",
@@ -33,5 +35,10 @@
     "E2-CHANNEL-ABLATION": ["seed", "landscape", "terrain_force_enabled", "terrain_production_enabled"],
     "E3-ROBUSTNESS-HOLDOUT": ["seed", "landscape_family", "population", "grid_shape"]
   },
-  "amendment_policy": "Any change after E1 execution starts creates a new lock version and a new research cycle; observed E1-E3 outcomes may not be used to amend this lock."
+  "finalization_requirements": [
+    "non-evidentiary runtime and dynamics health pilot completed without clustered-versus-shuffled effect analysis",
+    "E0 numerical calibration passed and its tracked SHA-256 is bound into E1-E3 configs",
+    "explicit CPU-time budget approved"
+  ],
+  "amendment_policy": "Before finalization, amendments may use only runtime, numerical stability and outcome-blind health diagnostics. After finalization or after E1 execution starts, any change creates a new lock version and research cycle; observed E1-E3 effects may not be used to amend this lock."
 }

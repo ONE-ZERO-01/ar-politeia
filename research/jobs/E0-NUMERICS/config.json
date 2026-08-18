@@ -2,6 +2,7 @@
   "experiment_id": "E0-NUMERICS",
   "binary": "research/jobs/E0-NUMERICS/workspace/build/src/politeia",
   "summary_result": "research/jobs/E0-NUMERICS/result.json",
+  "calibration_result": "research/jobs/E0-NUMERICS/numerical_calibration.json",
   "seeds": [1103, 2207, 3301, 4409, 5519],
   "population": 1000,
   "grid_shape": [32, 32],

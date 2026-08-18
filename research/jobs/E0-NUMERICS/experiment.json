@@ -4,7 +4,7 @@
   "mode": "server",
   "priority": "P0",
   "claim_ids": ["C1-NUM"],
-  "objective": "Calibrate conservation, non-negativity, equal-state absorption, time-step convergence and numerical-noise SESOI before confirmatory landscape experiments.",
+  "objective": "Calibrate conservation, non-negativity, equal-state absorption, time-step convergence and a paired discretization-resolution SESOI before confirmatory landscape experiments.",
   "command": [
     "python3",
     "research/src/experiments/run_landscape_study.py",
@@ -16,7 +16,7 @@
     "research/jobs/E0-NUMERICS/workspace"
   ],
   "config": "research/jobs/E0-NUMERICS/config.json",
-  "commit_id": "2dbefc41d76bcfade1261f5ad1004a51c87e50ca",
+  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
   "env_snapshot": "research/jobs/E0-NUMERICS/env.txt",
   "seeds": [1103, 2207, 3301, 4409, 5519],
   "data_checksums": {
@@ -30,6 +30,10 @@
     "matched_input_audit.json",
     "stationarity_report.json",
     "run_specs.json"
+  ],
+  "tracked_artifacts": [
+    "research/jobs/E0-NUMERICS/result.json",
+    "research/jobs/E0-NUMERICS/numerical_calibration.json"
   ],
   "timeout_seconds": 28800,
   "gpu_count": 0,
