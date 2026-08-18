@@ -96,6 +96,29 @@ def test_write_esri_ascii_and_initial_conditions(tmp_path):
     assert len(ic_digest) == 64
 
 
+def test_completion_marker_requires_matching_fingerprint_and_snapshot(tmp_path):
+    snapshot = tmp_path / "snap_00000010.csv"
+    snapshot.write_text("x,y,w\n0,0,1\n", encoding="utf-8")
+    fingerprint = landscape_study.canonical_payload_sha256({"run": "a"})
+    marker = {
+        "status": "completed",
+        "run_fingerprint": fingerprint,
+        "snapshot_count": 1,
+        "final_snapshot": snapshot.name,
+        "final_snapshot_sha256": landscape_study.sha256_file(snapshot),
+    }
+    assert landscape_study.completion_marker_is_reusable(
+        marker, run_dir=tmp_path, expected_fingerprint=fingerprint
+    ) is True
+    assert landscape_study.completion_marker_is_reusable(
+        marker, run_dir=tmp_path, expected_fingerprint="0" * 64
+    ) is False
+    snapshot.write_text("x,y,w\n0,0,2\n", encoding="utf-8")
+    assert landscape_study.completion_marker_is_reusable(
+        marker, run_dir=tmp_path, expected_fingerprint=fingerprint
+    ) is False
+
+
 def test_spatial_and_wealth_metrics_have_expected_limits():
     resource = np.array([[0.0, 1.0], [2.0, 3.0]])
     assert landscape_study.spearman_correlation(resource, resource) == pytest.approx(1.0)
@@ -160,6 +183,17 @@ def test_confirmatory_effect_requires_holm_and_sesoi():
         holm_result={"holm_reject": True, "holm_adjusted_p_value": 0.01},
     )
     assert inside_sesoi["claim_threshold_pass"] is False
+
+
+def test_paired_discretization_sesoi_uses_paired_error_envelope():
+    diagnostic = landscape_study.paired_discretization_sesoi(
+        [0.12, 0.21, 0.29, 0.42],
+        [0.10, 0.20, 0.30, 0.40],
+    )
+    assert diagnostic["pairs"] == 4
+    assert diagnostic["paired_max_absolute_difference"] == pytest.approx(0.02)
+    assert diagnostic["threshold"] >= diagnostic["paired_max_absolute_difference"]
+    assert diagnostic["threshold"] >= abs(diagnostic["paired_mean_difference"])
 
 
 def test_stationarity_diagnostics_distinguish_flat_and_drifting_windows():

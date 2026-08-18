@@ -26,9 +26,12 @@ from landscape_study import (
     annotate_confirmatory_effect,
     audit_matched_landscapes,
     audit_parameter_lock,
+    canonical_payload_sha256,
+    completion_marker_is_reusable,
     holm_adjust,
     make_matched_landscapes,
     paired_bootstrap_mean_difference,
+    paired_discretization_sesoi,
     read_snapshot_csv,
     sha256_file,
     snapshot_metrics,
@@ -592,30 +595,118 @@ def execute_runs(
     *,
     timeout_seconds: int,
     omp_threads: int,
-) -> None:
+) -> Dict[str, Any]:
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise FileNotFoundError(f"Politeia binary is missing or not executable: {binary}")
+    binary_sha256 = sha256_file(binary)
+    summary: Dict[str, Any] = {
+        "executed": 0,
+        "skipped_completed": 0,
+        "binary_sha256": binary_sha256,
+        "completed_run_ids": [],
+    }
     for spec in run_specs:
         run_dir = project_path(spec["run_dir"])
         log_path = run_dir / "run.log"
         config_path = project_path(spec["cpp_config"], must_exist=True)
-        with log_path.open("w", encoding="utf-8") as log:
-            environment = os.environ.copy()
-            environment["OMP_NUM_THREADS"] = str(omp_threads)
-            completed = subprocess.run(
-                [str(binary), str(config_path)],
-                cwd=PROJECT_ROOT,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                timeout=timeout_seconds,
-                check=False,
-                text=True,
-                env=environment,
+        marker_path = run_dir / "completion.json"
+        fingerprint = canonical_payload_sha256(
+            {
+                "run_spec": dict(spec),
+                "cpp_config_sha256": sha256_file(config_path),
+                "binary_sha256": binary_sha256,
+                "omp_threads": omp_threads,
+            }
+        )
+        if marker_path.is_file():
+            try:
+                marker = load_json(marker_path)
+            except Exception:
+                marker = {}
+            if completion_marker_is_reusable(
+                marker,
+                run_dir=run_dir,
+                expected_fingerprint=fingerprint,
+            ):
+                summary["skipped_completed"] += 1
+                summary["completed_run_ids"].append(str(spec["run_id"]))
+                continue
+
+        for stale_path in list(run_dir.glob("*.csv")) + list(
+            run_dir.glob("snap_*.bin")
+        ):
+            stale_path.unlink()
+        environment = os.environ.copy()
+        environment["OMP_NUM_THREADS"] = str(omp_threads)
+        try:
+            with log_path.open("w", encoding="utf-8") as log:
+                completed = subprocess.run(
+                    [str(binary), str(config_path)],
+                    cwd=PROJECT_ROOT,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout_seconds,
+                    check=False,
+                    text=True,
+                    env=environment,
+                )
+        except subprocess.TimeoutExpired as exc:
+            write_json(
+                marker_path,
+                {
+                    "status": "failed",
+                    "run_id": spec["run_id"],
+                    "run_fingerprint": fingerprint,
+                    "failure": "timeout",
+                    "timeout_seconds": timeout_seconds,
+                },
             )
+            raise RuntimeError(
+                f"run {spec['run_id']} exceeded {timeout_seconds} seconds"
+            ) from exc
         if completed.returncode != 0:
+            write_json(
+                marker_path,
+                {
+                    "status": "failed",
+                    "run_id": spec["run_id"],
+                    "run_fingerprint": fingerprint,
+                    "failure": "nonzero_exit",
+                    "returncode": completed.returncode,
+                },
+            )
             raise RuntimeError(
                 f"run {spec['run_id']} failed with exit code {completed.returncode}; see {log_path}"
             )
+        snapshots = sorted(run_dir.glob("snap_*.csv"))
+        if not snapshots:
+            write_json(
+                marker_path,
+                {
+                    "status": "failed",
+                    "run_id": spec["run_id"],
+                    "run_fingerprint": fingerprint,
+                    "failure": "missing_snapshots",
+                },
+            )
+            raise RuntimeError(f"run {spec['run_id']} produced no CSV snapshots")
+        final_snapshot = snapshots[-1]
+        write_json(
+            marker_path,
+            {
+                "status": "completed",
+                "run_id": spec["run_id"],
+                "run_fingerprint": fingerprint,
+                "binary_sha256": binary_sha256,
+                "omp_threads": omp_threads,
+                "snapshot_count": len(snapshots),
+                "final_snapshot": final_snapshot.name,
+                "final_snapshot_sha256": sha256_file(final_snapshot),
+            },
+        )
+        summary["executed"] += 1
+        summary["completed_run_ids"].append(str(spec["run_id"]))
+    return summary
 
 
 def mean_metrics_for_run(
@@ -711,7 +802,20 @@ def load_e0_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
     relative = config.get("numerical_calibration")
     if not isinstance(relative, str) or not relative:
         raise ValueError("confirmatory analysis requires numerical_calibration")
-    calibration = load_json(project_path(relative, must_exist=True))
+    calibration_path = project_path(relative, must_exist=True)
+    declared_sha256 = config.get("numerical_calibration_sha256")
+    if not isinstance(declared_sha256, str) or len(declared_sha256) != 64:
+        raise RuntimeError(
+            "confirmatory analysis requires a frozen 64-character "
+            "numerical_calibration_sha256"
+        )
+    actual_sha256 = sha256_file(calibration_path)
+    if actual_sha256 != declared_sha256:
+        raise RuntimeError(
+            f"E0 calibration checksum mismatch: expected {declared_sha256}, "
+            f"got {actual_sha256}"
+        )
+    calibration = load_json(calibration_path)
     if calibration.get("experiment") != "E0-NUMERICS" or not calibration.get("pass"):
         raise RuntimeError("E0 numerical calibration is missing or did not pass")
     sesoi = calibration.get("sesoi_frozen_before_confirmatory_analysis")
@@ -826,28 +930,46 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         abs(float(row["total_wealth_relative_drift"])) for row in rows
     )
     minimum_wealth = min(float(row["minimum_wealth"]) for row in rows)
+    bounded_metrics = (
+        "resource_density_spearman_rho",
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+    )
     convergence: Dict[str, float] = {}
-    for metric in ("wealth_gini", "wealth_variance"):
-        dt_half = float(np.mean([row[metric] for row in by_condition["perturbed-dt-0.5"]]))
-        dt_quarter = float(
-            np.mean([row[metric] for row in by_condition["perturbed-dt-0.25"]])
+    sesoi_diagnostics: Dict[str, Dict[str, float]] = {}
+    for metric in bounded_metrics:
+        half_rows = sorted(
+            by_condition["perturbed-dt-0.5"], key=lambda item: int(item["seed"])
         )
-        convergence[metric] = abs(dt_half - dt_quarter) / max(
-            abs(dt_quarter), 1e-12
+        quarter_rows = sorted(
+            by_condition["perturbed-dt-0.25"], key=lambda item: int(item["seed"])
         )
-
-    calibration_rows = by_condition["perturbed-dt-1"]
+        half_seeds = [int(row["seed"]) for row in half_rows]
+        quarter_seeds = [int(row["seed"]) for row in quarter_rows]
+        if half_seeds != quarter_seeds:
+            raise RuntimeError("E0 dt/2 and dt/4 conditions do not have paired seeds")
+        dt_half = [
+            float(row[metric])
+            for row in half_rows
+        ]
+        dt_quarter = [
+            float(row[metric])
+            for row in quarter_rows
+        ]
+        paired_absolute_differences = np.abs(
+            np.asarray(dt_half, dtype=np.float64)
+            - np.asarray(dt_quarter, dtype=np.float64)
+        )
+        convergence[metric] = float(np.mean(paired_absolute_differences))
+        sesoi_diagnostics[metric] = paired_discretization_sesoi(
+            dt_half,
+            dt_quarter,
+            floor=1e-6,
+        )
     sesoi = {
-        metric: max(
-            2.0 * float(np.std([row[metric] for row in calibration_rows], ddof=1)),
-            1e-6,
-        )
-        for metric in (
-            "resource_density_spearman_rho",
-            "density_morans_i",
-            "occupancy_entropy",
-            "wealth_gini",
-        )
+        metric: diagnostic["threshold"]
+        for metric, diagnostic in sesoi_diagnostics.items()
     }
     equal_exchange_variance = max(
         float(row["wealth_variance"]) for row in by_condition["equal-exchange"]
@@ -855,7 +977,7 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
     checks = {
         "wealth_conservation": max_abs_drift <= 1e-8,
         "wealth_nonnegative": minimum_wealth >= -1e-12,
-        "dt_convergence": max(convergence.values()) <= 0.02,
+        "dt_convergence": all(value <= 0.02 for value in convergence.values()),
         "equal_state_is_absorbing": equal_exchange_variance <= 1e-20,
         "stationarity": all(bool(row["stationarity_pass"]) for row in rows),
     }
@@ -865,9 +987,17 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         "checks": checks,
         "max_absolute_wealth_drift": max_abs_drift,
         "minimum_wealth": minimum_wealth,
-        "dt_half_vs_quarter_relative_change": convergence,
+        "dt_half_vs_quarter_mean_absolute_change": convergence,
         "equal_exchange_max_wealth_variance": equal_exchange_variance,
         "sesoi_frozen_before_confirmatory_analysis": sesoi,
+        "sesoi_diagnostics": sesoi_diagnostics,
+        "sesoi_basis": (
+            "Paired same-seed dt/2 versus dt/4 discretization differences. "
+            "Each threshold is the maximum of the observed absolute envelope, "
+            "absolute paired bias plus two sample standard deviations, and 1e-6. "
+            "It is a conservative simulation-resolution limit, not a substantive "
+            "social-science effect size."
+        ),
         "interpretation_boundary": (
             "The equal-state check diagnoses the deterministic exchange kernel's "
             "absorbing state; it is not evidence for a Boltzmann-Gibbs wealth law."
@@ -1213,7 +1343,11 @@ def analyze_runs(
         },
     )
     if experiment == "E0-NUMERICS":
-        aggregate_e0(rows, output_dir)
+        calibration = aggregate_e0(rows, output_dir)
+        tracked_calibration = config.get("calibration_result")
+        if not isinstance(tracked_calibration, str) or not tracked_calibration:
+            raise ValueError("E0 requires calibration_result for tracked provenance")
+        write_json(project_path(tracked_calibration), calibration)
     elif experiment == "E1-MATCHED-LANDSCAPES":
         aggregate_e1(rows, config, output_dir)
     elif experiment == "E2-CHANNEL-ABLATION":
@@ -1252,9 +1386,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.prepare_only:
         return 0
 
+    execution_summary: Dict[str, Any] = {
+        "executed": 0,
+        "skipped_completed": 0,
+        "completed_run_ids": [],
+    }
     if not args.analyze_only:
         binary = project_path(config["binary"], must_exist=True)
-        execute_runs(
+        execution_summary = execute_runs(
             run_specs,
             binary,
             timeout_seconds=int(config.get("per_run_timeout_seconds", 3600)),
@@ -1276,6 +1415,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "status": "completed",
         "pass": job_pass,
         "runs_completed": len(rows),
+        "runs_executed_this_invocation": execution_summary["executed"],
+        "runs_reused_from_completion_markers": execution_summary[
+            "skipped_completed"
+        ],
         "config_sha256": sha256_file(config_path),
         "omp_threads": int(config.get("omp_threads", 8)),
         "parameter_lock_sha256": (
@@ -1290,6 +1433,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             if path.is_file()
         ),
     }
+    if args.experiment == "E0-NUMERICS":
+        tracked_calibration = project_path(
+            str(config["calibration_result"]), must_exist=True
+        )
+        result["tracked_calibration_result"] = relative_to_project(
+            tracked_calibration
+        )
+        result["tracked_calibration_sha256"] = sha256_file(tracked_calibration)
     write_json(output_dir / "result.json", result)
     summary_result = config.get("summary_result")
     if summary_result:

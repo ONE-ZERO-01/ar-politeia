@@ -246,6 +246,46 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def canonical_payload_sha256(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def completion_marker_is_reusable(
+    marker: Mapping[str, Any],
+    *,
+    run_dir: Path,
+    expected_fingerprint: str,
+) -> bool:
+    """Validate a completed run marker and its final snapshot checksum."""
+    if marker.get("status") != "completed":
+        return False
+    if marker.get("run_fingerprint") != expected_fingerprint:
+        return False
+    snapshot_count = marker.get("snapshot_count")
+    final_relative = marker.get("final_snapshot")
+    final_sha256 = marker.get("final_snapshot_sha256")
+    if not isinstance(snapshot_count, int) or snapshot_count < 1:
+        return False
+    if not isinstance(final_relative, str) or not final_relative:
+        return False
+    if not isinstance(final_sha256, str) or len(final_sha256) != 64:
+        return False
+    snapshots = sorted(run_dir.glob("snap_*.csv"))
+    if len(snapshots) != snapshot_count:
+        return False
+    final_snapshot = (run_dir / final_relative).resolve()
+    resolved_run_dir = run_dir.resolve()
+    if resolved_run_dir not in final_snapshot.parents or not final_snapshot.is_file():
+        return False
+    return sha256_file(final_snapshot) == final_sha256
+
+
 def density_grid(
     x: Array,
     y: Array,
@@ -464,6 +504,41 @@ def annotate_confirmatory_effect(
         "claim_threshold_pass": bool(
             beyond_equivalence and holm_result["holm_reject"]
         ),
+    }
+
+
+def paired_discretization_sesoi(
+    fine: Sequence[float],
+    finest: Sequence[float],
+    *,
+    floor: float = 1e-6,
+) -> Dict[str, float]:
+    """Conservative resolution limit from paired fine-vs-finest differences."""
+    fine_array = np.asarray(fine, dtype=np.float64)
+    finest_array = np.asarray(finest, dtype=np.float64)
+    if fine_array.shape != finest_array.shape or fine_array.ndim != 1:
+        raise ValueError("paired discretization arrays must be 1D and equal-length")
+    if fine_array.size < 3:
+        raise ValueError("at least three paired discretization observations are required")
+    if floor < 0.0 or not math.isfinite(floor):
+        raise ValueError("SESOI floor must be finite and non-negative")
+    differences = fine_array - finest_array
+    mean_difference = float(differences.mean())
+    sample_sd = float(np.std(differences, ddof=1))
+    max_absolute_difference = float(np.max(np.abs(differences)))
+    threshold = max(
+        float(floor),
+        max_absolute_difference,
+        abs(mean_difference) + 2.0 * sample_sd,
+    )
+    return {
+        "threshold": threshold,
+        "paired_mean_difference": mean_difference,
+        "paired_sample_sd": sample_sd,
+        "paired_mean_absolute_difference": float(np.mean(np.abs(differences))),
+        "paired_max_absolute_difference": max_absolute_difference,
+        "pairs": int(differences.size),
+        "floor": float(floor),
     }
 
 
