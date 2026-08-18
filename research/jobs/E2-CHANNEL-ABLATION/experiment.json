@@ -1,0 +1,41 @@
+{
+  "id": "E2-CHANNEL-ABLATION",
+  "type": "command",
+  "mode": "server",
+  "priority": "P0",
+  "claim_ids": ["C3-CHANNELS"],
+  "depends_on": ["E0-NUMERICS"],
+  "objective": "Estimate movement, production and interaction effects in the preregistered 2x2 channel design using E0-frozen SESOI values and Holm correction.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E2-CHANNEL-ABLATION",
+    "--config",
+    "research/jobs/E2-CHANNEL-ABLATION/config.json",
+    "--output-dir",
+    "research/jobs/E2-CHANNEL-ABLATION/workspace"
+  ],
+  "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
+  "commit_id": "375d5aad8cdab1ed0ee3f541382c7c7a5c414a88",
+  "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
+  "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
+    "dependency_calibration": "E0 calibration must pass and is loaded from its immutable job workspace before claim analysis",
+    "parameter_lock": "62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "channel_effects.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "parameter_lock_audit.json",
+    "run_specs.json"
+  ],
+  "timeout_seconds": 172800,
+  "gpu_count": 0,
+  "failure_policy": "A failed E0 dependency, matching audit or stationarity gate blocks analysis. Valid non-identification is reported as inconclusive rather than repaired by post hoc tuning."
+}
