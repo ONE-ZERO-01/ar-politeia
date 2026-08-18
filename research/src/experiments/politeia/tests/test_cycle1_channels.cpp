@@ -2,9 +2,9 @@
 #include "core/particle_data.hpp"
 #include "interaction/resource_exchange.hpp"
 
-#include <cassert>
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 namespace {
 
@@ -12,14 +12,23 @@ bool close(double lhs, double rhs, double tolerance = 1e-12) {
     return std::abs(lhs - rhs) <= tolerance;
 }
 
+void require(bool condition, const char* message) {
+    if (!condition) {
+        throw std::runtime_error(message);
+    }
+}
+
 void test_explicit_channel_config() {
     const auto cfg = politeia::load_config("channel_config.cfg");
-    assert(close(cfg.terrain_scale, 2.0));
-    assert(!cfg.terrain_force_enabled);
-    assert(close(cfg.terrain_force_scale, 3.0));
-    assert(cfg.terrain_production_enabled);
-    assert(close(cfg.terrain_production_scale, 4.0));
-    assert(!cfg.mortality_enabled);
+    require(close(cfg.terrain_scale, 2.0), "legacy terrain scale was not parsed");
+    require(!cfg.terrain_force_enabled, "terrain force switch was not parsed");
+    require(close(cfg.terrain_force_scale, 3.0), "terrain force scale was not parsed");
+    require(cfg.terrain_production_enabled, "terrain production switch was not parsed");
+    require(
+        close(cfg.terrain_production_scale, 4.0),
+        "terrain production scale was not parsed"
+    );
+    require(!cfg.mortality_enabled, "mortality switch was not parsed");
 }
 
 void test_production_switch_and_scale() {
@@ -27,7 +36,7 @@ void test_production_switch_and_scale() {
     const auto particle_index = particles.add_particle(
         {0.0, 0.0}, {0.0, 0.0}, 10.0, 1.0, 20.0
     );
-    assert(particle_index == 0);
+    require(particle_index == 0, "unexpected particle index");
     const politeia::Real terrain_potential[] = {-2.0};
 
     politeia::apply_resource_dynamics(
@@ -39,7 +48,7 @@ void test_production_switch_and_scale() {
         false,
         4.0
     );
-    assert(close(particles.wealth(0), 10.0));
+    require(close(particles.wealth(0), 10.0), "disabled production changed wealth");
 
     politeia::apply_resource_dynamics(
         particles,
@@ -50,7 +59,7 @@ void test_production_switch_and_scale() {
         true,
         4.0
     );
-    assert(close(particles.wealth(0), 18.0));
+    require(close(particles.wealth(0), 18.0), "production scale was not applied");
 }
 
 } // namespace
