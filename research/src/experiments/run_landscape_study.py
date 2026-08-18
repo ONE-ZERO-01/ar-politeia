@@ -28,6 +28,7 @@ from landscape_study import (
     read_snapshot_csv,
     sha256_file,
     snapshot_metrics,
+    stationarity_diagnostics,
     write_esri_ascii,
     write_initial_conditions,
     write_json,
@@ -384,6 +385,8 @@ def mean_metrics_for_run(
     *,
     bounds: Sequence[float],
     steady_snapshots: int,
+    stationarity_max_drift: float,
+    stationarity_min_ess: float,
 ) -> Dict[str, Any]:
     run_dir = project_path(spec["run_dir"], must_exist=True)
     snapshots = sorted(run_dir.glob("snap_*.csv"))
@@ -404,6 +407,30 @@ def mean_metrics_for_run(
     metric_names = rows[0].keys()
     means = {name: float(np.mean([row[name] for row in rows])) for name in metric_names}
     means["minimum_wealth"] = min(float(row["minimum_wealth"]) for row in rows)
+    stationary_metrics = (
+        "resource_density_spearman_rho",
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+        "wealth_variance",
+    )
+    diagnostics = {
+        metric: stationarity_diagnostics(
+            [row[metric] for row in rows],
+            max_normalized_drift=stationarity_max_drift,
+            min_effective_samples=stationarity_min_ess,
+        )
+        for metric in stationary_metrics
+    }
+    means["stationarity_pass"] = all(item["pass"] for item in diagnostics.values())
+    for metric, diagnostic in diagnostics.items():
+        means[f"{metric}__normalized_drift"] = float(
+            diagnostic["normalized_window_drift"]
+        )
+        means[f"{metric}__iat"] = float(
+            diagnostic["integrated_autocorrelation_time"]
+        )
+        means[f"{metric}__ess"] = float(diagnostic["effective_samples"])
     final_snapshot = read_snapshot_csv(selected[-1])
     initial_snapshot = np.genfromtxt(
         project_path(spec["initial_conditions"], must_exist=True),
@@ -415,7 +442,12 @@ def mean_metrics_for_run(
     means["total_wealth_relative_drift"] = (
         (final_wealth - initial_wealth) / initial_wealth if initial_wealth else 0.0
     )
-    return {**dict(spec), **means, "snapshots_used": len(selected)}
+    return {
+        **dict(spec),
+        **means,
+        "snapshots_used": len(selected),
+        "stationarity_diagnostics": diagnostics,
+    }
 
 
 def write_metrics_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
@@ -423,13 +455,18 @@ def write_metrics_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         raise ValueError("no metrics to write")
     fieldnames: List[str] = []
     for row in rows:
-        for key in row:
+        for key, value in row.items():
+            if isinstance(value, (dict, list)):
+                continue
             if key not in fieldnames:
                 fieldnames.append(key)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(
+            {key: value for key, value in row.items() if key in fieldnames}
+            for row in rows
+        )
 
 
 def aggregate_e1(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
@@ -503,6 +540,7 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         "wealth_nonnegative": minimum_wealth >= -1e-12,
         "dt_convergence": max(convergence.values()) <= 0.02,
         "equal_state_is_absorbing": equal_exchange_variance <= 1e-20,
+        "stationarity": all(bool(row["stationarity_pass"]) for row in rows),
     }
     payload = {
         "experiment": "E0-NUMERICS",
@@ -569,10 +607,29 @@ def analyze_runs(
             spec,
             bounds=config.get("bounds", [0.0, 100.0, 0.0, 100.0]),
             steady_snapshots=int(config.get("steady_snapshots", 5)),
+            stationarity_max_drift=float(
+                config.get("stationarity_max_normalized_drift", 0.1)
+            ),
+            stationarity_min_ess=float(config.get("stationarity_min_ess", 3.0)),
         )
         for spec in run_specs
     ]
     write_metrics_csv(output_dir / "replicate_metrics.csv", rows)
+    write_json(
+        output_dir / "stationarity_report.json",
+        {
+            "experiment": experiment,
+            "pass": all(bool(row["stationarity_pass"]) for row in rows),
+            "runs": [
+                {
+                    "run_id": row["run_id"],
+                    "pass": row["stationarity_pass"],
+                    "metrics": row["stationarity_diagnostics"],
+                }
+                for row in rows
+            ],
+        },
+    )
     if experiment == "E0-NUMERICS":
         aggregate_e0(rows, output_dir)
     elif experiment == "E1-MATCHED-LANDSCAPES":

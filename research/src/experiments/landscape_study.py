@@ -327,6 +327,61 @@ def paired_bootstrap_mean_difference(
     }
 
 
+def integrated_autocorrelation_time(values: Sequence[float]) -> float:
+    """Estimate IAT with an initial-positive autocorrelation sequence."""
+    data = np.asarray(values, dtype=np.float64)
+    if data.ndim != 1 or data.size < 2:
+        raise ValueError("IAT requires at least two one-dimensional observations")
+    centered = data - float(data.mean())
+    variance = float(np.dot(centered, centered) / data.size)
+    if variance <= 1e-30:
+        return 1.0
+    tau = 1.0
+    for lag in range(1, data.size):
+        covariance = float(np.dot(centered[:-lag], centered[lag:]) / (data.size - lag))
+        rho = covariance / variance
+        if not math.isfinite(rho) or rho <= 0.0:
+            break
+        tau += 2.0 * rho
+    return max(1.0, min(tau, float(data.size)))
+
+
+def stationarity_diagnostics(
+    values: Sequence[float],
+    *,
+    max_normalized_drift: float,
+    min_effective_samples: float,
+) -> Dict[str, Any]:
+    """Diagnose residual linear drift and autocorrelation in a fixed window."""
+    data = np.asarray(values, dtype=np.float64)
+    if data.ndim != 1 or data.size < 3:
+        raise ValueError("stationarity diagnostics require at least three observations")
+    index = np.arange(data.size, dtype=np.float64)
+    slope = float(np.polyfit(index, data, deg=1)[0])
+    scale = max(
+        abs(float(data.mean())),
+        float(np.ptp(data)),
+        1e-12,
+    )
+    normalized_drift = abs(slope) * (data.size - 1) / scale
+    iat = integrated_autocorrelation_time(data)
+    effective_samples = float(data.size / iat)
+    passed = bool(
+        normalized_drift <= max_normalized_drift
+        and effective_samples >= min_effective_samples
+    )
+    return {
+        "pass": passed,
+        "observations": int(data.size),
+        "slope_per_observation": slope,
+        "normalized_window_drift": normalized_drift,
+        "integrated_autocorrelation_time": iat,
+        "effective_samples": effective_samples,
+        "max_normalized_drift": max_normalized_drift,
+        "min_effective_samples": min_effective_samples,
+    }
+
+
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

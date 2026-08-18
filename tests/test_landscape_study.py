@@ -92,3 +92,25 @@ def test_snapshot_metrics_and_paired_bootstrap():
     assert interval["mean_difference"] == pytest.approx(1.0)
     assert interval["ci95_low"] == pytest.approx(1.0)
     assert interval["ci95_high"] == pytest.approx(1.0)
+
+
+def test_stationarity_diagnostics_distinguish_flat_and_drifting_windows():
+    flat = landscape_study.stationarity_diagnostics(
+        [2.0] * 12, max_normalized_drift=0.1, min_effective_samples=3.0
+    )
+    assert flat["pass"] is True
+    assert flat["integrated_autocorrelation_time"] == 1.0
+    assert flat["effective_samples"] == 12.0
+
+    drifting = landscape_study.stationarity_diagnostics(
+        np.arange(12.0), max_normalized_drift=0.1, min_effective_samples=3.0
+    )
+    assert drifting["pass"] is False
+    assert drifting["normalized_window_drift"] > 0.1
+
+
+def test_integrated_autocorrelation_time_is_bounded():
+    tau = landscape_study.integrated_autocorrelation_time(
+        [0.0, 1.0, 0.5, 1.5, 1.0, 2.0, 1.5, 2.5]
+    )
+    assert 1.0 <= tau <= 8.0
