@@ -329,6 +329,7 @@ def execute_runs(
     binary: Path,
     *,
     timeout_seconds: int,
+    omp_threads: int,
 ) -> None:
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise FileNotFoundError(f"Politeia binary is missing or not executable: {binary}")
@@ -337,6 +338,8 @@ def execute_runs(
         log_path = run_dir / "run.log"
         config_path = project_path(spec["cpp_config"], must_exist=True)
         with log_path.open("w", encoding="utf-8") as log:
+            environment = os.environ.copy()
+            environment["OMP_NUM_THREADS"] = str(omp_threads)
             completed = subprocess.run(
                 [str(binary), str(config_path)],
                 cwd=PROJECT_ROOT,
@@ -345,6 +348,7 @@ def execute_runs(
                 timeout=timeout_seconds,
                 check=False,
                 text=True,
+                env=environment,
             )
         if completed.returncode != 0:
             raise RuntimeError(
@@ -587,6 +591,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_specs,
             binary,
             timeout_seconds=int(config.get("per_run_timeout_seconds", 3600)),
+            omp_threads=int(config.get("omp_threads", 8)),
         )
 
     rows = analyze_runs(args.experiment, config, output_dir, run_specs)
@@ -599,6 +604,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "pass": job_pass,
         "runs_completed": len(rows),
         "config_sha256": sha256_file(config_path),
+        "omp_threads": int(config.get("omp_threads", 8)),
         "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
         "artifacts": sorted(
             relative_to_project(path)
