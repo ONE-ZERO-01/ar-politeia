@@ -24,6 +24,7 @@ import numpy as np
 from landscape_study import (
     annotate_confirmatory_effect,
     audit_matched_landscapes,
+    audit_parameter_lock,
     holm_adjust,
     make_matched_landscapes,
     paired_bootstrap_mean_difference,
@@ -69,6 +70,48 @@ def load_json(path: Path) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"configuration must be an object: {path}")
     return payload
+
+
+def validate_parameter_lock(
+    experiment: str,
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any] | None:
+    if experiment == "E0-NUMERICS":
+        return None
+    relative = config.get("parameter_lock")
+    declared_sha256 = config.get("parameter_lock_sha256")
+    if not isinstance(relative, str) or not relative:
+        raise ValueError(f"{experiment} requires parameter_lock")
+    if not isinstance(declared_sha256, str) or len(declared_sha256) != 64:
+        raise ValueError(f"{experiment} requires a SHA-256 parameter_lock_sha256")
+    lock_path = project_path(relative, must_exist=True)
+    actual_sha256 = sha256_file(lock_path)
+    if actual_sha256 != declared_sha256:
+        raise RuntimeError(
+            f"parameter lock checksum mismatch: expected {declared_sha256}, "
+            f"got {actual_sha256}"
+        )
+    lock = load_json(lock_path)
+    authorized = lock.get("authorized_experiments")
+    if not isinstance(authorized, list) or experiment not in authorized:
+        raise RuntimeError(f"parameter lock does not authorize {experiment}")
+    audit = audit_parameter_lock(config, lock)
+    audit.update(
+        {
+            "experiment": experiment,
+            "parameter_lock": relative,
+            "parameter_lock_sha256": actual_sha256,
+        }
+    )
+    write_json(output_dir / "parameter_lock_audit.json", audit)
+    if not audit["pass"]:
+        raise RuntimeError(
+            f"configured parameters do not match lock: "
+            f"missing={audit['missing_parameters']}, "
+            f"mismatches={sorted(audit['mismatches'])}"
+        )
+    return audit
 
 
 def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[str, Any]]:
@@ -802,6 +845,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     config = load_json(config_path)
     if config.get("experiment_id") != args.experiment:
         raise ValueError("experiment_id in config does not match --experiment")
+    parameter_lock_audit = validate_parameter_lock(
+        args.experiment, config, output_dir
+    )
 
     specs_path = output_dir / "run_specs.json"
     if args.analyze_only:
@@ -836,6 +882,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "runs_completed": len(rows),
         "config_sha256": sha256_file(config_path),
         "omp_threads": int(config.get("omp_threads", 8)),
+        "parameter_lock_sha256": (
+            parameter_lock_audit["parameter_lock_sha256"]
+            if parameter_lock_audit is not None
+            else None
+        ),
         "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
         "artifacts": sorted(
             relative_to_project(path)

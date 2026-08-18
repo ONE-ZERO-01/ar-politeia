@@ -104,6 +104,28 @@ def audit_matched_landscapes(clustered: Array, shuffled: Array) -> Dict[str, Any
     }
 
 
+def audit_parameter_lock(
+    config: Mapping[str, Any], lock: Mapping[str, Any]
+) -> Dict[str, Any]:
+    """Check that every locked parameter is present and exactly unchanged."""
+    parameters = lock.get("parameters")
+    if not isinstance(parameters, Mapping) or not parameters:
+        raise ValueError("parameter lock must contain a non-empty parameters object")
+    missing = sorted(key for key in parameters if key not in config)
+    mismatches = {
+        key: {"locked": parameters[key], "configured": config[key]}
+        for key in parameters
+        if key in config and config[key] != parameters[key]
+    }
+    return {
+        "pass": not missing and not mismatches,
+        "lock_id": lock.get("lock_id"),
+        "locked_parameter_count": len(parameters),
+        "missing_parameters": missing,
+        "mismatches": mismatches,
+    }
+
+
 def resource_to_elevation(resource: Array) -> Array:
     """Convert resource intensity to elevation used by the C++ potential loader.
 

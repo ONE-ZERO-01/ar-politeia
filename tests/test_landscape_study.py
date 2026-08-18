@@ -42,6 +42,25 @@ def test_resource_to_elevation_reconstructs_resource_contrast():
     assert np.array_equal(reconstructed, resource)
 
 
+def test_parameter_lock_audit_detects_missing_and_changed_values():
+    lock = {
+        "lock_id": "cycle1",
+        "parameters": {"dt": 0.01, "temperature": 0.5},
+    }
+    passed = landscape_study.audit_parameter_lock(
+        {"dt": 0.01, "temperature": 0.5}, lock
+    )
+    assert passed["pass"] is True
+    failed = landscape_study.audit_parameter_lock(
+        {"dt": 0.02}, lock
+    )
+    assert failed["pass"] is False
+    assert failed["missing_parameters"] == ["temperature"]
+    assert failed["mismatches"] == {
+        "dt": {"locked": 0.01, "configured": 0.02}
+    }
+
+
 def test_write_esri_ascii_and_initial_conditions(tmp_path):
     resource = np.array([[0.0, 1.0], [2.0, 4.0]])
     grid_path = tmp_path / "grid.asc"
