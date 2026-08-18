@@ -80,7 +80,7 @@
       "priority": "P1",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "local_preflight_passed_server_prepare_pending",
+      "implementation_status": "server_preflight_passed_inputs_prepared_not_executed",
       "non_evidentiary": true,
       "command": [
         "python3",
@@ -161,7 +161,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "preflight_passed_inputs_prepared_blocked_on_E0",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_and_E0",
       "depends_on": ["E0-NUMERICS"],
       "command": [
         "python3",
@@ -205,7 +205,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "preflight_passed_inputs_prepared_blocked_on_E0",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_and_E0",
       "depends_on": ["E0-NUMERICS"],
       "command": [
         "python3",
@@ -250,7 +250,7 @@
       "priority": "P1",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "implemented_local_preflight_passed_server_prepare_pending",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_E0_E1_E2",
       "depends_on": ["E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"],
       "command": [
         "python3",
@@ -292,7 +292,13 @@
     "cpu_hours": null,
     "gpu_hours": null,
     "agent_seconds": null,
-    "status": "awaiting_human_budget_before_submission",
+    "status": "awaiting_human_approval_for_B0_only",
+    "proposed_B0_cap": {
+      "cpu_hours": 12,
+      "wall_clock_hours": 2,
+      "gpu_hours": 0,
+      "basis": "3 sequential runs x 1800-second per-run timeout x 8 OpenMP threads, with a 7200-second job timeout"
+    },
     "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and an explicit CPU-time budget are complete. Cycle 1 currently requests no GPU. B0 requests a separate small pilot budget. E0 has 25 prepared runs; E1 and E2 have 80 and 160 prepared runs but remain blocked until B0 finalizes the parameter lock and E0 passes with a tracked calibration hash."
   },
   "computational_strategy": {
@@ -326,7 +332,7 @@
   "readiness": {
     "scientific_design": "cycle1_scope_and_falsification_rules_frozen",
     "experiment_implementation": "B0_and_E0-E3_implemented; confirmatory execution hard-blocked by candidate lock and pending E0 hash",
-    "preflight": "B0/E0-E3 local directory and structured preflight passed; umi revalidation pending",
-    "execution": "awaiting explicit B0 CPU-time budget; server only on umi"
+    "preflight": "B0/E0-E3 passed local and umi preflight with deterministic inputs prepared",
+    "execution": "awaiting explicit approval of B0 cap: 12 CPU-hours, 2 wall-clock hours, 0 GPU; server only on umi"
   }
 }
