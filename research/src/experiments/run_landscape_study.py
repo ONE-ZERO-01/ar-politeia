@@ -284,6 +284,11 @@ def prepare_inputs(
                 if total_steps < 1:
                     raise ValueError("total_time/dt must yield at least one step")
                 cpp_values["total_steps"] = total_steps
+            if "output_time_interval" in config:
+                output_interval = int(round(float(config["output_time_interval"]) / dt))
+                if output_interval < 1:
+                    raise ValueError("output_time_interval/dt must yield at least one step")
+                cpp_values["output_interval"] = output_interval
             cpp_values.update(
                 {
                     "dt": dt,
