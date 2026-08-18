@@ -286,8 +286,8 @@
   },
   "readiness": {
     "scientific_design": "ready_for_code_alignment_review",
-    "experiment_implementation": "not_started",
-    "preflight": "blocked_until_implementation_and_git_commit",
+    "experiment_implementation": "core_and_runner_implemented_pending_server_validation",
+    "preflight": "blocked_until_stationarity_holdout_and_job_manifests",
     "execution": "server_only_on_umi"
   }
 }

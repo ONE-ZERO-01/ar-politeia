@@ -1,9 +1,9 @@
 {
   "review_type": "preliminary_code_alignment",
-  "reviewed_at": "2026-08-18T00:00:00+08:00",
+  "reviewed_at": "2026-08-18T22:30:00+08:00",
   "plan": "research/plan.json",
   "status": "blocked",
-  "summary": "The imported Politeia engine contains useful spatial, exchange, grid-input and output components, but the active Cycle 1 experiment implementation does not yet exist and the current engine cannot independently switch terrain movement and production channels.",
+  "summary": "The active Cycle 1 core, matched-input generator, spatial metrics and server-only runner now exist. Code alignment remains blocked on formal stationarity diagnostics, E3 holdout-family generation, job manifests and server preflight.",
   "code_sources_reviewed": [
     "research/imports/politeia-ds/src/main.cpp",
     "research/imports/politeia-ds/src/core/config.hpp",
@@ -11,7 +11,11 @@
     "research/imports/politeia-ds/src/force/terrain_loader.cpp",
     "research/imports/politeia-ds/src/interaction/resource_exchange.cpp",
     "research/imports/politeia-ds/src/analysis/order_params.cpp",
-    "research/imports/politeia-ds/src/io/ic_loader.cpp"
+    "research/imports/politeia-ds/src/io/ic_loader.cpp",
+    "research/src/experiments/politeia/src/main.cpp",
+    "research/src/experiments/politeia/src/core/config.cpp",
+    "research/src/experiments/landscape_study.py",
+    "research/src/experiments/run_landscape_study.py"
   ],
   "claim_coverage": [
     {
@@ -21,12 +25,13 @@
         "explicit initial-condition CSV loading",
         "random seed configuration",
         "wealth exchange implementation",
-        "CSV snapshots and order-parameter output"
+        "CSV snapshots and order-parameter output",
+        "server-only Cycle 1 runner",
+        "dt condition expansion",
+        "wealth-drift summary"
       ],
       "missing": [
-        "Cycle 1 runner",
         "automatic conservation and non-negativity audit",
-        "dt convergence comparison",
         "numerical-noise-derived SESOI freeze"
       ]
     },
@@ -36,35 +41,42 @@
       "covered": [
         "ESRI ASCII and binary grid loading",
         "terrain force",
-        "terrain-dependent local production"
-      ],
-      "missing": [
-        "matched landscape generator",
-        "exact input matching audit",
+        "terrain-dependent local production",
+        "exact-histogram matched landscape generation and audit",
         "resource-density Spearman correlation",
         "density Moran's I",
         "occupancy entropy",
-        "paired ensemble analysis"
+        "paired bootstrap analysis"
+      ],
+      "missing": [
+        "formal stationarity and effective-sample-size diagnostics",
+        "server execution validation"
       ]
     },
     {
       "claim_id": "C3-CHANNELS",
-      "status": "missing",
-      "covered": [],
+      "status": "implemented_unverified_on_server",
+      "covered": [
+        "independent terrain force switch and scale",
+        "independent terrain production switch and scale",
+        "fixed-population mortality switch",
+        "2x2 factorial condition expansion",
+        "main-effect and interaction aggregation"
+      ],
       "missing": [
-        "independent terrain_force_enabled or force scale",
-        "independent terrain_production_enabled or production scale",
-        "2x2 factorial configuration and analysis"
+        "server build and smoke validation",
+        "confirmatory job manifest"
       ]
     },
     {
       "claim_id": "C4-ROBUSTNESS",
-      "status": "missing",
+      "status": "partial",
       "covered": [
-        "particle count is configurable"
+        "particle count is configurable",
+        "grid resolution is configurable",
+        "generic custom condition registry"
       ],
       "missing": [
-        "landscape resolution exposed for all generated inputs",
         "holdout landscape registry",
         "fixed-parameter lock between development and holdout stages",
         "cross-scale effect aggregation"
@@ -75,38 +87,26 @@
     {
       "id": "B1",
       "severity": "P0",
-      "finding": "research/src/experiments/run_landscape_study.py does not exist; every experiment command in the plan is intentionally non-runnable until implemented.",
-      "required_action": "Implement the active experiment runner and analysis module under research/src/experiments/."
+      "finding": "The runner averages a fixed number of final snapshots but does not yet implement the preregistered drift, integrated-autocorrelation-time and effective-sample-size stationarity gate.",
+      "required_action": "Implement a machine-checkable stationarity report that can block claim analysis."
     },
     {
       "id": "B2",
-      "severity": "P0",
-      "finding": "The only simulator source is inside research/imports/politeia-ds/, which is designated imported provenance rather than an active code root.",
-      "required_action": "Promote a minimal, versioned simulation core into the active experiment source tree without modifying the imported snapshot."
+      "severity": "P1",
+      "finding": "E3 does not yet generate distinct preregistered holdout landscape families or enforce a parameter lock.",
+      "required_action": "Add correlated-random-field holdouts and a hashed parameter-lock artifact before E3 can be submitted."
     },
     {
       "id": "B3",
       "severity": "P0",
-      "finding": "terrain_scale currently controls the grid potential used by both motion and production; E2 requires independently switchable channels.",
-      "required_action": "Add separate terrain_force_scale and terrain_production_scale controls and test all four factorial cells."
+      "finding": "No versioned research/jobs manifests exist for E0-E3, so deterministic preflight cannot run.",
+      "required_action": "Create manifests after the implementation commit, bind source checksums and run preflight on umi."
     },
     {
       "id": "B4",
       "severity": "P0",
-      "finding": "The active project directory has no .git repository, so a real commit_id cannot be bound and preflight must remain blocked.",
-      "required_action": "Restore or initialize the repository with the declared github and umi remotes before creating experiment manifests."
-    },
-    {
-      "id": "B5",
-      "severity": "P1",
-      "finding": "No implementation currently computes the preregistered spatial metrics or stationary-window diagnostics.",
-      "required_action": "Implement metric definitions with deterministic unit tests before server execution."
-    },
-    {
-      "id": "B6",
-      "severity": "P1",
-      "finding": "The imported engine is MPI/OpenMP C++ and contains no CUDA path; GPU use would currently be a false declaration.",
-      "required_action": "Use gpu_count=0 and CPU/MPI on umi for Cycle 1 unless an independently validated GPU implementation is later added."
+      "finding": "The active core compiles locally and unit tests pass, but no build or smoke validation has run on umi.",
+      "required_action": "Build with the server compiler and execute only a non-claim smoke validation after commit and preflight."
     }
   ],
   "non_blocking_assets": [
@@ -117,12 +117,8 @@
     "Random seeds and time step are configurable."
   ],
   "implementation_order": [
-    "Restore git authority and remotes.",
-    "Promote the minimal simulation core into active experiment source.",
-    "Separate terrain movement and production channels.",
-    "Implement matched-landscape generation and exact matching audit.",
-    "Implement spatial metrics, stationarity diagnostics and paired analysis.",
-    "Add deterministic unit tests and perform a second code-alignment review.",
+    "Implement stationarity diagnostics and a parameter-lock artifact.",
+    "Add E3 holdout landscape families and cross-scale aggregation.",
     "Create job manifests, bind the real commit, and run preflight on umi before any numerical execution."
   ]
 }
