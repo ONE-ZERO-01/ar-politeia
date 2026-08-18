@@ -92,6 +92,39 @@ def test_snapshot_metrics_and_paired_bootstrap():
     assert interval["mean_difference"] == pytest.approx(1.0)
     assert interval["ci95_low"] == pytest.approx(1.0)
     assert interval["ci95_high"] == pytest.approx(1.0)
+    assert interval["sign_flip_p_value"] == pytest.approx(0.25)
+
+
+def test_holm_adjust_is_monotone_and_preserves_keys():
+    adjusted = landscape_study.holm_adjust(
+        {"a": 0.01, "b": 0.03, "c": 0.2}, alpha=0.05
+    )
+    assert set(adjusted) == {"a", "b", "c"}
+    assert adjusted["a"]["holm_adjusted_p_value"] == pytest.approx(0.03)
+    assert adjusted["b"]["holm_adjusted_p_value"] == pytest.approx(0.06)
+    assert adjusted["c"]["holm_adjusted_p_value"] == pytest.approx(0.2)
+    assert adjusted["a"]["holm_reject"] is True
+    assert adjusted["b"]["holm_reject"] is False
+
+
+def test_confirmatory_effect_requires_holm_and_sesoi():
+    interval = {
+        "mean_difference": 0.4,
+        "ci95_low": 0.2,
+        "ci95_high": 0.6,
+    }
+    accepted = landscape_study.annotate_confirmatory_effect(
+        interval,
+        sesoi=0.1,
+        holm_result={"holm_reject": True, "holm_adjusted_p_value": 0.01},
+    )
+    assert accepted["claim_threshold_pass"] is True
+    inside_sesoi = landscape_study.annotate_confirmatory_effect(
+        interval,
+        sesoi=0.3,
+        holm_result={"holm_reject": True, "holm_adjusted_p_value": 0.01},
+    )
+    assert inside_sesoi["claim_threshold_pass"] is False
 
 
 def test_stationarity_diagnostics_distinguish_flat_and_drifting_windows():

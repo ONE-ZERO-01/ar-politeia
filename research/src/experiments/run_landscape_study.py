@@ -22,7 +22,9 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
 import numpy as np
 
 from landscape_study import (
+    annotate_confirmatory_effect,
     audit_matched_landscapes,
+    holm_adjust,
     make_matched_landscapes,
     paired_bootstrap_mean_difference,
     read_snapshot_csv,
@@ -469,7 +471,45 @@ def write_metrics_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         )
 
 
-def aggregate_e1(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
+def load_e0_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+    relative = config.get("numerical_calibration")
+    if not isinstance(relative, str) or not relative:
+        raise ValueError("confirmatory analysis requires numerical_calibration")
+    calibration = load_json(project_path(relative, must_exist=True))
+    if calibration.get("experiment") != "E0-NUMERICS" or not calibration.get("pass"):
+        raise RuntimeError("E0 numerical calibration is missing or did not pass")
+    sesoi = calibration.get("sesoi_frozen_before_confirmatory_analysis")
+    if not isinstance(sesoi, dict) or not sesoi:
+        raise RuntimeError("E0 numerical calibration does not contain frozen SESOI values")
+    return calibration
+
+
+def apply_holm_and_sesoi(
+    intervals: Mapping[str, Mapping[str, float]],
+    sesoi: Mapping[str, float],
+    *,
+    alpha: float,
+    metric_for_key: Mapping[str, str],
+) -> Dict[str, Dict[str, Any]]:
+    decisions = holm_adjust(
+        {key: float(value["sign_flip_p_value"]) for key, value in intervals.items()},
+        alpha=alpha,
+    )
+    return {
+        key: annotate_confirmatory_effect(
+            interval,
+            sesoi=float(sesoi[metric_for_key[key]]),
+            holm_result=decisions[key],
+        )
+        for key, interval in intervals.items()
+    }
+
+
+def aggregate_e1(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any]:
     metrics = (
         "resource_density_spearman_rho",
         "density_morans_i",
@@ -479,14 +519,55 @@ def aggregate_e1(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
     by_seed = defaultdict(dict)
     for row in rows:
         by_seed[int(row["seed"])][str(row["condition"])] = row
-    payload: Dict[str, Any] = {"comparison": "clustered-minus-shuffled", "metrics": {}}
+    required_conditions = {"clustered", "shuffled", "flat", "clustered-no-exchange"}
+    for seed, values in by_seed.items():
+        missing = sorted(required_conditions - set(values))
+        if missing:
+            raise RuntimeError(f"E1 seed {seed} is missing conditions: {missing}")
+    calibration = load_e0_calibration(config)
+    sesoi = calibration["sesoi_frozen_before_confirmatory_analysis"]
+    raw_intervals: Dict[str, Dict[str, float]] = {}
     for metric in metrics:
         clustered = [by_seed[seed]["clustered"][metric] for seed in sorted(by_seed)]
         shuffled = [by_seed[seed]["shuffled"][metric] for seed in sorted(by_seed)]
-        payload["metrics"][metric] = paired_bootstrap_mean_difference(
+        raw_intervals[metric] = paired_bootstrap_mean_difference(
             clustered, shuffled, seed=9173
         )
+    primary_metrics = metrics[:3]
+    primary = apply_holm_and_sesoi(
+        {metric: raw_intervals[metric] for metric in primary_metrics},
+        sesoi,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key={metric: metric for metric in primary_metrics},
+    )
+    wealth = apply_holm_and_sesoi(
+        {"wealth_gini": raw_intervals["wealth_gini"]},
+        sesoi,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key={"wealth_gini": "wealth_gini"},
+    )
+    stationarity_pass = all(bool(row["stationarity_pass"]) for row in rows)
+    matched_input_pass = bool(load_json(output_dir / "matched_input_audit.json")["pass"])
+    payload: Dict[str, Any] = {
+        "experiment": "E1-MATCHED-LANDSCAPES",
+        "comparison": "clustered-minus-shuffled",
+        "analysis_gate_pass": bool(stationarity_pass and matched_input_pass),
+        "claim_supported": bool(
+            stationarity_pass
+            and matched_input_pass
+            and any(value["claim_threshold_pass"] for value in primary.values())
+        ),
+        "gates": {
+            "e0_calibration": True,
+            "stationarity": stationarity_pass,
+            "matched_inputs": matched_input_pass,
+        },
+        "confirmatory_spatial_family": primary,
+        "secondary_wealth_family": wealth,
+        "multiplicity": "Holm family-wise correction",
+    }
     write_json(output_dir / "paired_effects.json", payload)
+    return payload
 
 
 def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[str, Any]:
@@ -560,7 +641,11 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
     return payload
 
 
-def aggregate_e2(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
+def aggregate_e2(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any]:
     metrics = (
         "resource_density_spearman_rho",
         "density_morans_i",
@@ -572,7 +657,10 @@ def aggregate_e2(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
         key = (int(row["seed"]), str(row["landscape"]))
         cell = (bool(row["terrain_force_enabled"]), bool(row["terrain_production_enabled"]))
         cells[key][cell] = row
-    payload: Dict[str, Any] = {"design": "movement-by-production-2x2", "metrics": {}}
+    calibration = load_e0_calibration(config)
+    sesoi = calibration["sesoi_frozen_before_confirmatory_analysis"]
+    raw_intervals: Dict[str, Dict[str, float]] = {}
+    metric_for_key: Dict[str, str] = {}
     for metric in metrics:
         per_seed: MutableMapping[int, Dict[str, List[float]]] = defaultdict(
             lambda: defaultdict(list)
@@ -585,15 +673,74 @@ def aggregate_e2(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
             per_seed[seed]["movement"].append(0.5 * ((y10 - y00) + (y11 - y01)))
             per_seed[seed]["production"].append(0.5 * ((y01 - y00) + (y11 - y10)))
             per_seed[seed]["interaction"].append(y11 - y10 - y01 + y00)
-        payload["metrics"][metric] = {}
         for effect in ("movement", "production", "interaction"):
             estimates = [
                 float(np.mean(per_seed[seed][effect])) for seed in sorted(per_seed)
             ]
-            payload["metrics"][metric][effect] = paired_bootstrap_mean_difference(
+            key = f"{metric}::{effect}"
+            raw_intervals[key] = paired_bootstrap_mean_difference(
                 estimates, np.zeros(len(estimates)), seed=9173
             )
+            metric_for_key[key] = metric
+    primary_keys = [key for key in raw_intervals if not key.startswith("wealth_gini::")]
+    secondary_keys = [key for key in raw_intervals if key.startswith("wealth_gini::")]
+    primary = apply_holm_and_sesoi(
+        {key: raw_intervals[key] for key in primary_keys},
+        sesoi,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key=metric_for_key,
+    )
+    wealth = apply_holm_and_sesoi(
+        {key: raw_intervals[key] for key in secondary_keys},
+        sesoi,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key=metric_for_key,
+    )
+    stationarity_pass = all(bool(row["stationarity_pass"]) for row in rows)
+    matched_input_pass = bool(load_json(output_dir / "matched_input_audit.json")["pass"])
+    identified_channels = [
+        effect
+        for effect in ("movement", "production")
+        if any(
+            value["claim_threshold_pass"]
+            for key, value in primary.items()
+            if key.endswith(f"::{effect}")
+        )
+    ]
+    interaction_identified = any(
+        value["claim_threshold_pass"]
+        for key, value in primary.items()
+        if key.endswith("::interaction")
+    )
+    payload: Dict[str, Any] = {
+        "experiment": "E2-CHANNEL-ABLATION",
+        "design": "movement-by-production-2x2",
+        "analysis_gate_pass": bool(stationarity_pass and matched_input_pass),
+        "claim_supported": bool(
+            stationarity_pass
+            and matched_input_pass
+            and (identified_channels or interaction_identified)
+        ),
+        "identified_channels": identified_channels,
+        "interaction_identified": interaction_identified,
+        "mechanism_conclusion": (
+            "single-channel attribution available"
+            if identified_channels
+            else "combined mechanism only"
+            if interaction_identified
+            else "inconclusive"
+        ),
+        "gates": {
+            "e0_calibration": True,
+            "stationarity": stationarity_pass,
+            "matched_inputs": matched_input_pass,
+        },
+        "confirmatory_spatial_family": primary,
+        "secondary_wealth_family": wealth,
+        "multiplicity": "Holm family-wise correction",
+    }
     write_json(output_dir / "channel_effects.json", payload)
+    return payload
 
 
 def analyze_runs(
@@ -633,9 +780,9 @@ def analyze_runs(
     if experiment == "E0-NUMERICS":
         aggregate_e0(rows, output_dir)
     elif experiment == "E1-MATCHED-LANDSCAPES":
-        aggregate_e1(rows, output_dir)
+        aggregate_e1(rows, config, output_dir)
     elif experiment == "E2-CHANNEL-ABLATION":
-        aggregate_e2(rows, output_dir)
+        aggregate_e2(rows, config, output_dir)
     return rows
 
 
@@ -678,6 +825,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     job_pass = True
     if args.experiment == "E0-NUMERICS":
         job_pass = bool(load_json(output_dir / "numerical_calibration.json")["pass"])
+    elif args.experiment == "E1-MATCHED-LANDSCAPES":
+        job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
+    elif args.experiment == "E2-CHANNEL-ABLATION":
+        job_pass = bool(load_json(output_dir / "channel_effects.json")["analysis_gate_pass"])
     result = {
         "experiment": args.experiment,
         "status": "completed",

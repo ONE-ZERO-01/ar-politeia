@@ -322,8 +322,86 @@ def paired_bootstrap_mean_difference(
         "mean_difference": float(differences.mean()),
         "ci95_low": float(low),
         "ci95_high": float(high),
+        "sign_flip_p_value": paired_sign_flip_p_value(differences, seed=seed),
         "pairs": int(differences.size),
         "bootstrap_samples": int(samples),
+    }
+
+
+def paired_sign_flip_p_value(
+    differences: Sequence[float],
+    *,
+    seed: int,
+    samples: int = 100_000,
+) -> float:
+    """Two-sided paired randomization p-value under exchangeable signs."""
+    data = np.asarray(differences, dtype=np.float64)
+    if data.ndim != 1 or data.size < 2:
+        raise ValueError("sign-flip test requires at least two paired differences")
+    if samples < 100:
+        raise ValueError("at least 100 sign-flip samples are required")
+    observed = abs(float(data.mean()))
+    tolerance = np.finfo(np.float64).eps * max(1.0, observed) * 8.0
+    exact_permutations = 1 << data.size if data.size <= 16 else samples + 1
+    if exact_permutations <= samples:
+        indices = np.arange(exact_permutations, dtype=np.uint64)[:, None]
+        bits = (indices >> np.arange(data.size, dtype=np.uint64)) & 1
+        signs = bits.astype(np.float64) * 2.0 - 1.0
+        null_means = np.abs((signs * data).mean(axis=1))
+        return float(np.mean(null_means >= observed - tolerance))
+    rng = np.random.default_rng(seed)
+    signs = rng.choice((-1.0, 1.0), size=(samples, data.size))
+    null_means = np.abs((signs * data).mean(axis=1))
+    exceedances = int(np.count_nonzero(null_means >= observed - tolerance))
+    return float((exceedances + 1) / (samples + 1))
+
+
+def holm_adjust(
+    p_values: Mapping[str, float], *, alpha: float = 0.05
+) -> Dict[str, Dict[str, Any]]:
+    """Return monotone Holm-adjusted p-values keyed like the input mapping."""
+    if not p_values:
+        raise ValueError("Holm adjustment requires at least one p-value")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must lie strictly between zero and one")
+    ordered = sorted((float(value), key) for key, value in p_values.items())
+    if any(not math.isfinite(value) or value < 0.0 or value > 1.0 for value, _ in ordered):
+        raise ValueError("p-values must be finite and in [0, 1]")
+    adjusted: Dict[str, Dict[str, Any]] = {}
+    running_max = 0.0
+    count = len(ordered)
+    for rank, (raw_p, key) in enumerate(ordered):
+        running_max = max(running_max, min(1.0, (count - rank) * raw_p))
+        adjusted[key] = {
+            "raw_p_value": raw_p,
+            "holm_adjusted_p_value": running_max,
+            "holm_reject": bool(running_max <= alpha),
+            "alpha": alpha,
+            "family_size": count,
+        }
+    return adjusted
+
+
+def annotate_confirmatory_effect(
+    interval: Mapping[str, float],
+    *,
+    sesoi: float,
+    holm_result: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Attach equivalence-region and multiplicity decisions to one effect."""
+    if sesoi < 0.0 or not math.isfinite(sesoi):
+        raise ValueError("SESOI must be finite and non-negative")
+    low = float(interval["ci95_low"])
+    high = float(interval["ci95_high"])
+    beyond_equivalence = bool(low > sesoi or high < -sesoi)
+    return {
+        **dict(interval),
+        **dict(holm_result),
+        "sesoi": float(sesoi),
+        "ci_excludes_equivalence_region": beyond_equivalence,
+        "claim_threshold_pass": bool(
+            beyond_equivalence and holm_result["holm_reject"]
+        ),
     }
 
 
