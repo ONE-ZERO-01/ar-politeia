@@ -80,6 +80,8 @@ def validate_parameter_lock(
     experiment: str,
     config: Mapping[str, Any],
     output_dir: Path,
+    *,
+    require_final: bool,
 ) -> Dict[str, Any] | None:
     if experiment == "E0-NUMERICS":
         return None
@@ -97,6 +99,12 @@ def validate_parameter_lock(
             f"got {actual_sha256}"
         )
     lock = load_json(lock_path)
+    lock_status = lock.get("status")
+    if require_final and lock_status != "final":
+        raise RuntimeError(
+            f"{experiment} execution requires a final parameter lock; "
+            f"current status is {lock_status!r}"
+        )
     authorized = lock.get("authorized_experiments")
     if not isinstance(authorized, list) or experiment not in authorized:
         raise RuntimeError(f"parameter lock does not authorize {experiment}")
@@ -106,6 +114,7 @@ def validate_parameter_lock(
             "experiment": experiment,
             "parameter_lock": relative,
             "parameter_lock_sha256": actual_sha256,
+            "parameter_lock_status": lock_status,
         }
     )
     write_json(output_dir / "parameter_lock_audit.json", audit)
@@ -1374,7 +1383,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if config.get("experiment_id") != args.experiment:
         raise ValueError("experiment_id in config does not match --experiment")
     parameter_lock_audit = validate_parameter_lock(
-        args.experiment, config, output_dir
+        args.experiment,
+        config,
+        output_dir,
+        require_final=not args.prepare_only,
     )
 
     specs_path = output_dir / "run_specs.json"
@@ -1385,6 +1397,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.prepare_only:
         return 0
+
+    if args.experiment != "E0-NUMERICS":
+        load_e0_calibration(config)
 
     execution_summary: Dict[str, Any] = {
         "executed": 0,
