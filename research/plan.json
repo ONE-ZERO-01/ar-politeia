@@ -1,7 +1,7 @@
 {
   "project_id": "ar-politeia",
   "cycle": 1,
-  "status": "planned",
+  "status": "implementation",
   "created": "2026-08-18T00:00:00+08:00",
   "summary": "Matched-landscape causal study of spatial aggregation and wealth structure in a minimal fixed-population Langevin model.",
   "question": "在总资源量、资源边际分布、可达面积、人口数和财富初值均匹配时，资源景观的空间自相关性是否会改变稳态人口聚集和财富结构？",
@@ -61,7 +61,7 @@
     "co_primary_metrics": ["steady_window_density_morans_i", "steady_window_occupancy_entropy"],
     "secondary_metrics": [
       "wealth_gini",
-      "wealth_tail_index",
+      "wealth_variance",
       "total_wealth_relative_drift",
       "integrated_autocorrelation_time",
       "effective_sample_size"
@@ -80,7 +80,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "required",
+      "implementation_status": "preflight_passed_inputs_prepared_not_executed",
       "command": [
         "python3",
         "research/src/experiments/run_landscape_study.py",
@@ -112,7 +112,7 @@
         "SESOI for later experiments is frozen from replicate numerical noise before E1-E3 are analyzed."
       ],
       "artifacts": ["result.json", "replicate_metrics.csv", "numerical_calibration.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
-      "timeout_seconds": 7200,
+      "timeout_seconds": 28800,
       "gpu_count": 0,
       "failure_policy": "Any conservation, non-negativity, or convergence failure blocks E1-E3 and triggers a micro-model or integrator correction; no parameter search for desired social outcomes is allowed."
     },
@@ -123,7 +123,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "required",
+      "implementation_status": "preflight_passed_inputs_prepared_blocked_on_E0",
       "depends_on": ["E0-NUMERICS"],
       "command": [
         "python3",
@@ -147,7 +147,7 @@
         "steady_window_density_morans_i",
         "steady_window_occupancy_entropy",
         "wealth_gini",
-        "wealth_tail_index",
+        "wealth_variance",
         "stationarity_diagnostics"
       ],
       "acceptance": [
@@ -155,8 +155,8 @@
         "At least one preregistered spatial primary metric has a paired 95% interval excluding zero and the E0-derived SESOI after Holm correction.",
         "Report wealth outcomes separately; spatial evidence alone cannot support a wealth claim."
       ],
-      "artifacts": ["result.json", "matched_input_audit.json", "replicate_metrics.csv", "paired_effects.json", "landscape_panels.png"],
-      "timeout_seconds": 21600,
+      "artifacts": ["result.json", "matched_input_audit.json", "replicate_metrics.csv", "paired_effects.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 86400,
       "gpu_count": 0,
       "failure_policy": "A failed matching audit invalidates the run. If stationarity fails under the preregistered horizon, report inconclusive and redesign the horizon using an independent pilot rather than extending only favorable runs."
     },
@@ -167,7 +167,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "required",
+      "implementation_status": "preflight_passed_inputs_prepared_blocked_on_E0",
       "depends_on": ["E0-NUMERICS"],
       "command": [
         "python3",
@@ -200,8 +200,8 @@
         "Attribute a channel only when its interval excludes the E0-derived equivalence region.",
         "If only the interaction is identifiable, retain only the combined-mechanism claim."
       ],
-      "artifacts": ["result.json", "factorial_metrics.csv", "channel_effects.json", "channel_effects.png"],
-      "timeout_seconds": 21600,
+      "artifacts": ["result.json", "replicate_metrics.csv", "channel_effects.json", "matched_input_audit.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 172800,
       "gpu_count": 0,
       "failure_policy": "Do not tune channel strengths after inspecting confirmatory outcomes. Non-identifiable effects are reported as inconclusive, not repaired by post hoc thresholds."
     },
@@ -212,7 +212,7 @@
       "priority": "P1",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "required",
+      "implementation_status": "implemented_local_preflight_passed_server_prepare_pending",
       "depends_on": ["E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"],
       "command": [
         "python3",
@@ -244,17 +244,18 @@
         "Holdout-family pooled 95% interval excludes zero and the E0-derived SESOI.",
         "Resolution change does not alter the primary effect by more than 20% relative."
       ],
-      "artifacts": ["result.json", "robustness_metrics.csv", "holdout_effects.json", "scale_convergence.png"],
-      "timeout_seconds": 43200,
+      "artifacts": ["result.json", "replicate_metrics.csv", "holdout_effects.json", "matched_input_audit.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 432000,
       "gpu_count": 0,
       "failure_policy": "A scale-specific failure is retained as evidence against robustness. No replacement landscape family or scale is introduced after outcomes are known."
     }
   ],
   "budget": {
+    "cpu_hours": null,
     "gpu_hours": null,
     "agent_seconds": null,
     "status": "awaiting_human_budget_before_submission",
-    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and explicit GPU budget approval are complete."
+    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and an explicit CPU-time budget are complete. Cycle 1 currently requests no GPU. E0 has 25 prepared runs; E1 and E2 have 80 and 160 prepared runs but remain dependency-blocked until E0 passes."
   },
   "computational_strategy": {
     "approach": "Small-system calibration followed by matched paired ensembles and a fixed holdout stage on umi.",
@@ -285,9 +286,9 @@
     "legacy_evidence_policy": "Imported results are exploratory provenance and bug history only; they are not pooled with Cycle 1 confirmatory evidence."
   },
   "readiness": {
-    "scientific_design": "ready_for_code_alignment_review",
-    "experiment_implementation": "core_and_runner_implemented_pending_server_validation",
-    "preflight": "blocked_until_stationarity_holdout_and_job_manifests",
-    "execution": "server_only_on_umi"
+    "scientific_design": "cycle1_scope_and_falsification_rules_frozen",
+    "experiment_implementation": "E0-E2_ready_without_execution; E3_implemented_and_local_preflighted",
+    "preflight": "E0-E2_passed_on_local_and_umi_with_inputs_prepared; E3_local_passed_server_pending",
+    "execution": "awaiting_explicit_cpu_time_budget; server_only_on_umi"
   }
 }

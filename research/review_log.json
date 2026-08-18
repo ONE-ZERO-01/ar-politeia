@@ -1,9 +1,9 @@
 {
   "review_type": "preliminary_code_alignment",
-  "reviewed_at": "2026-08-18T22:30:00+08:00",
+  "reviewed_at": "2026-08-18T23:30:00+08:00",
   "plan": "research/plan.json",
-  "status": "blocked",
-  "summary": "The active Cycle 1 core, matched-input generator, spatial metrics and server-only runner now exist. Code alignment remains blocked on formal stationarity diagnostics, E3 holdout-family generation, job manifests and server preflight.",
+  "status": "server_validation_pending",
+  "summary": "E0-E2 have immutable source bindings, local and umi preflight and deterministic inputs. E3 now implements a correlated-random-field holdout, 3x2 population-resolution expansion, within-seed cross-scale aggregation, direction consistency and resolution sensitivity; its local directory and structured preflight pass. E3 server sync/input preparation is pending because the current approval service could not authorize the push. No numerical experiment has executed, and an explicit CPU-time budget remains required.",
   "code_sources_reviewed": [
     "research/imports/politeia-ds/src/main.cpp",
     "research/imports/politeia-ds/src/core/config.hpp",
@@ -20,7 +20,7 @@
   "claim_coverage": [
     {
       "claim_id": "C1-NUM",
-      "status": "partial",
+      "status": "implemented_preflighted_not_executed",
       "covered": [
         "explicit initial-condition CSV loading",
         "random seed configuration",
@@ -28,16 +28,22 @@
         "CSV snapshots and order-parameter output",
         "server-only Cycle 1 runner",
         "dt condition expansion",
-        "wealth-drift summary"
+        "wealth-drift summary",
+        "automatic conservation and non-negativity audit",
+        "equal-state absorbing check",
+        "dt convergence audit",
+        "numerical-noise-derived SESOI freeze",
+        "formal stationarity and effective-sample-size gate",
+        "local and umi preflight",
+        "deterministic preparation of 25 run inputs"
       ],
       "missing": [
-        "automatic conservation and non-negativity audit",
-        "numerical-noise-derived SESOI freeze"
+        "numerical execution and result reconciliation after budget approval"
       ]
     },
     {
       "claim_id": "C2-LANDSCAPE",
-      "status": "partial",
+      "status": "implemented_preflighted_dependency_blocked",
       "covered": [
         "ESRI ASCII and binary grid loading",
         "terrain force",
@@ -46,40 +52,57 @@
         "resource-density Spearman correlation",
         "density Moran's I",
         "occupancy entropy",
-        "paired bootstrap analysis"
+        "paired bootstrap analysis",
+        "formal stationarity and effective-sample-size diagnostics",
+        "server build and channel-test validation",
+        "Holm correction across the confirmatory spatial metric family",
+        "E0-frozen SESOI evaluation",
+        "hashed shared parameter lock",
+        "versioned E1 manifest and local/umi preflight",
+        "deterministic preparation of 80 run inputs"
       ],
       "missing": [
-        "formal stationarity and effective-sample-size diagnostics",
-        "server execution validation"
+        "confirmatory execution after E0 passes"
       ]
     },
     {
       "claim_id": "C3-CHANNELS",
-      "status": "implemented_unverified_on_server",
+      "status": "implemented_preflighted_dependency_blocked",
       "covered": [
         "independent terrain force switch and scale",
         "independent terrain production switch and scale",
         "fixed-population mortality switch",
         "2x2 factorial condition expansion",
-        "main-effect and interaction aggregation"
+        "main-effect and interaction aggregation",
+        "Release build and channel tests on umi",
+        "Holm correction across spatial metric-by-effect tests",
+        "E0-frozen SESOI evaluation",
+        "hashed shared parameter lock",
+        "versioned E2 manifest and local/umi preflight",
+        "deterministic preparation of 160 run inputs"
       ],
       "missing": [
-        "server build and smoke validation",
-        "confirmatory job manifest"
+        "confirmatory execution after E0 passes"
       ]
     },
     {
       "claim_id": "C4-ROBUSTNESS",
-      "status": "partial",
+      "status": "implemented_local_preflight_pending_server",
       "covered": [
         "particle count is configurable",
         "grid resolution is configurable",
-        "generic custom condition registry"
+        "generic custom condition registry",
+        "shared confirmatory parameter lock and checksum enforcement",
+        "correlated-random-field holdout family",
+        "three-population by two-resolution run expansion",
+        "within-seed pooled holdout effects",
+        "population direction-consistency audit",
+        "resolution-sensitivity audit",
+        "versioned E3 manifest and local structured preflight"
       ],
       "missing": [
-        "holdout landscape registry",
-        "fixed-parameter lock between development and holdout stages",
-        "cross-scale effect aggregation"
+        "umi preflight and deterministic input preparation",
+        "robustness execution after E1-E2 complete"
       ]
     }
   ],
@@ -87,26 +110,8 @@
     {
       "id": "B1",
       "severity": "P0",
-      "finding": "The runner averages a fixed number of final snapshots but does not yet implement the preregistered drift, integrated-autocorrelation-time and effective-sample-size stationarity gate.",
-      "required_action": "Implement a machine-checkable stationarity report that can block claim analysis."
-    },
-    {
-      "id": "B2",
-      "severity": "P1",
-      "finding": "E3 does not yet generate distinct preregistered holdout landscape families or enforce a parameter lock.",
-      "required_action": "Add correlated-random-field holdouts and a hashed parameter-lock artifact before E3 can be submitted."
-    },
-    {
-      "id": "B3",
-      "severity": "P0",
-      "finding": "No versioned research/jobs manifests exist for E0-E3, so deterministic preflight cannot run.",
-      "required_action": "Create manifests after the implementation commit, bind source checksums and run preflight on umi."
-    },
-    {
-      "id": "B4",
-      "severity": "P0",
-      "finding": "The active core compiles locally and unit tests pass, but no build or smoke validation has run on umi.",
-      "required_action": "Build with the server compiler and execute only a non-claim smoke validation after commit and preflight."
+      "finding": "E3 implementation and local preflight pass, but source commit 1b982db4446a5a8e33ab20eda73034ff610b8e6e and its manifest have not reached umi because the approval service disconnected twice and sandboxed network access is denied.",
+      "required_action": "After explicit approval is available, push main to umi, run E3 server preflight and --prepare-only, then verify the expected 240-run input matrix and both matching and parameter-lock audits."
     }
   ],
   "non_blocking_assets": [
@@ -117,8 +122,37 @@
     "Random seeds and time step are configurable."
   ],
   "implementation_order": [
-    "Implement stationarity diagnostics and a parameter-lock artifact.",
-    "Add E3 holdout landscape families and cross-scale aggregation.",
-    "Create job manifests, bind the real commit, and run preflight on umi before any numerical execution."
+    "Push the completed E3 implementation and manifest to umi, then run server preflight and input-only preparation.",
+    "Obtain an explicit CPU-time budget, execute E0 on umi, reconcile its result and only then authorize E1-E2."
+  ],
+  "resolved_findings": [
+    {
+      "id": "R1",
+      "finding": "Formal drift, integrated-autocorrelation-time and effective-sample-size diagnostics now generate stationarity_report.json and block E0 calibration when any run fails."
+    },
+    {
+      "id": "R2",
+      "finding": "E0 has a versioned manifest bound to source commit 2dbefc41d76bcfade1261f5ad1004a51c87e50ca and passes both directory and structured preflight."
+    },
+    {
+      "id": "R3",
+      "finding": "The active C++ core was built in Release mode on umi and its cycle1_channels CTest passed."
+    },
+    {
+      "id": "R4",
+      "finding": "E1 and E2 have versioned manifests bound to source commit 375d5aad8cdab1ed0ee3f541382c7c7a5c414a88, pass local and umi preflight, and have 80 and 160 deterministic run inputs prepared without execution."
+    },
+    {
+      "id": "R5",
+      "finding": "Parameter lock 62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95 authorizes E1-E3; E1/E2 already validate its checksum and every locked field before preparation or analysis."
+    },
+    {
+      "id": "R6",
+      "finding": "E3 correlated-random-field holdouts and cross-scale analysis are implemented at source commit 1b982db4446a5a8e33ab20eda73034ff610b8e6e; 116 tests and both local E3 preflight modes pass."
+    }
+  ],
+  "technical_notes": [
+    "umi requires PYTHONPATH=src for module-style foundation CLI calls because the package is not installed into the system Python.",
+    "GCC 12.2 emits a non-blocking -Wrestrict warning in the inherited ic_loader.cpp implementation; it should be isolated before a release-quality build."
   ]
 }

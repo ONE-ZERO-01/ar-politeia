@@ -1,0 +1,41 @@
+{
+  "id": "E3-ROBUSTNESS-HOLDOUT",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": ["C2-LANDSCAPE", "C4-ROBUSTNESS"],
+  "depends_on": ["E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"],
+  "objective": "Test the locked clustered-minus-shuffled effect across three populations, two grid resolutions and an independent correlated-random-field holdout family without treating repeated scales as independent seeds.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E3-ROBUSTNESS-HOLDOUT",
+    "--config",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+    "--output-dir",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
+  ],
+  "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+  "commit_id": "1b982db4446a5a8e33ab20eda73034ff610b8e6e",
+  "env_snapshot": "research/jobs/E3-ROBUSTNESS-HOLDOUT/env.txt",
+  "seeds": [2203, 2309, 2411, 2503, 2609, 2707, 2801, 2903, 3001, 3109],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
+    "dependency_calibration": "E0 calibration must pass and is loaded from its immutable job workspace before claim analysis",
+    "parameter_lock": "62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "holdout_effects.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "parameter_lock_audit.json",
+    "run_specs.json"
+  ],
+  "timeout_seconds": 432000,
+  "gpu_count": 0,
+  "failure_policy": "A scale-specific failure remains evidence against robustness. No population, resolution or landscape family may be replaced after outcomes are observed; a valid null result is not a job failure."
+}

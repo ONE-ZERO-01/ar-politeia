@@ -1,0 +1,4 @@
+external_data: none
+generated_inputs: runtime SHA-256 values recorded in workspace/matched_input_audit.json
+dependency_calibration: SHA-256 bound from research/jobs/E0-NUMERICS/workspace/numerical_calibration.json at analysis time
+parameter_lock: 62a906b44a063abe5aeba7450d5dc8d7c44a60bdddc082ba347131e812eeeb95
