@@ -16,7 +16,7 @@
     "research/jobs/E0-NUMERICS/workspace"
   ],
   "config": "research/jobs/E0-NUMERICS/config.json",
-  "commit_id": "acce0dc683bd8e34a14a4dc8aad7ad4f29323801",
+  "commit_id": "2dbefc41d76bcfade1261f5ad1004a51c87e50ca",
   "env_snapshot": "research/jobs/E0-NUMERICS/env.txt",
   "seeds": [1103, 2207, 3301, 4409, 5519],
   "data_checksums": {
@@ -28,6 +28,7 @@
     "replicate_metrics.csv",
     "numerical_calibration.json",
     "matched_input_audit.json",
+    "stationarity_report.json",
     "run_specs.json"
   ],
   "timeout_seconds": 28800,

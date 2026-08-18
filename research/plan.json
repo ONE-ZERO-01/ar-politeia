@@ -111,7 +111,7 @@
         "Halving dt changes primary observables by <= 2%.",
         "SESOI for later experiments is frozen from replicate numerical noise before E1-E3 are analyzed."
       ],
-      "artifacts": ["result.json", "replicate_metrics.csv", "numerical_calibration.json", "matched_input_audit.json", "run_specs.json"],
+      "artifacts": ["result.json", "replicate_metrics.csv", "numerical_calibration.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
       "timeout_seconds": 7200,
       "gpu_count": 0,
       "failure_policy": "Any conservation, non-negativity, or convergence failure blocks E1-E3 and triggers a micro-model or integrator correction; no parameter search for desired social outcomes is allowed."

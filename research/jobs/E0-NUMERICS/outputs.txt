@@ -2,4 +2,5 @@ result.json
 replicate_metrics.csv
 numerical_calibration.json
 matched_input_audit.json
+stationarity_report.json
 run_specs.json
