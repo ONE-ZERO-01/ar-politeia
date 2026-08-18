@@ -1,0 +1,36 @@
+{
+  "id": "E0-NUMERICS",
+  "type": "command",
+  "mode": "server",
+  "priority": "P0",
+  "claim_ids": ["C1-NUM"],
+  "objective": "Calibrate conservation, non-negativity, equal-state absorption, time-step convergence and numerical-noise SESOI before confirmatory landscape experiments.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E0-NUMERICS",
+    "--config",
+    "research/jobs/E0-NUMERICS/config.json",
+    "--output-dir",
+    "research/jobs/E0-NUMERICS/workspace"
+  ],
+  "config": "research/jobs/E0-NUMERICS/config.json",
+  "commit_id": "acce0dc683bd8e34a14a4dc8aad7ad4f29323801",
+  "env_snapshot": "research/jobs/E0-NUMERICS/env.txt",
+  "seeds": [1103, 2207, 3301, 4409, 5519],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "numerical_calibration.json",
+    "matched_input_audit.json",
+    "run_specs.json"
+  ],
+  "timeout_seconds": 28800,
+  "gpu_count": 0,
+  "failure_policy": "Any conservation, non-negativity or dt-convergence failure blocks E1-E3. Do not tune parameters for a desired social outcome."
+}
