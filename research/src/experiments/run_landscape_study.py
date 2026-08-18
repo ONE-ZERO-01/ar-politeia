@@ -224,6 +224,7 @@ def prepare_inputs(
 
     run_specs: List[Dict[str, Any]] = []
     matching_audits: List[Dict[str, Any]] = []
+    input_checksums: List[Dict[str, Any]] = []
     for seed in seeds:
         seed_dir = inputs_dir / f"seed-{seed}"
         fields = make_matched_landscapes(shape, seed)
@@ -235,10 +236,12 @@ def prepare_inputs(
 
         landscape_paths: Dict[str, Path] = {}
         resource_paths: Dict[str, Path] = {}
+        landscape_checksums: Dict[str, str] = {}
+        resource_checksums: Dict[str, str] = {}
         cellsize = (bounds[1] - bounds[0]) / shape[1]
         for name, field in fields.items():
             grid_path = seed_dir / f"{name}.asc"
-            write_esri_ascii(
+            landscape_checksums[name] = write_esri_ascii(
                 grid_path,
                 field,
                 xllcorner=bounds[0],
@@ -247,6 +250,7 @@ def prepare_inputs(
             )
             resource_path = seed_dir / f"{name}-resource.npy"
             np.save(resource_path, field, allow_pickle=False)
+            resource_checksums[name] = sha256_file(resource_path)
             landscape_paths[name] = grid_path
             resource_paths[name] = resource_path
 
@@ -262,7 +266,7 @@ def prepare_inputs(
                 f"initial-sigma-{float(condition.get('wealth_log_sigma', 0.01)):.6g}.csv"
             )
             if not ic_path.exists():
-                write_initial_conditions(
+                initial_checksum = write_initial_conditions(
                     ic_path,
                     population,
                     seed,
@@ -270,6 +274,8 @@ def prepare_inputs(
                     mean_wealth=float(config.get("mean_wealth", 5.0)),
                     wealth_log_sigma=float(condition.get("wealth_log_sigma", 0.01)),
                 )
+            else:
+                initial_checksum = sha256_file(ic_path)
 
             cpp_values = common_cpp_config(config)
             dt = float(condition.get("dt", config.get("dt", 0.01)))
@@ -311,13 +317,25 @@ def prepare_inputs(
                     "run_dir": relative_to_project(run_dir),
                     "resource_npy": relative_to_project(resource_paths[landscape_name]),
                     "initial_conditions": relative_to_project(ic_path),
+                    "terrain_sha256": landscape_checksums[landscape_name],
+                    "resource_sha256": resource_checksums[landscape_name],
+                    "initial_conditions_sha256": initial_checksum,
                 }
             )
+
+        input_checksums.append(
+            {
+                "seed": seed,
+                "terrain": landscape_checksums,
+                "resource_arrays": resource_checksums,
+            }
+        )
 
     audit_payload = {
         "experiment": experiment,
         "pass": all(item["pass"] for item in matching_audits),
         "audits": matching_audits,
+        "generated_input_sha256": input_checksums,
     }
     write_json(output_dir / "matched_input_audit.json", audit_payload)
     write_json(output_dir / "run_specs.json", {"runs": run_specs})
