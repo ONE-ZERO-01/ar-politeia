@@ -84,6 +84,8 @@ def test_snapshot_metrics_and_paired_bootstrap():
     )
     assert metrics["particle_count"] == 6.0
     assert metrics["resource_density_spearman_rho"] > 0.0
+    assert metrics["minimum_wealth"] == 1.0
+    assert metrics["wealth_variance"] > 0.0
     interval = landscape_study.paired_bootstrap_mean_difference(
         [2.0, 3.0, 4.0], [1.0, 2.0, 3.0], seed=7, samples=1000
     )

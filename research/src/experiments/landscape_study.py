@@ -291,6 +291,8 @@ def snapshot_metrics(
         "density_morans_i": morans_i(density),
         "occupancy_entropy": occupancy_entropy(density),
         "wealth_gini": gini(snapshot["w"]),
+        "wealth_variance": float(np.var(snapshot["w"])),
+        "minimum_wealth": float(np.min(snapshot["w"])),
         "particle_count": float(np.sum(density)),
     }
 

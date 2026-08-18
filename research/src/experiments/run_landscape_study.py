@@ -272,9 +272,15 @@ def prepare_inputs(
                 )
 
             cpp_values = common_cpp_config(config)
+            dt = float(condition.get("dt", config.get("dt", 0.01)))
+            if "total_time" in config:
+                total_steps = int(round(float(config["total_time"]) / dt))
+                if total_steps < 1:
+                    raise ValueError("total_time/dt must yield at least one step")
+                cpp_values["total_steps"] = total_steps
             cpp_values.update(
                 {
-                    "dt": float(condition.get("dt", config.get("dt", 0.01))),
+                    "dt": dt,
                     "random_seed": seed,
                     "initial_particles": population,
                     "initial_conditions_file": relative_to_project(ic_path),
@@ -370,6 +376,7 @@ def mean_metrics_for_run(
     ]
     metric_names = rows[0].keys()
     means = {name: float(np.mean([row[name] for row in rows])) for name in metric_names}
+    means["minimum_wealth"] = min(float(row["minimum_wealth"]) for row in rows)
     final_snapshot = read_snapshot_csv(selected[-1])
     initial_snapshot = np.genfromtxt(
         project_path(spec["initial_conditions"], must_exist=True),
@@ -416,6 +423,76 @@ def aggregate_e1(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
             clustered, shuffled, seed=9173
         )
     write_json(output_dir / "paired_effects.json", payload)
+
+
+def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[str, Any]:
+    by_condition: MutableMapping[str, List[Mapping[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_condition[str(row["condition"])].append(row)
+
+    required = {
+        "equal-no-exchange",
+        "equal-exchange",
+        "perturbed-dt-1",
+        "perturbed-dt-0.5",
+        "perturbed-dt-0.25",
+    }
+    missing = sorted(required - set(by_condition))
+    if missing:
+        raise RuntimeError(f"E0 is missing required conditions: {missing}")
+
+    max_abs_drift = max(
+        abs(float(row["total_wealth_relative_drift"])) for row in rows
+    )
+    minimum_wealth = min(float(row["minimum_wealth"]) for row in rows)
+    convergence: Dict[str, float] = {}
+    for metric in ("wealth_gini", "wealth_variance"):
+        dt_half = float(np.mean([row[metric] for row in by_condition["perturbed-dt-0.5"]]))
+        dt_quarter = float(
+            np.mean([row[metric] for row in by_condition["perturbed-dt-0.25"]])
+        )
+        convergence[metric] = abs(dt_half - dt_quarter) / max(
+            abs(dt_quarter), 1e-12
+        )
+
+    calibration_rows = by_condition["perturbed-dt-1"]
+    sesoi = {
+        metric: max(
+            2.0 * float(np.std([row[metric] for row in calibration_rows], ddof=1)),
+            1e-6,
+        )
+        for metric in (
+            "resource_density_spearman_rho",
+            "density_morans_i",
+            "occupancy_entropy",
+            "wealth_gini",
+        )
+    }
+    equal_exchange_variance = max(
+        float(row["wealth_variance"]) for row in by_condition["equal-exchange"]
+    )
+    checks = {
+        "wealth_conservation": max_abs_drift <= 1e-8,
+        "wealth_nonnegative": minimum_wealth >= -1e-12,
+        "dt_convergence": max(convergence.values()) <= 0.02,
+        "equal_state_is_absorbing": equal_exchange_variance <= 1e-20,
+    }
+    payload = {
+        "experiment": "E0-NUMERICS",
+        "pass": all(checks.values()),
+        "checks": checks,
+        "max_absolute_wealth_drift": max_abs_drift,
+        "minimum_wealth": minimum_wealth,
+        "dt_half_vs_quarter_relative_change": convergence,
+        "equal_exchange_max_wealth_variance": equal_exchange_variance,
+        "sesoi_frozen_before_confirmatory_analysis": sesoi,
+        "interpretation_boundary": (
+            "The equal-state check diagnoses the deterministic exchange kernel's "
+            "absorbing state; it is not evidence for a Boltzmann-Gibbs wealth law."
+        ),
+    }
+    write_json(output_dir / "numerical_calibration.json", payload)
+    return payload
 
 
 def aggregate_e2(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
@@ -469,7 +546,9 @@ def analyze_runs(
         for spec in run_specs
     ]
     write_metrics_csv(output_dir / "replicate_metrics.csv", rows)
-    if experiment == "E1-MATCHED-LANDSCAPES":
+    if experiment == "E0-NUMERICS":
+        aggregate_e0(rows, output_dir)
+    elif experiment == "E1-MATCHED-LANDSCAPES":
         aggregate_e1(rows, output_dir)
     elif experiment == "E2-CHANNEL-ABLATION":
         aggregate_e2(rows, output_dir)
@@ -511,10 +590,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     rows = analyze_runs(args.experiment, config, output_dir, run_specs)
+    job_pass = True
+    if args.experiment == "E0-NUMERICS":
+        job_pass = bool(load_json(output_dir / "numerical_calibration.json")["pass"])
     result = {
         "experiment": args.experiment,
         "status": "completed",
-        "pass": True,
+        "pass": job_pass,
         "runs_completed": len(rows),
         "config_sha256": sha256_file(config_path),
         "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
