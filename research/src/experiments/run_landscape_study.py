@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import socket
 import subprocess
@@ -247,9 +248,201 @@ def common_cpp_config(config: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
+def prepare_e3_inputs(
+    config: Mapping[str, Any], output_dir: Path
+) -> List[Dict[str, Any]]:
+    populations = [int(value) for value in config.get("populations", [])]
+    raw_shapes = config.get("grid_shapes", [])
+    families = [str(value) for value in config.get("landscape_families", [])]
+    seeds = [int(seed) for seed in config.get("seeds", [])]
+    if not populations or min(populations) < 1:
+        raise ValueError("E3 requires positive populations")
+    if not isinstance(raw_shapes, list) or not raw_shapes:
+        raise ValueError("E3 requires grid_shapes")
+    shapes: List[tuple[int, int]] = []
+    for value in raw_shapes:
+        if not isinstance(value, list) or len(value) != 2:
+            raise ValueError("each E3 grid shape must be [rows, cols]")
+        shape = (int(value[0]), int(value[1]))
+        if min(shape) < 2:
+            raise ValueError("E3 grid dimensions must be at least two")
+        shapes.append(shape)
+    required_families = {"gaussian_mixture", "correlated_random_field"}
+    if set(families) != required_families:
+        raise ValueError(
+            f"E3 landscape_families must be {sorted(required_families)}"
+        )
+    if not seeds:
+        raise ValueError("E3 requires at least one seed")
+
+    bounds_values = config.get("bounds", [0.0, 100.0, 0.0, 100.0])
+    bounds = tuple(float(value) for value in bounds_values)
+    if len(bounds) != 4:
+        raise ValueError("bounds must have four values")
+    inputs_dir = output_dir / "inputs"
+    runs_dir = output_dir / "runs"
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    dt = float(config.get("dt", 0.01))
+    exchange_rate = float(config.get("exchange_rate", 0.003))
+    run_specs: List[Dict[str, Any]] = []
+    matching_audits: List[Dict[str, Any]] = []
+    input_checksums: List[Dict[str, Any]] = []
+
+    for rows, cols in shapes:
+        cellsize_x = (bounds[1] - bounds[0]) / cols
+        cellsize_y = (bounds[3] - bounds[2]) / rows
+        if not math.isclose(cellsize_x, cellsize_y, rel_tol=1e-12, abs_tol=1e-12):
+            raise ValueError("ESRI ASCII E3 grids require equal x/y cell sizes")
+        for family in families:
+            for seed in seeds:
+                design_dir = (
+                    inputs_dir / f"grid-{rows}x{cols}" / family / f"seed-{seed}"
+                )
+                fields = make_matched_landscapes(
+                    (rows, cols), seed, family=family
+                )
+                audit = audit_matched_landscapes(
+                    fields["clustered"], fields["shuffled"]
+                )
+                audit.update(
+                    {
+                        "seed": seed,
+                        "landscape_family": family,
+                        "grid_shape": [rows, cols],
+                    }
+                )
+                matching_audits.append(audit)
+                if not audit["pass"]:
+                    raise RuntimeError(
+                        f"E3 matched input audit failed for {family}, "
+                        f"grid={rows}x{cols}, seed={seed}"
+                    )
+
+                landscape_paths: Dict[str, Path] = {}
+                resource_paths: Dict[str, Path] = {}
+                terrain_sha256: Dict[str, str] = {}
+                resource_sha256: Dict[str, str] = {}
+                for landscape in ("clustered", "shuffled"):
+                    field = fields[landscape]
+                    grid_path = design_dir / f"{landscape}.asc"
+                    terrain_sha256[landscape] = write_esri_ascii(
+                        grid_path,
+                        field,
+                        xllcorner=bounds[0],
+                        yllcorner=bounds[2],
+                        cellsize=cellsize_x,
+                    )
+                    resource_path = design_dir / f"{landscape}-resource.npy"
+                    np.save(resource_path, field, allow_pickle=False)
+                    resource_sha256[landscape] = sha256_file(resource_path)
+                    landscape_paths[landscape] = grid_path
+                    resource_paths[landscape] = resource_path
+
+                for population in populations:
+                    ic_path = (
+                        inputs_dir
+                        / "initial-conditions"
+                        / f"population-{population}"
+                        / f"seed-{seed}.csv"
+                    )
+                    if not ic_path.exists():
+                        initial_sha256 = write_initial_conditions(
+                            ic_path,
+                            population,
+                            seed,
+                            bounds=bounds,
+                            mean_wealth=float(config.get("mean_wealth", 5.0)),
+                            wealth_log_sigma=0.01,
+                        )
+                    else:
+                        initial_sha256 = sha256_file(ic_path)
+                    for landscape in ("clustered", "shuffled"):
+                        run_id = (
+                            f"population-{population}--grid-{rows}x{cols}--"
+                            f"{family}--seed-{seed}--{landscape}"
+                        )
+                        run_dir = runs_dir / run_id
+                        run_dir.mkdir(parents=True, exist_ok=True)
+                        cpp_values = common_cpp_config(config)
+                        if "total_time" in config:
+                            cpp_values["total_steps"] = int(
+                                round(float(config["total_time"]) / dt)
+                            )
+                        if "output_time_interval" in config:
+                            cpp_values["output_interval"] = int(
+                                round(float(config["output_time_interval"]) / dt)
+                            )
+                        cpp_values.update(
+                            {
+                                "dt": dt,
+                                "random_seed": seed,
+                                "initial_particles": population,
+                                "initial_conditions_file": relative_to_project(ic_path),
+                                "terrain_file": relative_to_project(
+                                    landscape_paths[landscape]
+                                ),
+                                "terrain_force_enabled": True,
+                                "terrain_production_enabled": True,
+                                "exchange_rate": exchange_rate,
+                                "output_dir": relative_to_project(run_dir),
+                            }
+                        )
+                        cpp_config_path = run_dir / "politeia.cfg"
+                        write_cpp_config(cpp_config_path, cpp_values)
+                        run_specs.append(
+                            {
+                                "run_id": run_id,
+                                "seed": seed,
+                                "condition": landscape,
+                                "landscape": landscape,
+                                "landscape_family": family,
+                                "population": population,
+                                "grid_rows": rows,
+                                "grid_cols": cols,
+                                "terrain_force_enabled": True,
+                                "terrain_production_enabled": True,
+                                "exchange_rate": exchange_rate,
+                                "dt": dt,
+                                "cpp_config": relative_to_project(cpp_config_path),
+                                "run_dir": relative_to_project(run_dir),
+                                "resource_npy": relative_to_project(
+                                    resource_paths[landscape]
+                                ),
+                                "initial_conditions": relative_to_project(ic_path),
+                                "terrain_sha256": terrain_sha256[landscape],
+                                "resource_sha256": resource_sha256[landscape],
+                                "initial_conditions_sha256": initial_sha256,
+                            }
+                        )
+                input_checksums.append(
+                    {
+                        "seed": seed,
+                        "landscape_family": family,
+                        "grid_shape": [rows, cols],
+                        "terrain": terrain_sha256,
+                        "resource_arrays": resource_sha256,
+                    }
+                )
+
+    write_json(
+        output_dir / "matched_input_audit.json",
+        {
+            "experiment": "E3-ROBUSTNESS-HOLDOUT",
+            "pass": all(item["pass"] for item in matching_audits),
+            "audits": matching_audits,
+            "generated_input_sha256": input_checksums,
+        },
+    )
+    write_json(output_dir / "run_specs.json", {"runs": run_specs})
+    return run_specs
+
+
 def prepare_inputs(
     experiment: str, config: Mapping[str, Any], output_dir: Path
 ) -> List[Dict[str, Any]]:
+    if experiment == "E3-ROBUSTNESS-HOLDOUT":
+        return prepare_e3_inputs(config, output_dir)
     shape_values = config.get("grid_shape", [128, 128])
     if not isinstance(shape_values, list) or len(shape_values) != 2:
         raise ValueError("grid_shape must be [rows, cols]")
@@ -786,6 +979,205 @@ def aggregate_e2(
     return payload
 
 
+def aggregate_e3(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any]:
+    metrics = (
+        "resource_density_spearman_rho",
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+    )
+    grouped: MutableMapping[
+        tuple[int, int, int, int, str], Dict[str, Mapping[str, Any]]
+    ] = defaultdict(dict)
+    for row in rows:
+        key = (
+            int(row["seed"]),
+            int(row["population"]),
+            int(row["grid_rows"]),
+            int(row["grid_cols"]),
+            str(row["landscape_family"]),
+        )
+        grouped[key][str(row["condition"])] = row
+    for key, values in grouped.items():
+        missing = sorted({"clustered", "shuffled"} - set(values))
+        if missing:
+            raise RuntimeError(f"E3 design cell {key} is missing conditions: {missing}")
+
+    differences: Dict[str, Dict[tuple[int, int, int, int, str], float]] = {
+        metric: {} for metric in metrics
+    }
+    for key, values in grouped.items():
+        for metric in metrics:
+            differences[metric][key] = float(
+                values["clustered"][metric] - values["shuffled"][metric]
+            )
+
+    calibration = load_e0_calibration(config)
+    sesoi = calibration["sesoi_frozen_before_confirmatory_analysis"]
+    alpha = float(config.get("familywise_alpha", 0.05))
+    populations = sorted({key[1] for key in grouped})
+    resolutions = sorted({(key[2], key[3]) for key in grouped})
+    families = sorted({key[4] for key in grouped})
+    seeds = sorted({key[0] for key in grouped})
+
+    cell_intervals: Dict[str, Dict[str, float]] = {}
+    metric_for_cell: Dict[str, str] = {}
+    for metric in metrics:
+        for population in populations:
+            for grid_rows, grid_cols in resolutions:
+                for family in families:
+                    key_name = (
+                        f"{metric}::population-{population}::"
+                        f"grid-{grid_rows}x{grid_cols}::{family}"
+                    )
+                    estimates = [
+                        differences[metric][
+                            (seed, population, grid_rows, grid_cols, family)
+                        ]
+                        for seed in seeds
+                    ]
+                    cell_intervals[key_name] = paired_bootstrap_mean_difference(
+                        estimates, np.zeros(len(estimates)), seed=9173
+                    )
+                    metric_for_cell[key_name] = metric
+    primary_cell_keys = [
+        key for key in cell_intervals if not key.startswith("wealth_gini::")
+    ]
+    secondary_cell_keys = [
+        key for key in cell_intervals if key.startswith("wealth_gini::")
+    ]
+    scale_specific_primary = apply_holm_and_sesoi(
+        {key: cell_intervals[key] for key in primary_cell_keys},
+        sesoi,
+        alpha=alpha,
+        metric_for_key=metric_for_cell,
+    )
+    scale_specific_wealth = apply_holm_and_sesoi(
+        {key: cell_intervals[key] for key in secondary_cell_keys},
+        sesoi,
+        alpha=alpha,
+        metric_for_key=metric_for_cell,
+    )
+
+    holdout_family = "correlated_random_field"
+    holdout_raw: Dict[str, Dict[str, float]] = {}
+    for metric in metrics[:3]:
+        per_seed = [
+            float(
+                np.mean(
+                    [
+                        value
+                        for key, value in differences[metric].items()
+                        if key[0] == seed and key[4] == holdout_family
+                    ]
+                )
+            )
+            for seed in seeds
+        ]
+        holdout_raw[metric] = paired_bootstrap_mean_difference(
+            per_seed, np.zeros(len(per_seed)), seed=12011
+        )
+    holdout_effects = apply_holm_and_sesoi(
+        holdout_raw,
+        sesoi,
+        alpha=alpha,
+        metric_for_key={metric: metric for metric in holdout_raw},
+    )
+
+    direction_consistency: Dict[str, Any] = {}
+    resolution_sensitivity: Dict[str, Any] = {}
+    for metric in metrics[:3]:
+        overall = float(np.mean(list(differences[metric].values())))
+        overall_sign = int(np.sign(overall))
+        population_effects = {
+            str(population): float(
+                np.mean(
+                    [
+                        value
+                        for key, value in differences[metric].items()
+                        if key[1] == population
+                    ]
+                )
+            )
+            for population in populations
+        }
+        direction_consistency[metric] = {
+            "overall_mean_effect": overall,
+            "population_mean_effects": population_effects,
+            "pass": bool(
+                overall_sign != 0
+                and all(
+                    int(np.sign(value)) == overall_sign
+                    for value in population_effects.values()
+                )
+            ),
+        }
+        resolution_effects = {
+            f"{grid_rows}x{grid_cols}": float(
+                np.mean(
+                    [
+                        value
+                        for key, value in differences[metric].items()
+                        if key[2:4] == (grid_rows, grid_cols)
+                    ]
+                )
+            )
+            for grid_rows, grid_cols in resolutions
+        }
+        resolution_values = list(resolution_effects.values())
+        if len(resolution_values) != 2:
+            raise RuntimeError("E3 resolution sensitivity requires exactly two grids")
+        relative_change = abs(resolution_values[1] - resolution_values[0]) / max(
+            abs(resolution_values[1]), float(sesoi[metric]), 1e-12
+        )
+        resolution_sensitivity[metric] = {
+            "resolution_mean_effects": resolution_effects,
+            "relative_change": relative_change,
+            "max_relative_change": 0.2,
+            "pass": bool(relative_change <= 0.2),
+        }
+
+    stationarity_pass = all(bool(row["stationarity_pass"]) for row in rows)
+    matched_input_pass = bool(load_json(output_dir / "matched_input_audit.json")["pass"])
+    parameter_lock_pass = bool(load_json(output_dir / "parameter_lock_audit.json")["pass"])
+    analysis_gate_pass = bool(
+        stationarity_pass and matched_input_pass and parameter_lock_pass
+    )
+    primary_metric = "resource_density_spearman_rho"
+    claim_supported = bool(
+        analysis_gate_pass
+        and holdout_effects[primary_metric]["claim_threshold_pass"]
+        and direction_consistency[primary_metric]["pass"]
+        and resolution_sensitivity[primary_metric]["pass"]
+    )
+    payload: Dict[str, Any] = {
+        "experiment": "E3-ROBUSTNESS-HOLDOUT",
+        "comparison": "clustered-minus-shuffled",
+        "confirmatory_unit": "seed; repeated scales and families averaged within seed",
+        "analysis_gate_pass": analysis_gate_pass,
+        "claim_supported": claim_supported,
+        "gates": {
+            "e0_calibration": True,
+            "stationarity": stationarity_pass,
+            "matched_inputs": matched_input_pass,
+            "parameter_lock": parameter_lock_pass,
+        },
+        "scale_specific_spatial_family": scale_specific_primary,
+        "scale_specific_wealth_family": scale_specific_wealth,
+        "holdout_family": holdout_family,
+        "holdout_pooled_spatial_effects": holdout_effects,
+        "population_direction_consistency": direction_consistency,
+        "resolution_sensitivity": resolution_sensitivity,
+        "multiplicity": "Holm family-wise correction within scale-specific and pooled-holdout spatial families",
+    }
+    write_json(output_dir / "holdout_effects.json", payload)
+    return payload
+
+
 def analyze_runs(
     experiment: str,
     config: Mapping[str, Any],
@@ -826,6 +1218,8 @@ def analyze_runs(
         aggregate_e1(rows, config, output_dir)
     elif experiment == "E2-CHANNEL-ABLATION":
         aggregate_e2(rows, config, output_dir)
+    elif experiment == "E3-ROBUSTNESS-HOLDOUT":
+        aggregate_e3(rows, config, output_dir)
     return rows
 
 
@@ -875,6 +1269,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
     elif args.experiment == "E2-CHANNEL-ABLATION":
         job_pass = bool(load_json(output_dir / "channel_effects.json")["analysis_gate_pass"])
+    elif args.experiment == "E3-ROBUSTNESS-HOLDOUT":
+        job_pass = bool(load_json(output_dir / "holdout_effects.json")["analysis_gate_pass"])
     result = {
         "experiment": args.experiment,
         "status": "completed",

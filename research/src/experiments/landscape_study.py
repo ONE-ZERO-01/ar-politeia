@@ -58,11 +58,51 @@ def generate_clustered_resource(
     return field
 
 
+def generate_correlated_random_resource(
+    shape: Tuple[int, int],
+    seed: int,
+    *,
+    correlation_fraction: float = 0.08,
+) -> Array:
+    """Generate a positive Fourier-filtered random field with mean one."""
+    rows, cols = shape
+    if rows < 2 or cols < 2:
+        raise ValueError("landscape dimensions must both be at least two")
+    if not 0.0 < correlation_fraction < 0.5:
+        raise ValueError("correlation_fraction must lie between zero and one half")
+    rng = np.random.default_rng(seed)
+    noise = rng.normal(size=shape)
+    ky = np.fft.fftfreq(rows)[:, None]
+    kx = np.fft.fftfreq(cols)[None, :]
+    smoothing = np.exp(
+        -0.5
+        * (
+            (2.0 * math.pi * correlation_fraction * rows * ky) ** 2
+            + (2.0 * math.pi * correlation_fraction * cols * kx) ** 2
+        )
+    )
+    field = np.fft.ifft2(np.fft.fft2(noise) * smoothing).real
+    field -= float(field.min())
+    mean = float(field.mean())
+    if not math.isfinite(mean) or mean <= 0.0:
+        raise RuntimeError("generated correlated random field is degenerate")
+    field /= mean
+    return field
+
+
 def make_matched_landscapes(
-    shape: Tuple[int, int], seed: int
+    shape: Tuple[int, int],
+    seed: int,
+    *,
+    family: str = "gaussian_mixture",
 ) -> Mapping[str, Array]:
     """Return clustered, exact-histogram shuffled, and total-matched flat fields."""
-    clustered = generate_clustered_resource(shape, seed)
+    if family == "gaussian_mixture":
+        clustered = generate_clustered_resource(shape, seed)
+    elif family == "correlated_random_field":
+        clustered = generate_correlated_random_resource(shape, seed)
+    else:
+        raise ValueError(f"unknown landscape family: {family!r}")
     rng = np.random.default_rng(seed + 1_000_003)
     shuffled = clustered.ravel().copy()
     rng.shuffle(shuffled)

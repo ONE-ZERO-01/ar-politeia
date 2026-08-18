@@ -35,6 +35,22 @@ def test_matched_landscapes_preserve_exact_histogram_and_total():
     assert not np.array_equal(fields["clustered"], fields["shuffled"])
 
 
+def test_correlated_random_holdout_is_deterministic_and_matched():
+    first = landscape_study.make_matched_landscapes(
+        (32, 40), 456, family="correlated_random_field"
+    )
+    second = landscape_study.make_matched_landscapes(
+        (32, 40), 456, family="correlated_random_field"
+    )
+    assert np.array_equal(first["clustered"], second["clustered"])
+    assert landscape_study.audit_matched_landscapes(
+        first["clustered"], first["shuffled"]
+    )["pass"] is True
+    assert first["clustered"].mean() == pytest.approx(1.0)
+    gaussian = landscape_study.make_matched_landscapes((32, 40), 456)
+    assert not np.array_equal(first["clustered"], gaussian["clustered"])
+
+
 def test_resource_to_elevation_reconstructs_resource_contrast():
     resource = np.array([[0.0, 1.0], [2.0, 4.0]])
     elevation = landscape_study.resource_to_elevation(resource)
