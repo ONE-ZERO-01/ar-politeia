@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "source": "/Users/one/Library/CloudStorage/OneDrive-个人/oneresearch/auto-researcher-one",
+  "project_id": "ar-politeia",
+  "title": "AR-Politeia",
+  "server_root": "/home/wanwb/ONE/ar-politeia",
+  "github_url": "https://github.com/ONE-ZERO-01/ar-politeia.git",
+  "hypothesis_file": "research/hypothesis.md",
+  "notes": "由 scripts/port-framework.sh 维护；sync 时按此配置替换研究方案痕迹。"
+}

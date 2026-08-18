@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "required": ["tasks"],
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "exp_dir", "priority", "objective"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "exp_dir": { "type": "string", "minLength": 1 },
+          "priority": { "enum": ["P0", "P1", "P2"] },
+          "objective": { "type": "string", "minLength": 1 },
+          "claim_ids": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

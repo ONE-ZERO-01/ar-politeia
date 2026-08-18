@@ -1,0 +1,128 @@
+{
+  "review_type": "preliminary_code_alignment",
+  "reviewed_at": "2026-08-18T00:00:00+08:00",
+  "plan": "research/plan.json",
+  "status": "blocked",
+  "summary": "The imported Politeia engine contains useful spatial, exchange, grid-input and output components, but the active Cycle 1 experiment implementation does not yet exist and the current engine cannot independently switch terrain movement and production channels.",
+  "code_sources_reviewed": [
+    "research/imports/politeia-ds/src/main.cpp",
+    "research/imports/politeia-ds/src/core/config.hpp",
+    "research/imports/politeia-ds/src/core/config.cpp",
+    "research/imports/politeia-ds/src/force/terrain_loader.cpp",
+    "research/imports/politeia-ds/src/interaction/resource_exchange.cpp",
+    "research/imports/politeia-ds/src/analysis/order_params.cpp",
+    "research/imports/politeia-ds/src/io/ic_loader.cpp"
+  ],
+  "claim_coverage": [
+    {
+      "claim_id": "C1-NUM",
+      "status": "partial",
+      "covered": [
+        "explicit initial-condition CSV loading",
+        "random seed configuration",
+        "wealth exchange implementation",
+        "CSV snapshots and order-parameter output"
+      ],
+      "missing": [
+        "Cycle 1 runner",
+        "automatic conservation and non-negativity audit",
+        "dt convergence comparison",
+        "numerical-noise-derived SESOI freeze"
+      ]
+    },
+    {
+      "claim_id": "C2-LANDSCAPE",
+      "status": "partial",
+      "covered": [
+        "ESRI ASCII and binary grid loading",
+        "terrain force",
+        "terrain-dependent local production"
+      ],
+      "missing": [
+        "matched landscape generator",
+        "exact input matching audit",
+        "resource-density Spearman correlation",
+        "density Moran's I",
+        "occupancy entropy",
+        "paired ensemble analysis"
+      ]
+    },
+    {
+      "claim_id": "C3-CHANNELS",
+      "status": "missing",
+      "covered": [],
+      "missing": [
+        "independent terrain_force_enabled or force scale",
+        "independent terrain_production_enabled or production scale",
+        "2x2 factorial configuration and analysis"
+      ]
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS",
+      "status": "missing",
+      "covered": [
+        "particle count is configurable"
+      ],
+      "missing": [
+        "landscape resolution exposed for all generated inputs",
+        "holdout landscape registry",
+        "fixed-parameter lock between development and holdout stages",
+        "cross-scale effect aggregation"
+      ]
+    }
+  ],
+  "blocking_findings": [
+    {
+      "id": "B1",
+      "severity": "P0",
+      "finding": "research/src/experiments/run_landscape_study.py does not exist; every experiment command in the plan is intentionally non-runnable until implemented.",
+      "required_action": "Implement the active experiment runner and analysis module under research/src/experiments/."
+    },
+    {
+      "id": "B2",
+      "severity": "P0",
+      "finding": "The only simulator source is inside research/imports/politeia-ds/, which is designated imported provenance rather than an active code root.",
+      "required_action": "Promote a minimal, versioned simulation core into the active experiment source tree without modifying the imported snapshot."
+    },
+    {
+      "id": "B3",
+      "severity": "P0",
+      "finding": "terrain_scale currently controls the grid potential used by both motion and production; E2 requires independently switchable channels.",
+      "required_action": "Add separate terrain_force_scale and terrain_production_scale controls and test all four factorial cells."
+    },
+    {
+      "id": "B4",
+      "severity": "P0",
+      "finding": "The active project directory has no .git repository, so a real commit_id cannot be bound and preflight must remain blocked.",
+      "required_action": "Restore or initialize the repository with the declared github and umi remotes before creating experiment manifests."
+    },
+    {
+      "id": "B5",
+      "severity": "P1",
+      "finding": "No implementation currently computes the preregistered spatial metrics or stationary-window diagnostics.",
+      "required_action": "Implement metric definitions with deterministic unit tests before server execution."
+    },
+    {
+      "id": "B6",
+      "severity": "P1",
+      "finding": "The imported engine is MPI/OpenMP C++ and contains no CUDA path; GPU use would currently be a false declaration.",
+      "required_action": "Use gpu_count=0 and CPU/MPI on umi for Cycle 1 unless an independently validated GPU implementation is later added."
+    }
+  ],
+  "non_blocking_assets": [
+    "The engine accepts explicit initial-condition CSV files, so non-degenerate wealth perturbations can be preregistered.",
+    "The engine accepts arbitrary ASCII terrain grids, so exact matched landscapes can be generated outside the simulator.",
+    "Configuration supports fixed population by disabling reproduction and setting mortality mechanisms to zero or off.",
+    "Output directories are configurable and can be kept inside each job workspace.",
+    "Random seeds and time step are configurable."
+  ],
+  "implementation_order": [
+    "Restore git authority and remotes.",
+    "Promote the minimal simulation core into active experiment source.",
+    "Separate terrain movement and production channels.",
+    "Implement matched-landscape generation and exact matching audit.",
+    "Implement spatial metrics, stationarity diagnostics and paired analysis.",
+    "Add deterministic unit tests and perform a second code-alignment review.",
+    "Create job manifests, bind the real commit, and run preflight on umi before any numerical execution."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "required": ["cycle", "paper_dir", "claims", "limitations"],
+  "properties": {
+    "cycle": { "type": "integer" },
+    "paper_dir": { "type": "string", "minLength": 1 },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "verdict", "evidence"],
+        "properties": {
+          "claim_id": { "type": "string", "minLength": 1 },
+          "verdict": {
+            "enum": ["supported", "contradicted", "inconclusive"]
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "journal_recommendations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

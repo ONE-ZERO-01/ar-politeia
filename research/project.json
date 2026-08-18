@@ -1,0 +1,17 @@
+{
+  "project_id": "ar-politeia",
+  "title": "AR-Politeia: Heterogeneous Resource Landscapes and Socioeconomic Structure",
+  "hypothesis_file": "research/hypothesis.md",
+  "question_file": "research/question.md",
+  "layout": "flat-single-plan",
+  "status": "planned",
+  "max_cycles": 5,
+  "budget": {
+    "token_budget": null,
+    "gpu_hours": null,
+    "notes": "Budget limits are set by the human before high-cost runs."
+  },
+  "autonomy": {
+    "require_initial_plan_approval": false
+  }
+}

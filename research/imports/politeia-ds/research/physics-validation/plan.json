@@ -1,0 +1,446 @@
+{
+  "meta": {
+    "direction": "physics-validation",
+    "cycle": 1,
+    "created": "2026-06-11T18:35:00+08:00",
+    "status": "draft",
+    "max_cycles": 5,
+    "project": "通用研究",
+    "budget_remaining": 5
+  },
+  "claims": [
+    {
+      "id": "C1.1",
+      "statement": "LJ 社会力满足能量守恒（γ=0时）和 Boltzmann 分布（γ>0时）",
+      "counterevidence": ["总能量波动＞1e-4", "KS检验p＜0.05"],
+      "experiments": ["M1.1"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.2",
+      "statement": "地形力正确指向势阱中心，粒子稳态分布与地形势一致",
+      "counterevidence": ["粒子质心偏离势阱中心＞2σ", "径向分布无显著峰"],
+      "experiments": ["M1.2"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.3",
+      "statement": "河流/气候场对产出、承载、交换的调制方向正确且统计显著",
+      "counterevidence": ["近河vs远河区人均产出差异不显著"],
+      "experiments": ["M1.3"],
+      "priority": "P3"
+    },
+    {
+      "id": "C1.4",
+      "statement": "封闭系统对称交换收敛到 Boltzmann-Gibbs 指数分布（R²＞0.95）",
+      "counterevidence": ["分布拟合R²＜0.95", "分布呈现幂律而非指数"],
+      "experiments": ["M1.4"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.5",
+      "statement": "开放系统 Gini 收敛到稳定区间，存在 Gini 失控的参数区域可识别",
+      "counterevidence": ["Gini 全程单调不减无收敛", "所有参数区域Gini均失控"],
+      "experiments": ["M1.5"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.6",
+      "statement": "人口收敛到稳定年龄分布，与前工业社会人口学数据一致",
+      "counterevidence": ["人口波动＞±10%", "年龄分布与前工业社会差异显著"],
+      "experiments": ["M1.6"],
+      "priority": "P1"
+    },
+    {
+      "id": "C1.7",
+      "statement": "四重死亡机制产生正确的 Gompertz 死亡年龄分布",
+      "counterevidence": ["死亡年龄分布不拟合 Gompertz", "意外死亡占比≠accident_rate"],
+      "experiments": ["M1.7"],
+      "priority": "P1"
+    },
+    {
+      "id": "C1.8",
+      "statement": "Langevin 积分器满足涨落-耗散定理: ⟨KE⟩/(N×T) ∈ [0.8, 1.2]",
+      "counterevidence": ["存在参数组合使 ⟨KE⟩/(N×T) 偏离[0.8,1.2]"],
+      "experiments": ["M1.8"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.9",
+      "statement": "Berendsen 温控器在高密度下维持 KE/(N×T)＜3",
+      "counterevidence": ["高密度下 KE/(N×T) 持续＞3"],
+      "experiments": ["M1.9"],
+      "priority": "P0"
+    },
+    {
+      "id": "C1.10",
+      "statement": "层级结构从对称交换规则中自然涌现，交互网络分析可检测支配结构",
+      "counterevidence": ["仅交换时交互网络无支配结构", "开启loyalty后H=0或出现环"],
+      "experiments": ["M1.10"],
+      "priority": "P1"
+    },
+    {
+      "id": "C1.11",
+      "statement": "继承衰减因子对帝国寿命的影响存在可量化的函数关系",
+      "counterevidence": ["继承衰减因子与帝国寿命无单调关系"],
+      "experiments": ["M1.11"],
+      "priority": "P1"
+    },
+    {
+      "id": "C2.1",
+      "statement": "中国真实地形产生 F>0.3, H>10, C<100；欧洲真实地形产生显著更低的 F 和更低的 C",
+      "counterevidence": ["中欧差异在统计上不显著(p>0.05)", "方向与假说相反"],
+      "experiments": ["M2.1"],
+      "priority": "P1"
+    },
+    {
+      "id": "C2.2",
+      "statement": "四大河流域中至少3个在人口聚集和政体复杂度上显著快于其他区域",
+      "counterevidence": ["河谷区域与非河谷区域无显著差异"],
+      "experiments": ["M2.2"],
+      "priority": "P2"
+    },
+    {
+      "id": "C2.3",
+      "statement": "旧大陆群体接触新大陆群体后，新大陆人口下降≥30%",
+      "counterevidence": ["接触后双方人口变化无显著差异"],
+      "experiments": ["M2.3"],
+      "priority": "P3"
+    },
+    {
+      "id": "C2.4",
+      "statement": "ε 跃迁后 2000 步内 H 增加≥3层，且相变检测命中≥1次",
+      "counterevidence": ["ε跃迁后层级无显著变化", "相变检测零命中"],
+      "experiments": ["M2.4"],
+      "priority": "P2"
+    },
+    {
+      "id": "C2.5",
+      "statement": "(T, exchange_rate) 参数空间存在"历史可比"制度区域",
+      "counterevidence": ["所有参数区域的政体分布都与历史显著不同"],
+      "experiments": ["M2.5"],
+      "priority": "P2"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "M1.1",
+      "title": "LJ 力的热力学自洽性",
+      "claims": ["C1.1"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 1000,
+        "total_steps": 5000,
+        "temperature": 1.0,
+        "friction": [0.0, 1.0],
+        "terrain_type": "none",
+        "culture_enabled": false,
+        "technology_enabled": false,
+        "loyalty_enabled": false,
+        "conquest_enabled": false,
+        "plague_enabled": false,
+        "reproduction_enabled": false
+      },
+      "baseline": "friction=0.0 的能量守恒",
+      "metrics": ["total_energy_fluctuation", "KE_distribution_KS_test"],
+      "seeds": [42, 123, 456],
+      "estimated_runtime": "1min (1000粒子×5000步, 单机)",
+      "outputs": ["energy.csv", "order_params.csv", "M1.1_analysis.pdf"]
+    },
+    {
+      "id": "M1.2",
+      "title": "地形力的正确性",
+      "claims": ["C1.2"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 5000,
+        "total_steps": 3000,
+        "terrain_type": ["gaussian", "river", "continent"],
+        "culture_enabled": false,
+        "technology_enabled": false,
+        "loyalty_enabled": false,
+        "reproduction_enabled": false
+      },
+      "metrics": ["centroid_trajectory", "radial_distribution_g(r)", "river_alignment"],
+      "seeds": [42, 123, 456],
+      "estimated_runtime": "3×5min",
+      "outputs": ["snapshots", "M1.2_analysis.png"]
+    },
+    {
+      "id": "M1.3",
+      "title": "河流/气候场耦合校验",
+      "claims": ["C1.3"],
+      "type": "local",
+      "priority": "P3",
+      "config": {
+        "initial_particles": 5000,
+        "total_steps": 2000,
+        "terrain_type": "continent",
+        "river_enabled": true,
+        "river_type": "nile",
+        "climate_enabled": true,
+        "climate_mode": "procedural"
+      },
+      "metrics": ["per_capita_production_near_river", "population_density_by_climate", "exchange_volume_river_corridor"],
+      "seeds": [42],
+      "estimated_runtime": "5min",
+      "outputs": ["M1.3_stats.csv"]
+    },
+    {
+      "id": "M1.4",
+      "title": "封闭系统交换的分布收敛",
+      "claims": ["C1.4"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 1000,
+        "total_steps": 10000,
+        "exchange_rate": 0.01,
+        "reproduction_enabled": false,
+        "mortality_disabled": true,
+        "production_disabled": true,
+        "consumption_rate": 0.0,
+        "culture_enabled": false,
+        "technology_enabled": false,
+        "loyalty_enabled": false
+      },
+      "metrics": ["P(w)_Boltzmann_fit_R2", "wealth_distribution_evolution"],
+      "seeds": [42, 123, 456],
+      "estimated_runtime": "2min",
+      "outputs": ["wealth_histograms.csv", "M1.4_fit_report.md"]
+    },
+    {
+      "id": "M1.5",
+      "title": "开放系统 Gini 稳态参数扫描",
+      "claims": ["C1.5"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 10000,
+        "total_steps": 5000,
+        "scan_params": {
+          "exchange_rate": [0.001, 0.003, 0.01, 0.03],
+          "ability_saturation_w": [1.0, 5.0, 20.0],
+          "wealth_decay_rate": [0.01, 0.02, 0.05, 0.1]
+        },
+        "total_combinations": 48
+      },
+      "metrics": ["Gini_steady_state", "Gini_convergence_time", "Gini_out_of_control_regions"],
+      "seeds": [42],
+      "estimated_runtime": "48×5min≈4h（可并行）",
+      "outputs": ["M1.5_gini_phase.csv", "M1.5_gini_heatmap.png"]
+    },
+    {
+      "id": "M1.6",
+      "title": "人口稳态与年龄结构",
+      "claims": ["C1.6"],
+      "type": "local",
+      "priority": "P1",
+      "config": {
+        "initial_particles": 10000,
+        "total_steps": 10000,
+        "age_pyramid": true,
+        "max_fertility": 0.0005,
+        "carrying_capacity_base": 50.0,
+        "loyalty_enabled": false,
+        "conquest_enabled": false,
+        "plague_enabled": false
+      },
+      "metrics": ["N_stability(±10%)", "age_pyramid_shape", "birth_rate≈death_rate"],
+      "seeds": [42],
+      "estimated_runtime": "15min",
+      "outputs": ["demographics.csv", "M1.6_age_pyramid.png"]
+    },
+    {
+      "id": "M1.7",
+      "title": "Gompertz 死亡曲线的正确性",
+      "claims": ["C1.7"],
+      "type": "local",
+      "priority": "P1",
+      "config": "同 M1.6",
+      "metrics": ["P_death(a)_Gompertz_fit", "accident_death_ratio", "starvation_death_condition"],
+      "seeds": [42],
+      "estimated_runtime": "与 M1.6 共用数据",
+      "outputs": ["M1.7_death_analysis.png", "death_causes.csv"]
+    },
+    {
+      "id": "M1.8",
+      "title": "涨落-耗散关系验证",
+      "claims": ["C1.8"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 1000,
+        "total_steps": 5000,
+        "scan_params": {
+          "temperature": [0.5, 1.0, 2.0, 5.0],
+          "friction": [0.5, 1.0, 2.0]
+        },
+        "total_combinations": 12
+      },
+      "metrics": ["KE_ratio = ⟨KE⟩/(N×T)"],
+      "seeds": [42],
+      "estimated_runtime": "12×1min≈12min",
+      "outputs": ["M1.8_FD_relation.csv"]
+    },
+    {
+      "id": "M1.9",
+      "title": "Berendsen 温控器有效性",
+      "claims": ["C1.9"],
+      "type": "local",
+      "priority": "P0",
+      "config": {
+        "initial_particles": 100000,
+        "total_steps": 5000,
+        "berendsen": ["on", "off"]
+      },
+      "metrics": ["KE/(N×T)_timeseries"],
+      "seeds": [42],
+      "estimated_runtime": "2×2h≈4h（高密度场景）",
+      "outputs": ["M1.9_berendsen_comparison.png"]
+    },
+    {
+      "id": "M1.10",
+      "title": "层级形成的必要条件（消融实验）",
+      "claims": ["C1.10"],
+      "type": "local",
+      "priority": "P1",
+      "config": {
+        "initial_particles": 100000,
+        "total_steps": 10000,
+        "ablations": [
+          {"label": "exchange_only", "loyalty_enabled": false, "conquest_enabled": false},
+          {"label": "loyalty_on", "loyalty_enabled": true, "conquest_enabled": false},
+          {"label": "full_hierarchy", "loyalty_enabled": true, "conquest_enabled": true, "succession": true}
+        ]
+      },
+      "metrics": ["network_dominance_structure", "H_max", "cycle_count"],
+      "seeds": [42],
+      "estimated_runtime": "3×3h≈9h",
+      "depends_on": "v17 完成且环修复验证通过",
+      "outputs": ["M1.10_ablation_comparison.csv"]
+    },
+    {
+      "id": "M1.11",
+      "title": "继承衰减链定量分析",
+      "claims": ["C1.11"],
+      "type": "local",
+      "priority": "P1",
+      "config": {
+        "initial_particles": 50000,
+        "total_steps": 20000,
+        "scan_params": {
+          "succession_loyalty_factor": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+        }
+      },
+      "metrics": ["empire_median_lifespan", "empire_count_timeseries"],
+      "seeds": [42, 123],
+      "estimated_runtime": "6×2×5h≈60h（最大单项实验）",
+      "depends_on": "v17 完成",
+      "outputs": ["M1.11_succession_lifespan.csv", "M1.11_lifespan_curve.png"]
+    },
+    {
+      "id": "M2.1",
+      "title": "中国 vs 欧洲真实地形实验",
+      "claims": ["C2.1"],
+      "type": "local",
+      "priority": "P1",
+      "config": {
+        "initial_particles": 100000,
+        "total_steps": 20000,
+        "terrains": [
+          {"label": "china", "bbox": [73, 135, 18, 54], "resolution": 256},
+          {"label": "europe", "bbox": [-10, 40, 35, 70], "resolution": 256}
+        ],
+        "params": "v17 稳定参数"
+      },
+      "metrics": ["F", "C", "H", "Ψ", "empire_count", "HHI", "Gini"],
+      "seeds": [42, 123, 456],
+      "estimated_runtime": "2×3×8h≈48h（最大科学价值实验）",
+      "requires": "真实 ETOPO1 DEM 数据",
+      "outputs": ["M2.1_china_vs_europe.csv", "M2.1_phase_comparison.png"]
+    },
+    {
+      "id": "M2.2",
+      "title": "四大文明起源地复现",
+      "claims": ["C2.2"],
+      "type": "local",
+      "priority": "P2",
+      "config": {
+        "initial_particles": 50000,
+        "total_steps": 10000,
+        "regions": ["nile", "mesopotamia", "indus", "yellow_river"],
+        "river_enabled": true,
+        "climate_enabled": true
+      },
+      "metrics": ["N_growth_rate", "H_first_state_time", "largest_polity_size"],
+      "seeds": [42],
+      "estimated_runtime": "4×5h≈20h",
+      "outputs": ["M2.2_river_civilizations.csv"]
+    },
+    {
+      "id": "M2.3",
+      "title": "哥伦布交换复现（瘟疫差异化打击）",
+      "claims": ["C2.3"],
+      "type": "local",
+      "priority": "P3",
+      "config": {
+        "initial_particles": 50000,
+        "total_steps": 15000,
+        "barrier_removal_step": 5000,
+        "plague_enabled": true,
+        "dual_continent_terrain": true
+      },
+      "metrics": ["N_A(t)", "N_B(t)", "mortality_ratio", "ecological_succession"],
+      "seeds": [42],
+      "estimated_runtime": "10h",
+      "requires": "双大陆地形配置（需新实现）",
+      "outputs": ["M2.3_columbian_exchange.csv"]
+    },
+    {
+      "id": "M2.4",
+      "title": "ε 跃迁 → 社会相变因果链",
+      "claims": ["C2.4"],
+      "type": "local",
+      "priority": "P2",
+      "config": {
+        "initial_particles": 50000,
+        "total_steps": 20000,
+        "scan_params": {
+          "jump_base_rate": [1e-6, 1e-5, 5e-5, 1e-4]
+        }
+      },
+      "metrics": ["mean_epsilon(t)", "N_growth_post_jump", "H_increase_post_jump", "phase_transition_events"],
+      "seeds": [42],
+      "estimated_runtime": "4×8h≈32h",
+      "outputs": ["M2.4_epsilon_phase.csv"]
+    },
+    {
+      "id": "M2.5",
+      "title": "(T, exchange_rate) 制度相图",
+      "claims": ["C2.5"],
+      "type": "local",
+      "priority": "P2",
+      "config": {
+        "initial_particles": 50000,
+        "total_steps": 10000,
+        "scan_params": {
+          "temperature": [0.5, 1.0, 2.0, 3.0, 5.0],
+          "exchange_rate": [0.001, 0.003, 0.01, 0.03, 0.1]
+        },
+        "total_combinations": 25
+      },
+      "metrics": ["Gini", "H", "C", "F", "Ψ", "empire_count", "state_count"],
+      "seeds": [42],
+      "estimated_runtime": "25×3h≈75h",
+      "outputs": ["M2.5_regime_phase_diagram.png"]
+    }
+  ],
+  "computational_strategy": {
+    "approach": "P0实验先在本地MacBook快速验证(1000-10000粒子)，P1+实验部署到Zeus A100 (48核OpenMP)",
+    "evidence_role": "screening",
+    "notes": "P0实验规模小，本地单机即可。P1实验(≥50K粒子)需要Zeus的48核OpenMP加速。"
+  }
+}

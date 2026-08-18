@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "required": [
+    "action",
+    "rationale",
+    "unresolved_items",
+    "budget_effect",
+    "next_cycle_scope"
+  ],
+  "properties": {
+    "action": {
+      "enum": ["continue", "revise", "replan", "request_human", "stop_request"]
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "unresolved_items": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "budget_effect": { "type": "string" },
+    "next_cycle_scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

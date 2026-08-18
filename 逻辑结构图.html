@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoResearcher 逻辑结构</title>
+<style>
+  :root{
+    --bg:#0c111c; --ink:#e9eef8; --sub:#8fa0c0; --line:#2c3856;
+    --llm:#3182ce; --llmbg:#16233c;
+    --gate:#e74c3c; --gatebg:#331a1a;
+    --human:#e0a83a; --humanbg:#332913;
+    --mem:#9b59b6; --membg:#271836;
+    --art:#26a37f; --artbg:#12241d;
+    --loopa:#16223a; --loopb:#211b33;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1300px 900px at 50% -12%,#141e34,#0c111c);
+    color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;
+    padding:26px 20px 70px;line-height:1.5}
+  .wrap{max-width:1240px;margin:0 auto}
+  h1{font-size:23px;margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:8px}
+  .tabs{display:flex;gap:8px;margin:16px 0 22px;flex-wrap:wrap}
+  .tab{padding:7px 15px;border-radius:20px;border:1px solid var(--line);background:#141d30;
+    color:var(--sub);font-size:13px;cursor:pointer;user-select:none;transition:.15s}
+  .tab.on{background:#1f3054;color:#dce7fb;border-color:#3a568f}
+  .view{display:none} .view.on{display:block}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 20px;font-size:12px;color:var(--sub)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  /* layered governance */
+  .layer{border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid var(--line);position:relative}
+  .layer h2{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:9px}
+  .layer .role{font-size:12px;color:var(--sub);margin-bottom:13px}
+  .tag{font-size:10.5px;padding:2px 9px;border-radius:20px;font-weight:700}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:11px}
+  .c{background:#111a2b;border:1px solid var(--line);border-radius:11px;padding:12px}
+  .c .t{font-weight:700;font-size:13px} .c .d{color:var(--sub);font-size:11.5px;margin-top:4px}
+  .llm{background:linear-gradient(180deg,var(--llmbg),#101a2e);border-color:#2a4066}
+  .gate{background:linear-gradient(180deg,var(--gatebg),#1c1010);border-color:#5a2626}
+  .human{background:linear-gradient(180deg,var(--humanbg),#1e1608);border-color:#5a4620}
+  .mem{background:linear-gradient(180deg,var(--membg),#160d1f);border-color:#4a2c5e}
+  .c.gate{border-left:4px solid var(--gate)} .c.llm{border-left:4px solid var(--llm)}
+  .c.human{border-left:4px solid var(--human)} .c.mem{border-left:4px solid var(--mem)}
+  .flowdown{text-align:center;color:var(--sub);font-size:22px;margin:2px 0}
+  .between{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:6px 0}
+  .pill{font-size:11px;color:var(--sub);background:#0f1626;border:1px solid var(--line);
+    border-radius:20px;padding:3px 11px}
+
+  /* workflow view */
+  .loop{border-radius:15px;padding:15px;margin-bottom:12px;border:1px solid var(--line)}
+  .loopA{background:linear-gradient(180deg,var(--loopa),#101a2e)}
+  .loopB{background:linear-gradient(180deg,var(--loopb),#141026)}
+  .lt{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--sub);text-transform:uppercase;margin:0 0 12px}
+  .flow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .node{background:#16203400;border:1px solid var(--line);border-radius:11px;padding:10px 12px;min-width:120px;background:#131c2e}
+  .node .t{font-weight:700;font-size:13px}.node .d{color:var(--sub);font-size:11px;margin-top:3px}
+  .node.s{border-left:4px solid var(--llm)} .node.g{border-left:4px solid var(--gate);background:#241414}
+  .node.g .t{color:#ff9d8a} .node.a{border-left:4px solid var(--art)} .node.h{border-left:4px solid var(--human);background:#241d0e}
+  .node.h .t{color:#ffd766}
+  .arw{color:var(--sub);font-size:19px} .feed{font-size:11px;color:#c98a5e;width:100%;margin-top:7px}
+  .decision{background:#1c2b49;border:1px dashed #40568a;border-radius:9px;padding:8px 12px;font-size:12px;color:#bcd0f2;font-weight:600}
+
+  /* chain */
+  .chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#101828;border:1px solid var(--line);border-radius:13px;padding:15px}
+  .chip{background:#0f1728;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11.5px;font-family:ui-monospace,Menlo,monospace;color:#a8c5f0}
+
+  /* ratchet loop */
+  .ratchet{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;position:relative}
+  .rstep{background:#141d2f;border:1px solid var(--line);border-radius:12px;padding:13px}
+  .rstep .n{font-size:11px;color:var(--mem);font-weight:700} .rstep .t{font-weight:700;font-size:13px;margin:4px 0}
+  .rstep .d{font-size:11.5px;color:var(--sub)}
+  .rstep.gatehuman{border-color:var(--human);background:#231b0d}
+  .rback{text-align:center;color:var(--mem);font-size:12px;margin-top:12px;font-weight:600}
+  .note{font-size:12px;color:var(--sub);margin-top:10px;padding:10px 13px;background:#101828;border-radius:10px;border:1px solid var(--line)}
+  @media(max-width:820px){.ratchet{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AutoResearcher · 项目逻辑结构</h1>
+  <div class="sub">治理分层 · 工作流循环 · 证据链 · 记忆棘轮反馈 —— 切换下方标签查看不同视角</div>
+
+  <div class="tabs">
+    <div class="tab on" data-v="gov">① 治理分层</div>
+    <div class="tab" data-v="flow">② 工作流循环</div>
+    <div class="tab" data-v="chain">③ 证据链</div>
+    <div class="tab" data-v="ratchet">④ 记忆棘轮</div>
+  </div>
+
+  <!-- ① 治理分层 -->
+  <div class="view on" id="gov">
+    <div class="legend">
+      <span><i class="dot" style="background:var(--llm)"></i>LLM Agent（判断）</span>
+      <span><i class="dot" style="background:var(--gate)"></i>确定性 Gate（验证）</span>
+      <span><i class="dot" style="background:var(--mem)"></i>记忆棘轮（沉淀）</span>
+      <span><i class="dot" style="background:var(--human)"></i>人类（边界）</span>
+    </div>
+
+    <div class="layer llm">
+      <h2>① LLM Agent 层 <span class="tag" style="background:var(--llm);color:#fff">做科学判断</span></h2>
+      <div class="role">Cursor / Codex 读取 autoresearcher.md，在每个 Stage 用干净 session 操作研究目录</div>
+      <div class="cards">
+        <div class="c llm"><div class="t">提出 / 收缩 claim</div><div class="d">假设、方向、范围</div></div>
+        <div class="c llm"><div class="t">设计实验</div><div class="d">baseline / ablation / 参数 / 算法</div></div>
+        <div class="c llm"><div class="t">解释证据</div><div class="d">supported / contradicted</div></div>
+        <div class="c llm"><div class="t">写作 / 模拟审稿</div><div class="d">长文 → 凝练 → review</div></div>
+        <div class="c llm"><div class="t">策略跳转</div><div class="d">replan / revise / continue</div></div>
+      </div>
+    </div>
+
+    <div class="between"><span class="pill">JSON 契约下行 ↓</span><span class="pill">pass / blocked 反馈 ↑</span></div>
+
+    <div class="layer gate">
+      <h2>② 确定性 Gate 层 <span class="tag" style="background:var(--gate);color:#fff">不做科学判断 · 不可绕过</span></h2>
+      <div class="role">纯确定性验证：结构完整、证据对应、复现约束。任一不过即打回上层</div>
+      <div class="cards">
+        <div class="c gate"><div class="t">preflight</div><div class="d">commit≠dirty · env · seed(P0≥3) · artifact · 计算策略</div></div>
+        <div class="c gate"><div class="t">jobctl</div><div class="d">幂等提交 · 轮询 · 崩溃恢复 · reconcile 产物核对</div></div>
+        <div class="c gate"><div class="t">audit</div><div class="d">证据链 · SHA-256 · NaN/Inf · claim 三层闭环</div></div>
+      </div>
+    </div>
+
+    <div class="between"><span class="pill">失败事件下沉 ↓</span><span class="pill">规则上升（人批）↑</span></div>
+
+    <div class="layer mem">
+      <h2>③ 记忆棘轮层 <span class="tag" style="background:var(--mem);color:#fff">沉淀经验 · 半自动</span></h2>
+      <div class="role">把 Gate/策略/人类否决的失败沉淀为经验；稳定经验经人类批准固化为规则</div>
+      <div class="cards">
+        <div class="c mem"><div class="t">失败卡片（自动写）</div><div class="d">memory/lessons.json · proposed</div></div>
+        <div class="c mem"><div class="t">去重合并（自动）</div><div class="d">hits 累加 · 生命周期管理</div></div>
+        <div class="c mem"><div class="t">提升为规则（人批）</div><div class="d">adopted → rules/ 或 Gate 代码</div></div>
+      </div>
+    </div>
+
+    <div class="between"><span class="pill">request_human / stop_request ↓</span><span class="pill">批准预算·权限·发布 ↑</span></div>
+
+    <div class="layer human">
+      <h2>④ 人类边界层 <span class="tag" style="background:var(--human);color:#000">只在边界介入</span></h2>
+      <div class="role">框架不替人类决定这些；也是记忆棘轮"改框架"的唯一闸门</div>
+      <div class="cards">
+        <div class="c human"><div class="t">预算</div><div class="d">token / GPU-hour / cycle</div></div>
+        <div class="c human"><div class="t">权限</div><div class="d">账号 / 数据 / 主机 / 许可</div></div>
+        <div class="c human"><div class="t">发布</div><div class="d">submit / terminate</div></div>
+        <div class="c human"><div class="t">规则提升审批</div><div class="d">proposed → adopted 点头</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 工作流循环 -->
+  <div class="view" id="flow">
+    <div class="loop loopA">
+      <div class="lt">循环 A · 证据驱动</div>
+      <div class="flow">
+        <div class="node a"><div class="t">question.md</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">PLAN</div><div class="d">→ plan.json</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">EXPERIMENT 设计</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">代码对齐审查</div></div><span class="arw">→</span>
+        <div class="node g"><div class="t">preflight</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">jobctl 执行</div><div class="d">→ jobs/</div></div><span class="arw">→</span>
+        <div class="node g"><div class="t">reconcile</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">ANALYZE</div><div class="d">→ findings.json</div></div>
+      </div>
+      <div class="feed">blocked → 退回设计 ｜ 缺产物 → 重跑 ｜ unresolved → replan 回 PLAN（新 cycle）</div>
+    </div>
+    <div class="between"><div class="decision">全部 supported → 进入循环 B</div></div>
+    <div class="loop loopB">
+      <div class="lt">循环 B · 论文与审稿</div>
+      <div class="flow">
+        <div class="node s"><div class="t">WRITE-COMPREHENSIVE</div><div class="d">完整长文（不审稿）</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">WRITE-JOURNAL</div><div class="d">凝练投稿版</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">REVIEW</div><div class="d">3 隔离 Agent 审稿</div></div><span class="arw">→</span>
+        <div class="node s"><div class="t">DECIDE</div><div class="d">→ decision_packet</div></div><span class="arw">→</span>
+        <div class="node g"><div class="t">audit</div></div><span class="arw">→</span>
+        <div class="node h"><div class="t">人类决策</div><div class="d">submit / revise / replan</div></div>
+      </div>
+      <div class="feed">revise → 回 WRITE-JOURNAL ｜ replan（缺实验/方法缺陷）→ 回循环 A ｜ audit 未过 → 退回补证据</div>
+    </div>
+  </div>
+
+  <!-- ③ 证据链 -->
+  <div class="view" id="chain">
+    <div class="chain">
+      <span class="chip">question.md</span><span class="arw">→</span>
+      <span class="chip">plan.json</span><span class="arw">→</span>
+      <span class="chip">jobs/*/manifest.json</span><span class="arw">→</span>
+      <span class="chip">findings.json</span><span class="arw">→</span>
+      <span class="chip">paper/comprehensive/</span><span class="arw">→</span>
+      <span class="chip">paper/&lt;journal&gt;/</span><span class="arw">→</span>
+      <span class="chip">reviews.json</span><span class="arw">→</span>
+      <span class="chip">decision_packet.json</span><span class="arw">→</span>
+      <span class="chip">reproducibility-bundle.json</span>
+    </div>
+    <div class="note"><b>audit 强制的三层 ID 闭环</b>（任一断裂即 blocked）：
+      plan.json <code>claim.id</code> ↔ findings.json <code>claim_id</code> ↔ paper claims.json <code>claim_id → evidence[]</code>；
+      每个 evidence 文件必须：存在 · 非空 · SHA 匹配 · 无 NaN/Inf · 相对路径不逃逸。</div>
+    <div class="note">贯穿全程：<b>state.md</b>（当前进度，可恢复）· <b>versions/cycle-n/</b>（历史归档）· 每个 Stage 开干净 session，Stage 间只通过落盘文件传递上下文。</div>
+  </div>
+
+  <!-- ④ 记忆棘轮 -->
+  <div class="view" id="ratchet">
+    <div class="ratchet">
+      <div class="rstep"><div class="n">触发</div><div class="t">失败事件</div><div class="d">preflight/audit blocked · job_failed · replan · human_reject</div></div>
+      <div class="rstep"><div class="n">自动</div><div class="t">写失败卡片</div><div class="d">追加到 lessons.json，status=proposed，机械填 symptom</div></div>
+      <div class="rstep"><div class="n">自动</div><div class="t">去重 + 累加 hits</div><div class="d">同类不新建，hits+1，更新 last_hit</div></div>
+      <div class="rstep gatehuman"><div class="n">人类闸门</div><div class="t">提升为规则</div><div class="d">hits≥阈值 且 人类确认 → adopted，写入 rules/ 或 Gate</div></div>
+    </div>
+    <div class="rback">↑ 新规则强化 Gate → 同类失败结构上不再发生（棘轮不回退）</div>
+    <div class="note"><b>核心安全约束：</b>沉淀（写卡片、去重）可自动；<b>改框架（proposed→adopted）必须人批</b>。
+      否则 Agent 可能把"被 audit 拦住"自我合理化成"audit 太严"并放松 Gate —— 棘轮反向转。</div>
+    <div class="note"><b>闭环验证：</b>规则 adopted 前后，对比其 root_cause 对应的 hits 增长是否停止；用 versions/cycle-n 的历史数据说话，不靠 Agent 自评。</div>
+  </div>
+</div>
+
+<script>
+  const tabs=document.querySelectorAll('.tab'),views=document.querySelectorAll('.view');
+  tabs.forEach(t=>t.addEventListener('click',()=>{
+    tabs.forEach(x=>x.classList.remove('on'));views.forEach(v=>v.classList.remove('on'));
+    t.classList.add('on');document.getElementById(t.dataset.v).classList.add('on');
+  }));
+</script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "required": [
+    "simulated",
+    "verdict",
+    "strengths",
+    "weaknesses",
+    "actionable_items"
+  ],
+  "properties": {
+    "simulated": { "enum": [true] },
+    "verdict": { "type": "string", "minLength": 1 },
+    "strengths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "weaknesses": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "actionable_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "severity",
+          "type",
+          "evidence_ref",
+          "requested_action",
+          "acceptance_criterion"
+        ],
+        "properties": {
+          "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+          "type": { "type": "string", "minLength": 1 },
+          "evidence_ref": { "type": "string", "minLength": 1 },
+          "requested_action": { "type": "string", "minLength": 1 },
+          "acceptance_criterion": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

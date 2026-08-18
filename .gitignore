@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.nav
+*.snm
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jobs / temporary
+research/jobs/*/workspace/
+.autoresearcher/jobs/
+*.tar.gz.part
+# arXiv 投稿包（make arxiv 的确定性生成物，源是 paper/comprehensive/main.tex）
+research/paper/arxiv/
+# 运行态（state/logs/lock）不进 git；cycles/ 归档（决策理由与周期快照）进 git
+.autoresearcher/orchestrator/*
+!.autoresearcher/orchestrator/cycles/
+
+# IDE
+.cursor-index/
+.cursorignore

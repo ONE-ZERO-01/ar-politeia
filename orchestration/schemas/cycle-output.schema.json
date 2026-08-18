@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "required": [
+    "project",
+    "cycle",
+    "claims",
+    "evidence_paths",
+    "unresolved_risks",
+    "recommended_next_action"
+  ],
+  "properties": {
+    "project": { "type": "string", "minLength": 1 },
+    "cycle": { "type": "integer" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "verdict"],
+        "properties": {
+          "claim_id": { "type": "string", "minLength": 1 },
+          "verdict": {
+            "enum": ["supported", "contradicted", "inconclusive"]
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "evidence_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "unresolved_risks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "recommended_next_action": { "type": "string", "minLength": 1 }
+  }
+}

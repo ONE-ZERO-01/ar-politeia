@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoResearcher 多 Agent 逻辑关系审核图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #132238;
+      --muted: #607089;
+      --border: #d9e1ec;
+      --edge: #8796aa;
+      --agent: #4667d9;
+      --agent-soft: #eef2ff;
+      --barrier: #c17a18;
+      --barrier-soft: #fff7e8;
+      --gate: #c84949;
+      --gate-soft: #fff0f0;
+      --decision: #7a4db4;
+      --decision-soft: #f6efff;
+      --human: #218464;
+      --human-soft: #ebf8f3;
+      --input: #466078;
+      --input-soft: #eef3f7;
+      --loop: #a84490;
+      --shadow: 0 10px 30px rgba(34, 53, 84, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #0e1521;
+        --surface: #151f2d;
+        --surface-2: #111a27;
+        --text: #e9eff8;
+        --muted: #a3b0c1;
+        --border: #2b3a4e;
+        --edge: #60728a;
+        --agent: #86a0ff;
+        --agent-soft: #202d52;
+        --barrier: #f1b457;
+        --barrier-soft: #3a2c18;
+        --gate: #f08383;
+        --gate-soft: #402425;
+        --decision: #c39aee;
+        --decision-soft: #342548;
+        --human: #65c7a4;
+        --human-soft: #1b382f;
+        --input: #a6bed4;
+        --input-soft: #243342;
+        --loop: #e18bcc;
+        --shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--agent) 8%, transparent), transparent 26rem),
+        radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--decision) 8%, transparent), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .page {
+      width: min(1500px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(25px, 3vw, 40px);
+      font-weight: 650;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid color-mix(in srgb, var(--barrier) 35%, var(--border));
+      border-radius: 999px;
+      background: var(--barrier-soft);
+      color: var(--text);
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--barrier);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--barrier) 15%, transparent);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card {
+      min-height: 88px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      box-shadow: var(--shadow);
+    }
+
+    .summary-label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .summary-value {
+      font-size: 23px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-unit {
+      margin-left: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-bottom: 0;
+      border-radius: 18px 18px 0 0;
+      background: var(--surface);
+    }
+
+    .filters,
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-btn {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 11px;
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .filter-btn:hover,
+    .filter-btn:focus-visible {
+      border-color: var(--agent);
+      outline: none;
+    }
+
+    .filter-btn.is-active {
+      border-color: var(--text);
+      background: var(--text);
+      color: var(--surface);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend-mark {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      background: var(--input);
+    }
+
+    .legend-mark.agent { background: var(--agent); }
+    .legend-mark.barrier { background: var(--barrier); transform: rotate(45deg); }
+    .legend-mark.gate { background: var(--gate); border-radius: 50%; }
+    .legend-mark.decision { background: var(--decision); }
+    .legend-mark.human { background: var(--human); border-radius: 50%; }
+
+    .diagram-shell {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 0 0 18px 18px;
+      background:
+        linear-gradient(var(--surface-2) 1px, transparent 1px),
+        linear-gradient(90deg, var(--surface-2) 1px, transparent 1px),
+        var(--surface);
+      background-size: 28px 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .diagram {
+      position: relative;
+      min-width: 1120px;
+      min-height: 1410px;
+      padding: 34px;
+    }
+
+    .lane-label {
+      position: absolute;
+      left: 16px;
+      z-index: 3;
+      padding: 4px 8px;
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .lane-line {
+      position: absolute;
+      right: 28px;
+      left: 28px;
+      z-index: 0;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .node-layer {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(135px, 1fr));
+      grid-template-rows: repeat(11, 94px);
+      gap: 24px 18px;
+      min-height: 1340px;
+    }
+
+    .node {
+      position: relative;
+      align-self: center;
+      min-height: 68px;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--input);
+      border-radius: 14px;
+      background: var(--surface);
+      color: var(--text);
+      text-align: left;
+      box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 7%, transparent);
+      cursor: pointer;
+      transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .node:hover,
+    .node:focus-visible {
+      z-index: 4;
+      outline: none;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px color-mix(in srgb, var(--text) 13%, transparent);
+    }
+
+    .node.is-selected {
+      z-index: 4;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent) 35%, transparent), var(--shadow);
+    }
+
+    .node.is-related {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--barrier) 32%, transparent);
+    }
+
+    .node.is-dimmed {
+      opacity: 0.15;
+    }
+
+    .node.agent {
+      border-left-color: var(--agent);
+      background: linear-gradient(135deg, var(--surface), var(--agent-soft));
+    }
+
+    .node.barrier {
+      border-left-color: var(--barrier);
+      background: linear-gradient(135deg, var(--surface), var(--barrier-soft));
+    }
+
+    .node.gate {
+      border-left-color: var(--gate);
+      background: linear-gradient(135deg, var(--surface), var(--gate-soft));
+    }
+
+    .node.decision {
+      border-left-color: var(--decision);
+      background: linear-gradient(135deg, var(--surface), var(--decision-soft));
+    }
+
+    .node.human {
+      border-left-color: var(--human);
+      background: linear-gradient(135deg, var(--surface), var(--human-soft));
+    }
+
+    .node.input {
+      border-left-color: var(--input);
+      background: linear-gradient(135deg, var(--surface), var(--input-soft));
+    }
+
+    .node-kind {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .node-title {
+      display: block;
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .node-subtitle {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .edge-layer {
+      position: absolute;
+      inset: 34px;
+      z-index: 1;
+      width: calc(100% - 68px);
+      height: calc(100% - 68px);
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .edge {
+      fill: none;
+      stroke: var(--edge);
+      stroke-width: 1.7;
+      opacity: 0.72;
+      marker-end: url(#arrow);
+      transition: opacity 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
+    }
+
+    .edge.conditional {
+      stroke-dasharray: 7 6;
+    }
+
+    .edge.loop {
+      stroke: var(--loop);
+      stroke-dasharray: 5 5;
+    }
+
+    .edge.is-selected {
+      stroke: var(--agent);
+      stroke-width: 3;
+      opacity: 1;
+    }
+
+    .edge.is-dimmed {
+      opacity: 0.08;
+    }
+
+    .edge-label {
+      fill: var(--muted);
+      font-size: 10px;
+      paint-order: stroke;
+      stroke: var(--surface);
+      stroke-width: 5px;
+      stroke-linejoin: round;
+    }
+
+    .detail {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.8fr) minmax(0, 2.2fr) minmax(180px, 1fr);
+      gap: 18px;
+      margin-top: 14px;
+      padding: 18px 20px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .detail-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .detail-title {
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .detail-text {
+      margin: 0;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .detail-contract {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .review-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .page {
+        width: min(100% - 20px, 1500px);
+        padding-top: 22px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .detail {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .control-bar {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>AutoResearcher 多 Agent 逻辑关系审核图</h1>
+        <p class="subtitle">从研究问题并行拆分，到证据汇总、双期刊写作、隔离审稿、策略分流、确定性审计与有限循环。</p>
+      </div>
+      <div class="status"><span class="status-dot"></span>设计草案 · 未启动真实 Agent</div>
+    </header>
+
+    <section class="summary-grid" aria-label="结构摘要">
+      <div class="summary-card">
+        <span class="summary-label">执行图规模</span>
+        <span class="summary-value">20<span class="summary-unit">个可执行节点</span></span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">一级研究并行</span>
+        <span class="summary-value">3<span class="summary-unit">个方向 Agent</span></span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">投稿与审稿并行</span>
+        <span class="summary-value">2 + 6<span class="summary-unit">写作 + 审稿</span></span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">循环硬上限</span>
+        <span class="summary-value">5<span class="summary-unit">个 cycle</span></span>
+      </div>
+    </section>
+
+    <section aria-label="项目逻辑关系图">
+      <div class="control-bar">
+        <div class="filters" aria-label="视图筛选">
+          <button class="filter-btn is-active" type="button" data-filter="all">全图</button>
+          <button class="filter-btn" type="button" data-filter="agent">只看 Agent</button>
+          <button class="filter-btn" type="button" data-filter="control">只看控制与 Gate</button>
+        </div>
+        <div class="legend" aria-label="图例">
+          <span class="legend-item"><span class="legend-mark agent"></span>Agent</span>
+          <span class="legend-item"><span class="legend-mark barrier"></span>Barrier</span>
+          <span class="legend-item"><span class="legend-mark gate"></span>Gate</span>
+          <span class="legend-item"><span class="legend-mark decision"></span>Strategy</span>
+          <span class="legend-item"><span class="legend-mark human"></span>人类边界</span>
+        </div>
+      </div>
+
+      <div class="diagram-shell">
+        <div id="diagram" class="diagram">
+          <span class="lane-label" style="top: 18px">输入</span>
+          <span class="lane-line" style="top: 136px"></span>
+          <span class="lane-label" style="top: 150px">研究并行</span>
+          <span class="lane-line" style="top: 500px"></span>
+          <span class="lane-label" style="top: 514px">写作与审稿</span>
+          <span class="lane-line" style="top: 973px"></span>
+          <span class="lane-label" style="top: 987px">决策、Gate 与循环</span>
+          <svg id="edge-layer" class="edge-layer" aria-hidden="true">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L8,4 L0,8 Z" fill="var(--edge)"></path>
+              </marker>
+            </defs>
+          </svg>
+          <div id="node-layer" class="node-layer"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="detail" aria-live="polite" aria-label="所选节点说明">
+      <div>
+        <span class="detail-label">当前选择</span>
+        <div id="detail-title" class="detail-title">点击任意节点查看职责</div>
+      </div>
+      <div>
+        <span class="detail-label">主要逻辑</span>
+        <p id="detail-text" class="detail-text">实线表示强依赖；虚线表示条件分支；紫色回路表示 replan / revise 后进入下一 cycle。任一节点失败，只阻断其下游，无关分支继续执行。</p>
+      </div>
+      <div>
+        <span class="detail-label">文件契约 / 控制条件</span>
+        <div id="detail-contract" class="detail-contract">Agent 之间不共享对话，只通过声明的非空文件输入输出通信。</div>
+      </div>
+    </section>
+
+    <p class="review-note">审核重点：A/B/C 是否应并行；Synthesis 是否必须等待三方向；六个审稿视角是否足够；Strategy 的五种动作是否完整；Audit 与人类边界是否放在正确位置。</p>
+  </main>
+
+  <script>
+    (() => {
+      const nodes = [
+        {
+          id: "question",
+          kind: "input",
+          group: "control",
+          title: "研究问题与项目配置",
+          subtitle: "question.md · project.json · rules/",
+          row: 1,
+          col: "3 / span 2",
+          detail: "定义研究问题、预算、目标期刊和人工边界，是全图的共同输入。",
+          contract: "输入：question.md / project.json / rules/*"
+        },
+        {
+          id: "direction_a",
+          kind: "agent",
+          group: "agent",
+          title: "方向 A Agent",
+          subtitle: "CTC 形成临界动力学",
+          row: 2,
+          col: "1 / span 2",
+          detail: "独立完成方向 A 的计划、实验、分析和方向级证据判断，不读取其他方向的隐式会话。",
+          contract: "输出：direction-A/.../cycle-output.json"
+        },
+        {
+          id: "direction_b",
+          kind: "agent",
+          group: "agent",
+          title: "方向 B Agent",
+          subtitle: "固定 CTC 背景混沌",
+          row: 2,
+          col: "3 / span 2",
+          detail: "独立完成方向 B 的研究 cycle，可与 A、C 同时运行。",
+          contract: "输出：direction-B/.../cycle-output.json"
+        },
+        {
+          id: "direction_c",
+          kind: "agent",
+          group: "agent",
+          title: "方向 C Agent",
+          subtitle: "BKL 振荡与数值相对论",
+          row: 2,
+          col: "5 / span 2",
+          detail: "独立完成方向 C 的研究 cycle，并通过资源锁避免与其他 GPU 任务冲突。",
+          contract: "输出：direction-C/.../cycle-output.json"
+        },
+        {
+          id: "directions_ready",
+          kind: "barrier",
+          group: "control",
+          title: "方向汇合 Barrier",
+          subtitle: "等待 A + B + C 全部完成",
+          row: 3,
+          col: "3 / span 2",
+          detail: "这是第一处强汇合屏障。三方向中任一失败，Synthesis 都不会提前启动。",
+          contract: "条件：A、B、C = SUCCEEDED"
+        },
+        {
+          id: "synthesis",
+          kind: "agent",
+          group: "agent",
+          title: "Synthesis Agent",
+          subtitle: "跨方向证据映射与冲突检查",
+          row: 4,
+          col: "3 / span 2",
+          detail: "汇总三方向结果，保留反证与不确定性，只形成有证据映射的跨方向结论。",
+          contract: "输出：synthesis/orchestration/synthesis.json"
+        },
+        {
+          id: "journal_nature",
+          kind: "agent",
+          group: "agent",
+          title: "Nature 写作 Agent",
+          subtitle: "Broad-impact 叙事",
+          row: 5,
+          col: "1 / span 3",
+          detail: "从统一 synthesis 生成 Nature 定位稿件，与 PRL 分支并行，互不覆盖产物。",
+          contract: "输出：nature-draft.md"
+        },
+        {
+          id: "journal_prl",
+          kind: "agent",
+          group: "agent",
+          title: "PRL 写作 Agent",
+          subtitle: "短篇物理主张凝练",
+          row: 5,
+          col: "4 / span 3",
+          detail: "从相同 synthesis 生成 PRL 定位稿件，与 Nature 分支并行。",
+          contract: "输出：prl-draft.md"
+        },
+        {
+          id: "nature_prof",
+          kind: "agent",
+          group: "agent",
+          title: "Nature 专业审稿",
+          subtitle: "科学定位与新意",
+          row: 6,
+          col: "1",
+          detail: "独立模拟专业审稿，不读取另外两位 Nature reviewer 的输出。",
+          contract: "输出：nature-professional.json"
+        },
+        {
+          id: "nature_broad",
+          kind: "agent",
+          group: "agent",
+          title: "Nature 广泛影响审稿",
+          subtitle: "跨领域意义与叙事",
+          row: 6,
+          col: "2",
+          detail: "从 broad-impact 视角独立评估稿件。",
+          contract: "输出：nature-broad.json"
+        },
+        {
+          id: "nature_tech",
+          kind: "agent",
+          group: "agent",
+          title: "Nature 技术审稿",
+          subtitle: "方法、误差与复现",
+          row: 6,
+          col: "3",
+          detail: "核对方法、统计、证据路径和可复现性。",
+          contract: "输出：nature-technical.json"
+        },
+        {
+          id: "prl_prof",
+          kind: "agent",
+          group: "agent",
+          title: "PRL 专业审稿",
+          subtitle: "物理主张与期刊门槛",
+          row: 6,
+          col: "4",
+          detail: "独立判断主张强度与 PRL 适配性。",
+          contract: "输出：prl-professional.json"
+        },
+        {
+          id: "prl_broad",
+          kind: "agent",
+          group: "agent",
+          title: "PRL 影响力审稿",
+          subtitle: "重要性与可读性",
+          row: 6,
+          col: "5",
+          detail: "独立检查短稿的影响力表达和叙事完整度。",
+          contract: "输出：prl-broad.json"
+        },
+        {
+          id: "prl_tech",
+          kind: "agent",
+          group: "agent",
+          title: "PRL 技术审稿",
+          subtitle: "证据链与反例",
+          row: 6,
+          col: "6",
+          detail: "独立检查证据链、反例、误差和复现边界。",
+          contract: "输出：prl-technical.json"
+        },
+        {
+          id: "reviews_ready",
+          kind: "barrier",
+          group: "control",
+          title: "审稿汇合 Barrier",
+          subtitle: "等待 2 × 3 隔离审稿",
+          row: 7,
+          col: "3 / span 2",
+          detail: "Strategy 必须等待六份独立审稿全部完成，不能只挑选有利意见。",
+          contract: "条件：六份 review JSON 均非空"
+        },
+        {
+          id: "strategy",
+          kind: "decision",
+          group: "control",
+          title: "Strategy Agent",
+          subtitle: "唯一 cycle 路由决策者",
+          row: 8,
+          col: "3 / span 2",
+          detail: "综合证据、审稿、预算和未解决风险，选择 continue、revise、replan、request_human 或 stop_request。",
+          contract: "输出：strategy.json → action"
+        },
+        {
+          id: "audit",
+          kind: "gate",
+          group: "control",
+          title: "Audit Gate",
+          subtitle: "action = continue",
+          row: 9,
+          col: "1 / span 2",
+          detail: "只有 Strategy 选择 continue 才执行确定性证据链审计；未通过则不能进入提交边界。",
+          contract: "检查：claim ↔ finding ↔ evidence / SHA-256"
+        },
+        {
+          id: "repeat",
+          kind: "barrier",
+          group: "control",
+          title: "Replan / Revise",
+          subtitle: "进入下一 cycle",
+          row: 9,
+          col: "3",
+          detail: "replan 会补实验，revise 会重写论文。两者都触发下一 cycle，并受 max_cycles 限制。",
+          contract: "条件：action ∈ {replan, revise}"
+        },
+        {
+          id: "request_human",
+          kind: "human",
+          group: "control",
+          title: "请求人类决策",
+          subtitle: "预算 · 权限 · 数据",
+          row: 9,
+          col: "4 / span 2",
+          detail: "当任务需要新增预算、权限、数据或政策判断时暂停自动执行。",
+          contract: "条件：action = request_human"
+        },
+        {
+          id: "stop",
+          kind: "human",
+          group: "control",
+          title: "停止建议",
+          subtitle: "等待人类确认",
+          row: 9,
+          col: "6",
+          detail: "Agent 只能提出停止建议，正式终止仍由人类确认。",
+          contract: "条件：action = stop_request"
+        },
+        {
+          id: "cycle_complete",
+          kind: "barrier",
+          group: "control",
+          title: "Cycle Controller",
+          subtitle: "归档状态 · max_cycles ≤ 5",
+          row: 10,
+          col: "2 / span 2",
+          detail: "归档本轮状态；若是 replan/revise 且未达到上限，则重置节点状态并进入下一轮。",
+          contract: ".autoresearcher/orchestrator/cycles/cycle-n.state.json"
+        },
+        {
+          id: "human_boundary",
+          kind: "human",
+          group: "control",
+          title: "最终人类边界",
+          subtitle: "submit · revise · replan · terminate",
+          row: 10,
+          col: "4 / span 2",
+          detail: "Audit 通过或系统请求人工介入后，由人类作最终发布、返工或终止决定。",
+          contract: "正式投稿与对外发布不可自动完成"
+        },
+        {
+          id: "publish",
+          kind: "human",
+          group: "control",
+          title: "发布 / 投稿",
+          subtitle: "系统外部动作",
+          row: 11,
+          col: "4 / span 2",
+          detail: "发布不是 Agent 节点；必须由人类在审核决策包和审计结果后执行。",
+          contract: "外部状态变更：需人类授权"
+        }
+      ];
+
+      const edges = [
+        ["question", "direction_a"],
+        ["question", "direction_b"],
+        ["question", "direction_c"],
+        ["direction_a", "directions_ready"],
+        ["direction_b", "directions_ready"],
+        ["direction_c", "directions_ready"],
+        ["directions_ready", "synthesis"],
+        ["synthesis", "journal_nature"],
+        ["synthesis", "journal_prl"],
+        ["journal_nature", "nature_prof"],
+        ["journal_nature", "nature_broad"],
+        ["journal_nature", "nature_tech"],
+        ["journal_prl", "prl_prof"],
+        ["journal_prl", "prl_broad"],
+        ["journal_prl", "prl_tech"],
+        ["nature_prof", "reviews_ready"],
+        ["nature_broad", "reviews_ready"],
+        ["nature_tech", "reviews_ready"],
+        ["prl_prof", "reviews_ready"],
+        ["prl_broad", "reviews_ready"],
+        ["prl_tech", "reviews_ready"],
+        ["reviews_ready", "strategy"],
+        ["strategy", "audit", "conditional", "continue"],
+        ["strategy", "repeat", "conditional", "replan / revise"],
+        ["strategy", "request_human", "conditional", "request_human"],
+        ["strategy", "stop", "conditional", "stop"],
+        ["audit", "human_boundary"],
+        ["repeat", "cycle_complete"],
+        ["request_human", "human_boundary"],
+        ["stop", "human_boundary"],
+        ["cycle_complete", "question", "loop", "next cycle"],
+        ["human_boundary", "publish"]
+      ];
+
+      const layer = document.getElementById("node-layer");
+      const svg = document.getElementById("edge-layer");
+      const detailTitle = document.getElementById("detail-title");
+      const detailText = document.getElementById("detail-text");
+      const detailContract = document.getElementById("detail-contract");
+      let selectedId = null;
+      let activeFilter = "all";
+
+      const kindNames = {
+        input: "Input",
+        agent: "Agent",
+        barrier: "Barrier",
+        gate: "Gate",
+        decision: "Strategy",
+        human: "Human"
+      };
+
+      nodes.forEach((node) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.id = `node-${node.id}`;
+        button.className = `node ${node.kind}`;
+        button.dataset.nodeId = node.id;
+        button.dataset.group = node.group;
+        button.style.gridRow = String(node.row);
+        button.style.gridColumn = node.col;
+        button.setAttribute("aria-label", `${node.title}：${node.subtitle}`);
+        button.innerHTML = `
+          <span class="node-kind">${kindNames[node.kind]}</span>
+          <span class="node-title">${node.title}</span>
+          <span class="node-subtitle">${node.subtitle}</span>
+        `;
+        button.addEventListener("click", () => selectNode(node.id));
+        layer.appendChild(button);
+      });
+
+      function relationSet(id) {
+        const set = new Set([id]);
+        edges.forEach(([from, to]) => {
+          if (from === id) set.add(to);
+          if (to === id) set.add(from);
+        });
+        return set;
+      }
+
+      function selectNode(id) {
+        selectedId = selectedId === id ? null : id;
+        const selected = nodes.find((node) => node.id === selectedId);
+        if (selected) {
+          detailTitle.textContent = selected.title;
+          detailText.textContent = selected.detail;
+          detailContract.textContent = selected.contract;
+        } else {
+          detailTitle.textContent = "点击任意节点查看职责";
+          detailText.textContent = "实线表示强依赖；虚线表示条件分支；紫色回路表示 replan / revise 后进入下一 cycle。任一节点失败，只阻断其下游，无关分支继续执行。";
+          detailContract.textContent = "Agent 之间不共享对话，只通过声明的非空文件输入输出通信。";
+        }
+        applyVisualState();
+      }
+
+      function applyVisualState() {
+        const related = selectedId ? relationSet(selectedId) : null;
+        nodes.forEach((node) => {
+          const element = document.getElementById(`node-${node.id}`);
+          const passesFilter =
+            activeFilter === "all" ||
+            (activeFilter === "agent" && node.group === "agent") ||
+            (activeFilter === "control" && node.group === "control");
+          const passesSelection = !related || related.has(node.id);
+          element.classList.toggle("is-selected", node.id === selectedId);
+          element.classList.toggle("is-related", Boolean(selectedId && related.has(node.id) && node.id !== selectedId));
+          element.classList.toggle("is-dimmed", !passesFilter || !passesSelection);
+        });
+
+        svg.querySelectorAll(".edge").forEach((path) => {
+          const from = path.dataset.from;
+          const to = path.dataset.to;
+          const fromNode = nodes.find((node) => node.id === from);
+          const toNode = nodes.find((node) => node.id === to);
+          const passesFilter =
+            activeFilter === "all" ||
+            (activeFilter === "agent" && (fromNode.group === "agent" || toNode.group === "agent")) ||
+            (activeFilter === "control" && fromNode.group === "control" && toNode.group === "control");
+          const selected = selectedId && (from === selectedId || to === selectedId);
+          path.classList.toggle("is-selected", Boolean(selected));
+          path.classList.toggle("is-dimmed", !passesFilter || Boolean(selectedId && !selected));
+        });
+      }
+
+      function point(element, position) {
+        const canvasRect = layer.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        const x = rect.left - canvasRect.left + rect.width / 2;
+        if (position === "top") return { x, y: rect.top - canvasRect.top };
+        return { x, y: rect.bottom - canvasRect.top };
+      }
+
+      function drawEdges() {
+        svg.querySelectorAll(".generated").forEach((element) => element.remove());
+        const width = layer.clientWidth;
+        const height = layer.clientHeight;
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+        edges.forEach(([from, to, type = "normal", label = ""]) => {
+          const source = document.getElementById(`node-${from}`);
+          const target = document.getElementById(`node-${to}`);
+          if (!source || !target) return;
+
+          const start = point(source, "bottom");
+          const end = point(target, "top");
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.classList.add("edge", "generated");
+          if (type === "conditional") path.classList.add("conditional");
+          if (type === "loop") path.classList.add("loop");
+          path.dataset.from = from;
+          path.dataset.to = to;
+
+          let d;
+          if (type === "loop") {
+            const leftRail = 12;
+            d = `M ${start.x} ${start.y} C ${leftRail} ${start.y}, ${leftRail} ${end.y}, ${end.x} ${end.y}`;
+          } else {
+            const bend = Math.max(24, Math.abs(end.y - start.y) * 0.42);
+            d = `M ${start.x} ${start.y} C ${start.x} ${start.y + bend}, ${end.x} ${end.y - bend}, ${end.x} ${end.y}`;
+          }
+          path.setAttribute("d", d);
+          svg.appendChild(path);
+
+          if (label) {
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.classList.add("edge-label", "generated");
+            text.textContent = label;
+            text.setAttribute("x", String((start.x + end.x) / 2 + (type === "loop" ? -40 : 7)));
+            text.setAttribute("y", String((start.y + end.y) / 2 - 5));
+            svg.appendChild(text);
+          }
+        });
+        applyVisualState();
+      }
+
+      document.querySelectorAll(".filter-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          activeFilter = button.dataset.filter;
+          selectedId = null;
+          detailTitle.textContent = "点击任意节点查看职责";
+          detailText.textContent = "实线表示强依赖；虚线表示条件分支；紫色回路表示 replan / revise 后进入下一 cycle。任一节点失败，只阻断其下游，无关分支继续执行。";
+          detailContract.textContent = "Agent 之间不共享对话，只通过声明的非空文件输入输出通信。";
+          document.querySelectorAll(".filter-btn").forEach((item) => {
+            item.classList.toggle("is-active", item === button);
+          });
+          applyVisualState();
+        });
+      });
+
+      window.addEventListener("resize", () => {
+        window.clearTimeout(window.__graphResizeTimer);
+        window.__graphResizeTimer = window.setTimeout(drawEdges, 100);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && selectedId) selectNode(selectedId);
+      });
+
+      requestAnimationFrame(drawEdges);
+    })();
+  </script>
+</body>
+</html>
