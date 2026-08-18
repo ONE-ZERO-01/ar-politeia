@@ -636,6 +636,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     }
     write_json(output_dir / "result.json", result)
+    summary_result = config.get("summary_result")
+    if summary_result:
+        write_json(project_path(str(summary_result)), result)
     return 0
 
 
