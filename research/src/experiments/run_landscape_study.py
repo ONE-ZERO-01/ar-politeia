@@ -16,6 +16,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
@@ -83,7 +84,7 @@ def validate_parameter_lock(
     *,
     require_final: bool,
 ) -> Dict[str, Any] | None:
-    if experiment == "E0-NUMERICS":
+    if experiment in {"E0-NUMERICS", "B0-DYNAMICS-PILOT"}:
         return None
     relative = config.get("parameter_lock")
     declared_sha256 = config.get("parameter_lock_sha256")
@@ -162,6 +163,18 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 }
                 for factor in (1.0, 0.5, 0.25)
             ],
+        ]
+    if experiment == "B0-DYNAMICS-PILOT":
+        return [
+            {
+                "name": "clustered-active-health-only",
+                "landscape": "clustered",
+                "terrain_force_enabled": True,
+                "terrain_production_enabled": True,
+                "exchange_rate": exchange_rate,
+                "wealth_log_sigma": 0.01,
+                "dt": dt,
+            }
         ]
     if experiment == "E1-MATCHED-LANDSCAPES":
         return [
@@ -613,6 +626,7 @@ def execute_runs(
         "skipped_completed": 0,
         "binary_sha256": binary_sha256,
         "completed_run_ids": [],
+        "elapsed_seconds_executed": 0.0,
     }
     for spec in run_specs:
         run_dir = project_path(spec["run_dir"])
@@ -647,6 +661,7 @@ def execute_runs(
             stale_path.unlink()
         environment = os.environ.copy()
         environment["OMP_NUM_THREADS"] = str(omp_threads)
+        started_at = time.monotonic()
         try:
             with log_path.open("w", encoding="utf-8") as log:
                 completed = subprocess.run(
@@ -660,6 +675,7 @@ def execute_runs(
                     env=environment,
                 )
         except subprocess.TimeoutExpired as exc:
+            elapsed_seconds = time.monotonic() - started_at
             write_json(
                 marker_path,
                 {
@@ -668,12 +684,14 @@ def execute_runs(
                     "run_fingerprint": fingerprint,
                     "failure": "timeout",
                     "timeout_seconds": timeout_seconds,
+                    "elapsed_seconds": elapsed_seconds,
                 },
             )
             raise RuntimeError(
                 f"run {spec['run_id']} exceeded {timeout_seconds} seconds"
             ) from exc
         if completed.returncode != 0:
+            elapsed_seconds = time.monotonic() - started_at
             write_json(
                 marker_path,
                 {
@@ -682,12 +700,14 @@ def execute_runs(
                     "run_fingerprint": fingerprint,
                     "failure": "nonzero_exit",
                     "returncode": completed.returncode,
+                    "elapsed_seconds": elapsed_seconds,
                 },
             )
             raise RuntimeError(
                 f"run {spec['run_id']} failed with exit code {completed.returncode}; see {log_path}"
             )
         snapshots = sorted(run_dir.glob("snap_*.csv"))
+        elapsed_seconds = time.monotonic() - started_at
         if not snapshots:
             write_json(
                 marker_path,
@@ -711,9 +731,11 @@ def execute_runs(
                 "snapshot_count": len(snapshots),
                 "final_snapshot": final_snapshot.name,
                 "final_snapshot_sha256": sha256_file(final_snapshot),
+                "elapsed_seconds": elapsed_seconds,
             },
         )
         summary["executed"] += 1
+        summary["elapsed_seconds_executed"] += elapsed_seconds
         summary["completed_run_ids"].append(str(spec["run_id"]))
     return summary
 
@@ -1013,6 +1035,47 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         ),
     }
     write_json(output_dir / "numerical_calibration.json", payload)
+    return payload
+
+
+def aggregate_b0(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any]:
+    expected_population = int(config["population"])
+    checks = {
+        "all_runs_stationary": all(bool(row["stationarity_pass"]) for row in rows),
+        "wealth_nonnegative": min(float(row["minimum_wealth"]) for row in rows)
+        >= -1e-12,
+        "population_constant": all(
+            int(round(float(row["particle_count"]))) == expected_population
+            for row in rows
+        ),
+        "metrics_finite": all(
+            math.isfinite(float(row[metric]))
+            for row in rows
+            for metric in (
+                "resource_density_spearman_rho",
+                "density_morans_i",
+                "occupancy_entropy",
+                "wealth_gini",
+                "wealth_variance",
+            )
+        ),
+    }
+    payload = {
+        "experiment": "B0-DYNAMICS-PILOT",
+        "pass": all(checks.values()),
+        "checks": checks,
+        "runs": len(rows),
+        "evidence_role": "runtime and outcome-blind dynamics health only",
+        "prohibited_use": (
+            "This pilot has no shuffled comparison and cannot support C2-C4 or "
+            "estimate a landscape effect."
+        ),
+    }
+    write_json(output_dir / "pilot_health.json", payload)
     return payload
 
 
@@ -1357,6 +1420,8 @@ def analyze_runs(
         if not isinstance(tracked_calibration, str) or not tracked_calibration:
             raise ValueError("E0 requires calibration_result for tracked provenance")
         write_json(project_path(tracked_calibration), calibration)
+    elif experiment == "B0-DYNAMICS-PILOT":
+        aggregate_b0(rows, config, output_dir)
     elif experiment == "E1-MATCHED-LANDSCAPES":
         aggregate_e1(rows, config, output_dir)
     elif experiment == "E2-CHANNEL-ABLATION":
@@ -1398,13 +1463,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.prepare_only:
         return 0
 
-    if args.experiment != "E0-NUMERICS":
+    if args.experiment not in {"E0-NUMERICS", "B0-DYNAMICS-PILOT"}:
         load_e0_calibration(config)
 
     execution_summary: Dict[str, Any] = {
         "executed": 0,
         "skipped_completed": 0,
         "completed_run_ids": [],
+        "elapsed_seconds_executed": 0.0,
     }
     if not args.analyze_only:
         binary = project_path(config["binary"], must_exist=True)
@@ -1419,6 +1485,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     job_pass = True
     if args.experiment == "E0-NUMERICS":
         job_pass = bool(load_json(output_dir / "numerical_calibration.json")["pass"])
+    elif args.experiment == "B0-DYNAMICS-PILOT":
+        job_pass = bool(load_json(output_dir / "pilot_health.json")["pass"])
     elif args.experiment == "E1-MATCHED-LANDSCAPES":
         job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
     elif args.experiment == "E2-CHANNEL-ABLATION":
@@ -1433,6 +1501,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "runs_executed_this_invocation": execution_summary["executed"],
         "runs_reused_from_completion_markers": execution_summary[
             "skipped_completed"
+        ],
+        "elapsed_seconds_executed_this_invocation": execution_summary[
+            "elapsed_seconds_executed"
         ],
         "config_sha256": sha256_file(config_path),
         "omp_threads": int(config.get("omp_threads", 8)),
