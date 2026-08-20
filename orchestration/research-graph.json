@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "project_id": "ar-politeia",
+  "workspace": "..",
+  "state_file": ".autoresearcher/orchestrator/state.json",
+  "logs_dir": ".autoresearcher/orchestrator/logs",
+  "max_parallel": 4,
+  "max_cycles": 5,
+  "budget": {
+    "max_agent_seconds_per_cycle": 43200
+  },
+  "default_adapter": "codex",
+  "adapters": {
+    "codex": {
+      "command": [
+        "codex",
+        "exec",
+        "--ephemeral",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--color",
+        "never",
+        "-C",
+        "{workspace}",
+        "-"
+      ],
+      "prompt_mode": "stdin"
+    },
+    "cursor": {
+      "command": [
+        "cursor-agent",
+        "--print",
+        "--output-format",
+        "text",
+        "--trust",
+        "--sandbox",
+        "enabled",
+        "--workspace",
+        "{workspace}",
+        "{prompt}"
+      ],
+      "prompt_mode": "argument"
+    }
+  },
+  "cycle_control": {
+    "decision_path": "research/orchestration/strategy.json",
+    "decision_field": "action",
+    "repeat_values": [
+      "replan",
+      "revise"
+    ],
+    "terminal_values": [
+      "continue",
+      "request_human",
+      "stop_request"
+    ],
+    "repeat_reset": {
+      "replan": [
+        "plan_experiments"
+      ],
+      "revise": [
+        "journal_nature",
+        "journal_prl"
+      ]
+    },
+    "human_values": [
+      "request_human"
+    ],
+    "human_decision_path": "research/orchestration/human-decision.json"
+  },
+  "nodes": [
+    {
+      "id": "plan_experiments",
+      "kind": "agent",
+      "description": "PLAN + experiment-design Agent (single research plan)",
+      "workdir": "research",
+      "prompt_file": "orchestration/prompts/plan-experiments-agent.md",
+      "inputs": [
+        "autoresearcher.md",
+        "research/hypothesis.md",
+        "research/question.md"
+      ],
+      "optional_inputs": [
+        "research/orchestration/strategy.json",
+        "research/orchestration/reviews",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/plan.json",
+        "research/orchestration/experiment-tasks.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/experiment-tasks.json": "orchestration/schemas/experiment-tasks.schema.json"
+      },
+      "timeout_seconds": 7200,
+      "retries": 1,
+      "exclusive_resources": [
+        "research:main"
+      ]
+    },
+    {
+      "id": "preflight_experiments",
+      "kind": "foreach",
+      "description": "Deterministic preflight gate per declared experiment",
+      "depends_on": [
+        "plan_experiments"
+      ],
+      "tasks_file": "research/orchestration/experiment-tasks.json",
+      "task_parallel": 4,
+      "inputs": [
+        "research/orchestration/experiment-tasks.json"
+      ],
+      "task_template": {
+        "kind": "gate",
+        "command": [
+          "python3",
+          "-m",
+          "autoresearcher.foundation.preflight",
+          "--exp-dir",
+          "{task.exp_dir}",
+          "--priority",
+          "{task.priority}",
+          "--source-root",
+          "."
+        ],
+        "timeout_seconds": 300
+      }
+    },
+    {
+      "id": "run_experiments",
+      "kind": "foreach",
+      "description": "Isolated experiment worker per declared task",
+      "depends_on": [
+        "preflight_experiments"
+      ],
+      "tasks_file": "research/orchestration/experiment-tasks.json",
+      "task_parallel": 2,
+      "inputs": [
+        "research/plan.json",
+        "research/orchestration/experiment-tasks.json"
+      ],
+      "task_template": {
+        "kind": "agent",
+        "prompt_file": "orchestration/prompts/experiment-worker-agent.md",
+        "workdir": "research",
+        "outputs": [
+          "{task.exp_dir}/result.json"
+        ],
+        "timeout_seconds": 7200,
+        "retries": 1
+      }
+    },
+    {
+      "id": "analyze",
+      "kind": "agent",
+      "description": "ANALYZE Agent: verdicts from experiment evidence",
+      "depends_on": [
+        "run_experiments"
+      ],
+      "workdir": "research",
+      "prompt_file": "orchestration/prompts/analyze-agent.md",
+      "inputs": [
+        "research/plan.json",
+        "research/orchestration/experiment-tasks.json"
+      ],
+      "outputs": [
+        "research/findings.json",
+        "research/orchestration/cycle-output.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/cycle-output.json": "orchestration/schemas/cycle-output.schema.json"
+      },
+      "timeout_seconds": 7200,
+      "retries": 1,
+      "exclusive_resources": [
+        "research:main"
+      ]
+    },
+    {
+      "id": "evidence_gate",
+      "kind": "gate",
+      "description": "Deterministic per-cycle evidence existence check",
+      "depends_on": [
+        "analyze"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "autoresearcher.foundation.evidence_check",
+        "--cycle-output",
+        "research/orchestration/cycle-output.json",
+        "--run-dir",
+        "research",
+        "--output",
+        "research/orchestration/evidence-check.json"
+      ],
+      "inputs": [
+        "research/orchestration/cycle-output.json"
+      ],
+      "outputs": [
+        "research/orchestration/evidence-check.json"
+      ],
+      "timeout_seconds": 300
+    },
+    {
+      "id": "write_comprehensive",
+      "kind": "agent",
+      "description": "Authoritative comprehensive manuscript Agent",
+      "depends_on": [
+        "evidence_gate"
+      ],
+      "workdir": "research",
+      "prompt_file": "orchestration/prompts/write-comprehensive-agent.md",
+      "inputs": [
+        "research/orchestration/cycle-output.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/comprehensive.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/comprehensive.json": "orchestration/schemas/comprehensive.schema.json"
+      },
+      "timeout_seconds": 7200
+    },
+    {
+      "id": "journal_nature",
+      "kind": "agent",
+      "description": "Nature-format writing Agent",
+      "depends_on": [
+        "write_comprehensive"
+      ],
+      "workdir": "research",
+      "prompt_file": "orchestration/prompts/journal-agent.md",
+      "inputs": [
+        "research/orchestration/comprehensive.json",
+        "research/findings.json",
+        "rules/journal-formats.md"
+      ],
+      "outputs": [
+        "research/paper/nature/main.tex",
+        "research/paper/nature/claims.json"
+      ],
+      "timeout_seconds": 7200
+    },
+    {
+      "id": "journal_prl",
+      "kind": "agent",
+      "description": "PRL-format writing Agent",
+      "depends_on": [
+        "write_comprehensive"
+      ],
+      "workdir": "research",
+      "prompt_file": "orchestration/prompts/journal-agent.md",
+      "inputs": [
+        "research/orchestration/comprehensive.json",
+        "research/findings.json",
+        "rules/journal-formats.md"
+      ],
+      "outputs": [
+        "research/paper/prl/main.tex",
+        "research/paper/prl/claims.json"
+      ],
+      "timeout_seconds": 7200
+    },
+    {
+      "id": "nature_professional_review",
+      "kind": "agent",
+      "description": "Nature professional/scientific reviewer",
+      "depends_on": [
+        "journal_nature"
+      ],
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/nature/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/nature-professional.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/nature-professional.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "nature_broad_review",
+      "kind": "agent",
+      "description": "Nature broad-impact reviewer",
+      "depends_on": [
+        "journal_nature"
+      ],
+      "adapter": "cursor",
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/nature/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/nature-broad.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/nature-broad.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "nature_technical_review",
+      "kind": "agent",
+      "description": "Nature technical/reproducibility reviewer",
+      "depends_on": [
+        "journal_nature"
+      ],
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/nature/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/nature-technical.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/nature-technical.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "prl_professional_review",
+      "kind": "agent",
+      "description": "PRL professional/scientific reviewer",
+      "depends_on": [
+        "journal_prl"
+      ],
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/prl/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/prl-professional.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/prl-professional.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "prl_broad_review",
+      "kind": "agent",
+      "description": "PRL broad-impact reviewer",
+      "depends_on": [
+        "journal_prl"
+      ],
+      "adapter": "cursor",
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/prl/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/prl-broad.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/prl-broad.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "prl_technical_review",
+      "kind": "agent",
+      "description": "PRL technical/reproducibility reviewer",
+      "depends_on": [
+        "journal_prl"
+      ],
+      "prompt_file": "orchestration/prompts/reviewer-agent.md",
+      "inputs": [
+        "research/paper/prl/main.tex",
+        "research/orchestration/comprehensive.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/reviews/prl-technical.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/reviews/prl-technical.json": "orchestration/schemas/review.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "reviews_ready",
+      "kind": "barrier",
+      "description": "Wait for all six isolated reviews",
+      "depends_on": [
+        "nature_professional_review",
+        "nature_broad_review",
+        "nature_technical_review",
+        "prl_professional_review",
+        "prl_broad_review",
+        "prl_technical_review"
+      ]
+    },
+    {
+      "id": "strategy",
+      "kind": "agent",
+      "description": "Review aggregation and cycle-routing Agent",
+      "depends_on": [
+        "reviews_ready"
+      ],
+      "prompt_file": "orchestration/prompts/strategy-agent.md",
+      "inputs": [
+        "research/project.json",
+        "research/orchestration/comprehensive.json",
+        "research/orchestration/reviews/nature-professional.json",
+        "research/orchestration/reviews/nature-broad.json",
+        "research/orchestration/reviews/nature-technical.json",
+        "research/orchestration/reviews/prl-professional.json",
+        "research/orchestration/reviews/prl-broad.json",
+        "research/orchestration/reviews/prl-technical.json"
+      ],
+      "outputs": [
+        "research/orchestration/strategy.json"
+      ],
+      "output_schemas": {
+        "research/orchestration/strategy.json": "orchestration/schemas/strategy.schema.json"
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "audit",
+      "kind": "gate",
+      "description": "Deterministic evidence-chain audit",
+      "depends_on": [
+        "strategy"
+      ],
+      "when": {
+        "path": "research/orchestration/strategy.json",
+        "field": "action",
+        "equals": "continue"
+      },
+      "command": [
+        "python3",
+        "-m",
+        "autoresearcher.foundation.audit",
+        "--run-dir",
+        "research",
+        "--claims-file",
+        "research/paper/comprehensive/claims.json",
+        "--output",
+        "research/orchestration/audit.json"
+      ],
+      "inputs": [
+        "research/orchestration/strategy.json",
+        "research/paper/comprehensive/claims.json",
+        "research/findings.json"
+      ],
+      "outputs": [
+        "research/orchestration/audit.json"
+      ],
+      "timeout_seconds": 600
+    },
+    {
+      "id": "repeat_marker",
+      "kind": "barrier",
+      "depends_on": [
+        "strategy"
+      ],
+      "when": {
+        "path": "research/orchestration/strategy.json",
+        "field": "action",
+        "in": [
+          "replan",
+          "revise"
+        ]
+      }
+    },
+    {
+      "id": "human_marker",
+      "kind": "barrier",
+      "depends_on": [
+        "strategy"
+      ],
+      "when": {
+        "path": "research/orchestration/strategy.json",
+        "field": "action",
+        "equals": "request_human"
+      }
+    },
+    {
+      "id": "stop_marker",
+      "kind": "barrier",
+      "depends_on": [
+        "strategy"
+      ],
+      "when": {
+        "path": "research/orchestration/strategy.json",
+        "field": "action",
+        "equals": "stop_request"
+      }
+    },
+    {
+      "id": "cycle_complete",
+      "kind": "barrier",
+      "description": "Join all conditional cycle exits",
+      "depends_on": [
+        "audit",
+        "repeat_marker",
+        "human_marker",
+        "stop_marker"
+      ]
+    }
+  ]
+}
