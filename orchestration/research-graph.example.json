@@ -115,13 +115,11 @@
           "python3",
           "-m",
           "autoresearcher.foundation.preflight",
-          "--exp-dir",
-          "{task.exp_dir}",
-          "--priority",
-          "{task.priority}",
-          "--source-root",
-          "."
-        ],
+        "--exp-dir",
+        "{task.exp_dir}",
+        "--priority",
+        "{task.priority}"
+      ],
         "timeout_seconds": 300
       }
     },

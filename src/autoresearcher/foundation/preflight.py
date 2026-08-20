@@ -3,8 +3,7 @@
 Usage:
     python -m autoresearcher.foundation.preflight \\
         --exp-dir results/E1/ \\
-        --priority P0 \\
-        [--source-root .]
+        --priority P0
 
 Checks (all must pass for P0; P1/P2 allow seed_waiver):
     1. commit_id is present and not "dirty".
