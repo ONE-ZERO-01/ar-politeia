@@ -7,11 +7,12 @@ declared computational strategy, seeds, and resource limits.
 
 Execution-host routing: numerical experiments must run on `umi`. Read the
 experiment's `execution_host` from `plan.json`. If it is `umi` and you are not
-already on `umi`, invoke the command through
-`ssh umi-wanwb 'cd /home/wanwb/ONE/ar-politeia && <command>'`. The numerical
-runner enforces this with a hostname guard, so running it on the control host
-fails. Artifacts are written to the shared NFS path and remain visible to the
-orchestrator at the same relative path.
+already on `umi`, invoke the command from the control host through
+`ssh umi 'cd /home/wanwb/ONE/ar-politeia && <command>'` (`umi` is the
+hostname resolvable on zeus; `umi-wanwb` only exists in the local macOS SSH
+config). The numerical runner enforces this with a hostname guard, so running
+it on the control host fails. Artifacts are written to the shared NFS path and
+remain visible to the orchestrator at the same relative path.
 
 Write the declared result file inside the task's `exp_dir` when the experiment
 finishes: raw metrics, artifact paths, exit status, and any deviation from the

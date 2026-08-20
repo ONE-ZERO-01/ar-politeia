@@ -24,7 +24,8 @@ umi —— GPU 节点，4 × NVIDIA A100
 | umi（GPU） | `ssh umi-wanwb`（经 `thu_wwb` 跳板） | `umi` | `wanwb` | 4 × A100，运行数值实验 |
 
 - `zeus` 与 `thu_wwb` 两个别名指向同一台 `166.111.236.27:3330`，登录账号均为 `wanwb`。
-- `umi-wanwb` 已配置 `ProxyJump thu_wwb`，一条命令直达 GPU 节点。
+- 从本地 mac 到 umi：`ssh umi-wanwb`（已配置 `ProxyJump thu_wwb`）。
+- 从 zeus 到 umi：`ssh umi`（`umi` 在 zeus 上可解析；`umi-wanwb` 是本地 mac 别名，zeus 上不存在）。
 
 ## 共享文件系统（实测）
 
