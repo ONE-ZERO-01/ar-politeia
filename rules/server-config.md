@@ -3,6 +3,8 @@
 本项目数值模拟在 A100 服务器上运行。本文件是服务器、路径、环境与输出纪律的唯一权威描述；
 其他平台 Agent 从根目录 [AGENTS.md](../AGENTS.md) 进入本文件。
 
+机器/账号/算力的一页速查见 [machine-inventory.md](machine-inventory.md)。
+
 ## 拓扑
 
 ```
@@ -15,13 +17,14 @@
 - `thu_wwb`（登录后主机名 `zeus`）：网关节点，可访问外网，用于下载数据、`pip` 安装。
 - `umi-wanwb`（登录后主机名 `umi`）：GPU 节点，4 张 A100，用于运行实验。
 - 两台机器共享同一 NFS 文件系统（`192.168.0.21:/home`），在任一台看到的文件完全一致，
-  无需 `scp`/`rsync`。
+  无需 `scp`/`rsync`。zeus 上以 `192.168.0.21` 访问该 NFS 服务器，umi 上则显示为
+  `10.0.0.21:/home`，二者是同一 `/home` 导出。
 
 ## SSH 访问
 
 | 主机 | 命令 | 用途 |
 |------|------|------|
-| zeus（网关） | `ssh thu_wwb` | 有外网，下载数据、pip 安装 |
+| zeus（网关） | `ssh thu_wwb`（等价别名 `ssh zeus`） | 有外网，下载数据、pip 安装 |
 | umi（GPU） | `ssh umi-wanwb` | 4 × A100，运行实验 |
 
 `ssh umi-wanwb` 已在本地 `~/.ssh/config` 配置 `ProxyJump thu_wwb`，一条命令直达 GPU 节点，
@@ -114,14 +117,15 @@ CUDA_VISIBLE_DEVICES=0,1 python train.py
 ## orchestrator 运行位置（强制）
 
 多 Agent DAG（`python -m autoresearcher.orchestration run orchestration/research-graph.json`）
-**只在服务器 `umi` 上运行**，不在本地 mac 或其他电脑上运行。原因：
+**只在服务器 `zeus`（控制面）上运行**，不在本地 mac 或其他电脑上运行。原因：
 
 1. 运行态（`.autoresearcher/orchestrator/` 下的 `state.json`、`logs/`、锁文件）记录的是
    本机的绝对路径、进程锁和单次 DAG 进度，跨设备同步毫无意义，两台机器同时跑还会互相覆盖；
 2. 本地 mac 项目位于 OneDrive 同步目录，orchestrator 每次状态转换都对 `state.json` 做全量
    原子重写（temp + rename），正是 OneDrive 同步冲突的典型触发源；而 macOS OneDrive 无法
    排除项目内子目录，只能靠"运行态不在本地产生"来规避；
-3. 算力本身就在服务器上，实验产物统一落在 `$AR_PROJECT_ROOT` 内，与输出路径纪律一致。
+3. `zeus` 有全量外网，用于 Codex CLI 与 DeepSeek 等 LLM Provider；数值实验仍只在 `umi`
+   上运行。二者共享 NFS，`$AR_PROJECT_ROOT` 路径一致，实验产物统一落在项目根内。
 
 本地 mac 只负责写代码、写计划、看结果，跨设备同步研究产物一律通过 git（双远程），
 不通过 OneDrive 同步运行态。

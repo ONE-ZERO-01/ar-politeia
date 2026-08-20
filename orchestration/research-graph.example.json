@@ -16,7 +16,7 @@
         "codex",
         "exec",
         "--sandbox",
-        "workspace-write",
+        "danger-full-access",
         "--ephemeral",
         "--color",
         "never",

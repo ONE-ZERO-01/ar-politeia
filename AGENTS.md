@@ -22,10 +22,11 @@ AutoResearcher：可恢复的多 Agent 研究 DAG。每次只探索一个研究�
   `research/src/experiments/`，声明与结果在 `research/jobs/<exp_id>/`，重产物写入
   `research/jobs/<exp_id>/workspace/`（git 忽略）。禁止写入 `$HOME` 根目录或项目外临时盘。
 - **orchestrator 运行位置**：多 Agent DAG（`python -m autoresearcher.orchestration run ...`）
-  **只在服务器 `umi` 上运行**。本地 mac 与其他电脑只写代码/计划/看结果，不在本地跑
+  **只在服务器 `zeus`（控制面）上运行**。本地 mac 与其他电脑只写代码/计划/看结果，不在本地跑
   orchestrator——运行态（`.autoresearcher/orchestrator/`：state.json、logs、lock）含本机
   绝对路径与进程锁，不该跨设备同步；且本地项目在 OneDrive 同步目录里，高频原子重写
-  `state.json` 会与 OneDrive 同步冲突。跨设备同步研究产物一律走 git，不走运行态。
+  `state.json` 会与 OneDrive 同步冲突。`zeus` 有全量外网，用于 Codex CLI + DeepSeek 等
+  LLM Provider。跨设备同步研究产物一律走 git，不走运行态。
 - **数值实验运行位置（铁律）**：所有数值实验脚本（`research/src/experiments/*.py`，
   经 `jobctl` 提交运行的）**一律只在服务器 `umi` 上运行**，包括开发、调试、校准、
   冒烟测试，本地 mac 不运行任何数值实验。本地只写代码、写计划、看结果；实验的
