@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "project_id": "ar-politeia",
+  "workspace": "..",
+  "state_file": ".autoresearcher/orchestrator/smoke-state.json",
+  "logs_dir": ".autoresearcher/orchestrator/smoke-logs",
+  "max_parallel": 1,
+  "max_cycles": 1,
+  "default_adapter": "codex",
+  "adapters": {
+    "codex": {
+      "command": [
+        "codex",
+        "exec",
+        "--ephemeral",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--color",
+        "never",
+        "-C",
+        "{workspace}",
+        "-"
+      ],
+      "prompt_mode": "stdin"
+    }
+  },
+  "nodes": [
+    {
+      "id": "smoke_agent",
+      "kind": "agent",
+      "description": "Minimal orchestrator smoke: write a marker file",
+      "workdir": ".",
+      "prompt_file": "orchestration/prompts/smoke-agent.md",
+      "outputs": [
+        ".autoresearcher/smoke-marker.txt"
+      ],
+      "timeout_seconds": 600,
+      "retries": 0
+    },
+    {
+      "id": "smoke_gate",
+      "kind": "gate",
+      "description": "Verify the marker file is non-empty",
+      "depends_on": [
+        "smoke_agent"
+      ],
+      "command": [
+        "bash",
+        "-lc",
+        "test -s .autoresearcher/smoke-marker.txt"
+      ],
+      "inputs": [
+        ".autoresearcher/smoke-marker.txt"
+      ],
+      "timeout_seconds": 60
+    }
+  ]
+}

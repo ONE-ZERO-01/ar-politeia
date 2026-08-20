@@ -15,9 +15,8 @@
       "command": [
         "codex",
         "exec",
-        "--sandbox",
-        "danger-full-access",
         "--ephemeral",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--color",
         "never",
         "-C",
