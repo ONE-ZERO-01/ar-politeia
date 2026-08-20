@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": [
+    "overall_assessment",
+    "strongest_confound",
+    "suggested_experiment",
+    "critique"
+  ],
+  "properties": {
+    "overall_assessment": {
+      "type": "string",
+      "minLength": 40
+    },
+    "strongest_confound": {
+      "type": "string",
+      "minLength": 20
+    },
+    "suggested_experiment": {
+      "type": "string",
+      "minLength": 20
+    },
+    "critique": {
+      "type": "string",
+      "minLength": 40
+    }
+  }
+}

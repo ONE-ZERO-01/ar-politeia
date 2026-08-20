@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "project_id": "ar-politeia",
+  "workspace": "..",
+  "state_file": ".autoresearcher/orchestrator/quality-probe-state.json",
+  "logs_dir": ".autoresearcher/orchestrator/quality-probe-logs",
+  "max_parallel": 1,
+  "max_cycles": 1,
+  "default_adapter": "codex",
+  "adapters": {
+    "codex": {
+      "command": [
+        "codex",
+        "exec",
+        "--ephemeral",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--color",
+        "never",
+        "-C",
+        "{workspace}",
+        "-"
+      ],
+      "prompt_mode": "stdin"
+    }
+  },
+  "nodes": [
+    {
+      "id": "quality_probe",
+      "kind": "agent",
+      "description": "DeepSeek v4-pro research-reasoning quality probe",
+      "workdir": ".",
+      "prompt_file": "orchestration/prompts/quality-probe-agent.md",
+      "inputs": [
+        "research/question.md",
+        "research/hypothesis.md"
+      ],
+      "outputs": [
+        ".autoresearcher/orchestrator/quality-probe.json"
+      ],
+      "output_schemas": {
+        ".autoresearcher/orchestrator/quality-probe.json": "orchestration/schemas/quality-probe.schema.json"
+      },
+      "timeout_seconds": 1200,
+      "retries": 1
+    }
+  ]
+}
