@@ -25,11 +25,12 @@ Thumbs.db
 
 # Jobs / temporary
 research/jobs/*/workspace/
-.autoresearcher/jobs/
 *.tar.gz.part
 # arXiv 投稿包（make arxiv 的确定性生成物，源是 paper/comprehensive/main.tex）
 research/paper/arxiv/
-# 运行态（state/logs/lock）不进 git；cycles/ 归档（决策理由与周期快照）进 git
+# .autoresearcher：运行态/临时文件不进 git；仅 cycle 归档（决策+快照）进 git
+.autoresearcher/*
+!.autoresearcher/orchestrator/
 .autoresearcher/orchestrator/*
 !.autoresearcher/orchestrator/cycles/
 
