@@ -9,6 +9,7 @@ AutoResearcher：可恢复的多 Agent 研究 DAG。每次只探索一个研究�
 
 当前研究方案：**AR-Politeia**（`project_id = ar-politeia`）。
 完整工作流入口：[autoresearcher.md](autoresearcher.md)。
+框架设计与部署（可复用到其他 zeus+umi 项目）：[FRAMEWORK.md](FRAMEWORK.md)。
 
 ## 计算环境（必读）
 
