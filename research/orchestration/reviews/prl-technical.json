@@ -1,0 +1,63 @@
+{
+  "simulated": true,
+  "verdict": "major revision",
+  "strengths": [
+    "The manuscript accurately represents C1-NUM as contradicted and C2-LANDSCAPE, C3-CHANNELS, C4-ROBUSTNESS as inconclusive, matching the claim verdicts in research/orchestration/comprehensive.json and research/findings.json.",
+    "The E0 calibration gate is correctly summarized: conservation (2.511e-9 <= 1e-8), non-negativity (5.1766e-41 >= -1e-12), equal-state absorption (0.0 <= 1e-20), dt-convergence failure (wealth Gini mean absolute change 0.26584885869833064 > 0.02), and stationarity failure (false) are all consistent with findings.json falsification_check.",
+    "The draft correctly refuses to reinterpret blocked E1-E3 experiments as a null landscape effect and states that the frozen SESOI is not authorized for confirmatory inference, consistent with comprehensive.json limitations.",
+    "The proposed repair path (outcome-blind parameter-lock revision and E0 recalibration before E1-E3) matches journal_recommendations in research/orchestration/comprehensive.json.",
+    "The evidence boundary and disabled mechanisms are described conservatively and match the synthetic-generative-only limitation declared in the evidence inputs."
+  ],
+  "weaknesses": [
+    "Several concrete experimental details asserted in main.tex are not present in the declared evidence inputs, so they cannot be independently verified from findings.json or comprehensive.json: B0 population N=500, 64x64 grid, total time 100.0, seed list 7103/7207/7309, and the list of failing observables; E0 seed list 1103/2207/3301/4409/5519, five conditions, and base dt=0.01.",
+    "The full discretization table values other than wealth Gini (Spearman rho 0.0, Moran's I 0.008572825641811355, occupancy entropy 0.0011749233757867516) and all frozen SESOI values (1e-6, 0.02483292987625197, 0.002883297084384684, 0.2811818304868519) are not declared in findings.json/comprehensive.json, making them unreviewable from the stated evidence.",
+    "The manuscript reports exact 16-digit values (e.g. conservation 2.511028287699446e-9 and non-negativity 5.1766245e-41) while findings.json only supplies rounded values; exact digits are traceable to cited E0 artifacts in evidence paths, but those artifacts are not declared inputs for this review.",
+    "The E0 per-run qualitative range 'wealth Gini values between 0.099 and 0.637 with systematic step-size dependence' is asserted without a declared metric table or evidence path in findings.json/comprehensive.json.",
+    "Reproducibility metadata (code version, environment, RNG/PRNG seeding, artifact hashes, and the exact equations used to compute Moran's I and normalized Shannon entropy) is not provided in the manuscript or the declared evidence inputs.",
+    "The claim that 'the full comprehensive record and all machine artifacts are preserved in the project repository' is not verifiable from the declared evidence inputs."
+  ],
+  "actionable_items": [
+    {
+      "severity": "P1",
+      "type": "reproducibility",
+      "evidence_ref": "research/paper/prl/main.tex lines 98-100; research/findings.json reconciliation.results.B0-DYNAMICS-PILOT and limitations",
+      "requested_action": "Add the B0 and E0 experimental configuration (N, grid resolution, total time, base dt, seed lists, condition structure) to the manuscript or to a declared supplemental artifact, with an explicit evidence path.",
+      "acceptance_criterion": "Every B0/E0 configuration value asserted in main.tex is present verbatim in a declared evidence input or the manuscript cites an artifact path that is listed as an input for the technical review."
+    },
+    {
+      "severity": "P1",
+      "type": "evidence_traceability",
+      "evidence_ref": "research/paper/prl/main.tex lines 117-132 (Table tab:dt); research/findings.json claims[0].falsification_check.dt_convergence",
+      "requested_action": "Publish the complete per-observable dt/2-vs-dt/4 metric table and the frozen SESOI values in a declared evidence file, not only as manuscript table entries.",
+      "acceptance_criterion": "Each row of Table tab:dt can be matched to a declared metric/artifact path, and the wealth-Gini row exactly matches findings.json (0.26584885869833064 > 0.02)."
+    },
+    {
+      "severity": "P2",
+      "type": "precision/reporting",
+      "evidence_ref": "research/paper/prl/main.tex abstract and Table tab:e0gate; research/findings.json falsification_check.wealth_conservation and wealth_nonnegative",
+      "requested_action": "Either report all numeric observations at the same precision used in findings.json (2.511e-9, 5.1766e-41) or add the exact E0 numerical_calibration.json artifact as a declared input.",
+      "acceptance_criterion": "No manuscript numeric value has more significant digits than are available in the declared evidence for that quantity."
+    },
+    {
+      "severity": "P2",
+      "type": "evidence_traceability",
+      "evidence_ref": "research/paper/prl/main.tex line 133; research/findings.json claims[0].interpretation",
+      "requested_action": "Provide the E0 per-run Gini distribution/range (0.099 to 0.637) as a declared artifact and state which condition and dt factor produced each endpoint.",
+      "acceptance_criterion": "The stated Gini range is verifiable from a declared E0 artifact and is not presented as a confirmatory landscape effect."
+    },
+    {
+      "severity": "P2",
+      "type": "reproducibility",
+      "evidence_ref": "research/paper/prl/main.tex lines 44-69 and 73-77; research/orchestration/comprehensive.json limitations",
+      "requested_action": "Add reproducibility metadata: code revision/version, environment, PRNG algorithm and seed initialization, and definitions for Moran's I, normalized Shannon occupancy entropy, stationarity drift, and frozen SESOI.",
+      "acceptance_criterion": "A reader can reconstruct the B0/E0 runs and recompute all gate metrics using only the manuscript plus declared artifacts."
+    },
+    {
+      "severity": "P3",
+      "type": "reporting",
+      "evidence_ref": "research/paper/prl/main.tex line 182; research/orchestration/comprehensive.json journal_recommendations",
+      "requested_action": "Qualify the repository-preservation claim with the actual artifact manifest or cite the specific location where E0 artifacts are retained.",
+      "acceptance_criterion": "The preservation statement is supported by a declared manifest/path rather than an unsupported assertion."
+    }
+  ]
+}

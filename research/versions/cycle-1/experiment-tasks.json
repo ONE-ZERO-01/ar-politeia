@@ -1,0 +1,48 @@
+{
+  "tasks": [
+    {
+      "id": "B0-DYNAMICS-PILOT",
+      "exp_dir": "research/jobs/B0-DYNAMICS-PILOT",
+      "priority": "P1",
+      "objective": "Measure runtime and verify outcome-blind dynamics health under the candidate parameters, without a shuffled control or any landscape-effect estimate.",
+      "claim_ids": []
+    },
+    {
+      "id": "E0-NUMERICS",
+      "exp_dir": "research/jobs/E0-NUMERICS",
+      "priority": "P0",
+      "objective": "Calibrate conservation, non-negativity, equal-state absorption, time-step convergence and paired discretization-resolution SESOI before confirmatory landscape experiments.",
+      "claim_ids": [
+        "C1-NUM"
+      ]
+    },
+    {
+      "id": "E1-MATCHED-LANDSCAPES",
+      "exp_dir": "research/jobs/E1-MATCHED-LANDSCAPES",
+      "priority": "P0",
+      "objective": "Compare resource-total, histogram, accessible-area and boundary-matched clustered versus spatially shuffled landscapes.",
+      "claim_ids": [
+        "C2-LANDSCAPE"
+      ]
+    },
+    {
+      "id": "E2-CHANNEL-ABLATION",
+      "exp_dir": "research/jobs/E2-CHANNEL-ABLATION",
+      "priority": "P0",
+      "objective": "Estimate movement, production and interaction effects in the preregistered 2x2 channel design using E0-frozen SESOI values and Holm correction.",
+      "claim_ids": [
+        "C3-CHANNELS"
+      ]
+    },
+    {
+      "id": "E3-ROBUSTNESS-HOLDOUT",
+      "exp_dir": "research/jobs/E3-ROBUSTNESS-HOLDOUT",
+      "priority": "P1",
+      "objective": "Test the locked clustered-minus-shuffled effect across populations, grid resolutions and an independent holdout landscape family.",
+      "claim_ids": [
+        "C2-LANDSCAPE",
+        "C4-ROBUSTNESS"
+      ]
+    }
+  ]
+}

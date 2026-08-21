@@ -1,0 +1,96 @@
+{
+  "experiment": "E3-ROBUSTNESS-HOLDOUT",
+  "status": "blocked",
+  "pass": false,
+  "execution_host": "umi",
+  "submitted_via": "jobctl",
+  "jobctl_exit_code": 1,
+  "jobctl_reconcile": "failed",
+  "reason": "Confirmatory E3 execution was not authorized. The parameter lock is not final and the E0 numerical calibration dependency did not pass, so the committed runner aborted before executing any E3 numerical run.",
+  "gates": {
+    "parameter_lock_final": false,
+    "parameter_lock_status": "candidate_pending_non_evidentiary_runtime_pilot_and_e0",
+    "e0_calibration_pass": false
+  },
+  "dependencies": {
+    "E0-NUMERICS": {
+      "result": "research/jobs/E0-NUMERICS/result.json",
+      "status": "completed",
+      "pass": false,
+      "runs_completed": 25,
+      "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
+      "calibration_checks": {
+        "wealth_conservation": true,
+        "wealth_nonnegative": true,
+        "dt_convergence": false,
+        "equal_state_is_absorbing": true,
+        "stationarity": false
+      }
+    },
+    "E1-MATCHED-LANDSCAPES": {
+      "result": "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+      "status": "blocked",
+      "pass": false
+    },
+    "E2-CHANNEL-ABLATION": {
+      "result": "research/jobs/E2-CHANNEL-ABLATION/result.json",
+      "status": "blocked",
+      "pass": false
+    }
+  },
+  "parameter_lock": {
+    "path": "research/parameter_lock.json",
+    "sha256": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352",
+    "confirmatory_execution_authorized": false
+  },
+  "e0_dependency": {
+    "result": "research/jobs/E0-NUMERICS/result.json",
+    "status": "completed",
+    "pass": false,
+    "runs_completed": 25,
+    "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
+    "calibration_checks": {
+      "wealth_conservation": true,
+      "wealth_nonnegative": true,
+      "dt_convergence": false,
+      "equal_state_is_absorbing": true,
+      "stationarity": false
+    }
+  },
+  "declared_command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E3-ROBUSTNESS-HOLDOUT",
+    "--config",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+    "--output-dir",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
+  ],
+  "declared_artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "holdout_effects.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "parameter_lock_audit.json",
+    "run_specs.json"
+  ],
+  "artifact_status": {
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/run_specs.json": "exists",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/matched_input_audit.json": "exists",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/parameter_lock_audit.json": "exists",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/replicate_metrics.csv": "missing",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/holdout_effects.json": "missing",
+    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/stationarity_report.json": "missing"
+  },
+  "metrics": null,
+  "raw_metrics": null,
+  "deviation": "No E3 numerical runs were executed. This is a hard-blocked/inconclusive outcome caused by the non-final candidate parameter lock and the failed E0 calibration dependency, not a scientific null result.",
+  "jobctl_log": {
+    "stderr": "ERROR: E3-ROBUSTNESS-HOLDOUT execution requires a final parameter lock; current status is 'candidate_pending_non_evidentiary_runtime_pilot_and_e0'",
+    "handle": ".autoresearcher/jobs/E3-ROBUSTNESS-HOLDOUT/handle.json",
+    "result": ".autoresearcher/jobs/E3-ROBUSTNESS-HOLDOUT/result.json"
+  },
+  "config_sha256": "6978af7ea997348222e90156327a090ea9b066f708520edef72ea4d1bafca01e"
+}

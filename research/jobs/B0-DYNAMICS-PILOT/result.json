@@ -1,0 +1,39 @@
+{
+  "experiment": "B0-DYNAMICS-PILOT",
+  "status": "completed",
+  "pass": false,
+  "runs_completed": 3,
+  "runs_executed_this_invocation": 3,
+  "runs_reused_from_completion_markers": 0,
+  "elapsed_seconds_executed_this_invocation": 8.664382800459862,
+  "config_sha256": "7d87b2cf2da96adafc81bf27e488f963e8cb12601fb27fe092a03f6d1bf2876d",
+  "omp_threads": 8,
+  "parameter_lock_sha256": null,
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/B0-DYNAMICS-PILOT/workspace/matched_input_audit.json",
+    "research/jobs/B0-DYNAMICS-PILOT/workspace/pilot_health.json",
+    "research/jobs/B0-DYNAMICS-PILOT/workspace/replicate_metrics.csv",
+    "research/jobs/B0-DYNAMICS-PILOT/workspace/run_specs.json",
+    "research/jobs/B0-DYNAMICS-PILOT/workspace/stationarity_report.json"
+  ],
+  "exit_status": {
+    "command_exit_code": 0,
+    "jobctl_worker_exit_code": 0,
+    "jobctl_reconcile": "completed",
+    "timed_out": false
+  },
+  "raw_metrics_summary": {
+    "runs_completed": 3,
+    "wall_seconds_executed_this_invocation": 8.664382800459862,
+    "all_runs_stationary": false,
+    "wealth_nonnegative": true,
+    "population_constant": true,
+    "metrics_finite": true,
+    "minimum_wealth_across_runs": 2.8550564e-07,
+    "particle_count_min": 500.0,
+    "particle_count_max": 500.0,
+    "per_run_stationarity_pass": [false, false, false]
+  },
+  "deviation_from_plan": "The preregistered steady-window stationarity gate failed for all three seeds; all other B0 health checks (wealth non-negative, population fixed, metrics finite) passed. Runtime was within the declared timeout. No parameter amendment or landscape-contrast inspection was performed in this isolated worker scope."
+}

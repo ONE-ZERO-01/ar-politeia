@@ -157,7 +157,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                     "landscape": "flat",
                     "terrain_force_enabled": False,
                     "terrain_production_enabled": False,
-                    "exchange_rate": exchange_rate,
+                    "exchange_rate": exchange_rate * factor,
                     "wealth_log_sigma": 0.01,
                     "dt": dt * factor,
                 }

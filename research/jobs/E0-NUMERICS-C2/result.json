@@ -1,0 +1,48 @@
+{
+  "experiment": "E0-NUMERICS",
+  "status": "completed",
+  "pass": false,
+  "runs_completed": 25,
+  "runs_executed_this_invocation": 25,
+  "runs_reused_from_completion_markers": 0,
+  "elapsed_seconds_executed_this_invocation": 874.4772226214409,
+  "config_sha256": "e906b6df0d9280cf60832b00af5c7b3bb4327b317efafe90e62ca11c2b5bfe23",
+  "omp_threads": 8,
+  "parameter_lock_sha256": null,
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/E0-NUMERICS-C2/workspace/matched_input_audit.json",
+    "research/jobs/E0-NUMERICS-C2/workspace/numerical_calibration.json",
+    "research/jobs/E0-NUMERICS-C2/workspace/replicate_metrics.csv",
+    "research/jobs/E0-NUMERICS-C2/workspace/run_specs.json",
+    "research/jobs/E0-NUMERICS-C2/workspace/stationarity_report.json"
+  ],
+  "tracked_calibration_result": "research/jobs/E0-NUMERICS-C2/numerical_calibration.json",
+  "tracked_calibration_sha256": "bc518590d4993563661bc2a0b7a278b04919243c6c157932df4c6d214335eeb4",
+  "exit_code": 0,
+  "jobctl_reconcile": "completed",
+  "wall_clock_seconds": 883.7156394794583,
+  "failed_checks": [
+    "stationarity"
+  ],
+  "raw_metrics_file": "research/jobs/E0-NUMERICS-C2/workspace/replicate_metrics.csv",
+  "raw_metrics_summary": {
+    "max_absolute_wealth_drift": 1.8694167010835377e-09,
+    "minimum_wealth": 3.3908909e-87,
+    "equal_exchange_max_wealth_variance": 0.0,
+    "dt_half_vs_quarter_mean_absolute_change": {
+      "resource_density_spearman_rho": 0.0,
+      "density_morans_i": 0.009231837794426743,
+      "occupancy_entropy": 0.001456912594155413,
+      "wealth_gini": 0.00314501220961092
+    },
+    "checks": {
+      "wealth_conservation": true,
+      "wealth_nonnegative": true,
+      "dt_convergence": true,
+      "equal_state_is_absorbing": true,
+      "stationarity": false
+    }
+  },
+  "deviation_from_plan": "Execution completed, but the E0 calibration gate did not pass: stationarity=false while conservation, non-negativity, dt_convergence, and equal-state absorption all passed. No rerun was attempted and no parameters were tuned, per the declared failure policy. Additionally, research/src/experiments/run_landscape_study.py has uncommitted working-tree modifications relative to the declared commit_id 8b239111ca72a276cf7b84006a01ffe04ffa4c0d; the run used that working-tree content. On umi the autoresearcher package is not installed on the default sys.path, so jobctl was submitted with PYTHONPATH=/home/wanwb/ONE/ar-politeia/src; this is an environment/routing detail, not a change to the scientific configuration."
+}

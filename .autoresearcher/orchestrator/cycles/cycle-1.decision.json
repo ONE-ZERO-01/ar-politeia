@@ -1,0 +1,21 @@
+{
+  "action": "replan",
+  "rationale": "Cycle 1 is scientifically blocked at the numerical-calibration layer. E0-NUMERICS passed wealth conservation and non-negativity but failed dt_convergence (wealth Gini dt/2-vs-dt/4 change 0.26584885869833064 against a <=0.02 threshold for all main observables) and stationarity; B0-DYNAMICS-PILOT also failed stationarity for all three seeds. Consequently C1-NUM is contradicted and C2-C4 are inconclusive because E1-E3 were never executed. All six journal reviews are negative or major-revision, with P0 items requiring corrected numerical experiments before any submission path. A paper-only rewrite cannot resolve calibration failures, so new/corrected experiments are scientifically necessary.",
+  "unresolved_items": [
+    "P0: E0-NUMERICS fails dt_convergence; wealth Gini changes 0.26584885869833064 between dt/2 and dt/4 against a <=0.02 limit for all main observables.",
+    "P0: E0-NUMERICS fails stationarity, and B0-DYNAMICS-PILOT fails stationarity for all three seeds.",
+    "P0: parameter_lock_final=false and e0_calibration_pass=false, so the candidate lock is non-final and E1-E3 confirmatory execution remains blocked.",
+    "P0: C1-NUM is contradicted and C2-C4 are inconclusive; there is no confirmatory landscape, channel-ablation, or robustness evidence.",
+    "P0: No Nature or PRL submission is valid in Cycle 1; current drafts must not assert positive landscape/channel/robustness conclusions.",
+    "P1: Reproducibility and traceability gaps remain for stationarity definitions, seed/dt/condition schedules, non-Gini convergence metrics, frozen SESOI values, code/commit identity, and per-run diagnostics."
+  ],
+  "budget_effect": "Cycle 2 requires a bounded numerical-calibration campaign on umi: revise and rerun the B0 health pilot and E0-NUMERICS over candidate parameter fixes, with explicit CPU/GPU-hour approval before finalizing the parameter lock or launching E1-E3. Journal-writing token cost is deferred until the calibration gate passes.",
+  "next_cycle_scope": [
+    "Replan experiments only: diagnose and correct wealth-dynamics step-size sensitivity and non-stationarity, covering exchange-kernel time scales, initial-condition relaxation, finite-time/steady-window choice, and numerical integration scheme.",
+    "Revise the candidate parameter lock using only runtime, numerical-stability, and outcome-blind health diagnostics; do not use any E1-E3 landscape, channel, or robustness effects.",
+    "Rerun B0-DYNAMICS-PILOT and E0-NUMERICS until conservation, non-negativity, dt_convergence for all main observables, and stationarity all pass.",
+    "Only after the gate passes, finalize the parameter lock, bind its tracked SHA-256 into E1-E3 configs, and execute E1-MATCHED-LANDSCAPES, E2-CHANNEL-ABLATION, and E3-ROBUSTNESS-HOLDOUT on umi.",
+    "Do not reuse or interpret Cycle 1's aborted E1-E3 configs/artifacts as confirmatory evidence, and do not rewrite Nature/PRL drafts until new findings support C1 and resolve C2-C4.",
+    "Preserve all Cycle 1 negative evidence and declare exact seed/dt/condition schedules plus reproducibility metadata for every new run."
+  ]
+}

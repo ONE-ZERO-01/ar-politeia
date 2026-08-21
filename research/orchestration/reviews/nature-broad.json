@@ -1,0 +1,63 @@
+{
+  "simulated": true,
+  "verdict": "reject",
+  "strengths": [
+    "The manuscript is candid and does not overclaim: it explicitly labels Cycle 1 as non-submittable and reports C1-NUM as contradicted while C2-C4 remain inconclusive, matching research/findings.json and research/orchestration/comprehensive.json.",
+    "The core conceptual frame is scientifically useful: holding total resource, pixel histogram, accessible area, population, and initial wealth fixed while varying spatial arrangement isolates arrangement from abundance, and the two switchable channels make the landscape intervention falsifiable.",
+    "The numerical statements in the text and tables are traceable to the declared evidence: conservation drift 2.511e-9, minimum wealth 5.1766e-41, equal-state variance 0.0, and the dt/2-vs-dt/4 Gini change 0.26584885869833064 all match research/findings.json claims[0].falsification_check.",
+    "The preregistered, outcome-blind gate is a strength for integrity: confirmatory E1-E3 analyses were hard-blocked rather than interpreted post hoc after a failed calibration check.",
+    "The manuscript honestly frames the negative result as a numerical boundary rather than inventing a landscape or channel effect from missing evidence."
+  ],
+  "weaknesses": [
+    "There is no positive broad-impact scientific result: the confirmatory landscape, channel-ablation, and robustness comparisons were never executed, so the paper cannot support the central question it poses.",
+    "The manuscript is explicitly described as an internal draft that the comprehensive record recommends not submitting, so it does not yet meet the contribution standard expected for a Nature-format research article.",
+    "The evidence base is narrow: only three pilot seeds and 25 calibration runs are reported, with no confirmatory replicates, effect estimates, or stationarity reports generated for E1-E3.",
+    "The claimed 'reproducible numerical boundary' is not fully evidenced for broad readers: exact stationarity statistics/thresholds, random seeds, code entry points, and per-run diagnostic curves are not shown in the declared inputs.",
+    "Several quantitative Methods details (20 seeds by 4 conditions for E1, 20 seeds by 2 landscapes by 4 channel states for E2, N=2000, 128x128 grid) are not explicitly present in research/findings.json or research/orchestration/comprehensive.json, making it impossible to verify them solely from the declared evidence.",
+    "The manuscript lacks quantitative diagnostic figures; Figures 1-3 are schematic gate/model diagrams, so readers cannot see why stationarity and dt-convergence failed."
+  ],
+  "actionable_items": [
+    {
+      "severity": "P0",
+      "type": "scientific-claim",
+      "evidence_ref": "research/findings.json -> claims[0].verdict=contradicted; claims[1..3].verdict=inconclusive; research/orchestration/comprehensive.json -> journal_recommendations[0]",
+      "requested_action": "Do not submit this version as a Nature research article. Retain it as an internal record or, if publication is considered, reframe it strictly as a negative-result/methods note that makes no positive landscape, channel, or robustness claim.",
+      "acceptance_criterion": "The submission is withdrawn or reclassified as a null-result/methods note, and no confirmatory C2-C4 conclusion is asserted anywhere in the title, abstract, or discussion."
+    },
+    {
+      "severity": "P1",
+      "type": "reproducibility",
+      "evidence_ref": "research/findings.json -> claims[0].falsification_check.dt_convergence.passed=false, stationarity.passed=false; research/orchestration/comprehensive.json -> limitations[0], limitations[1], limitations[4]",
+      "requested_action": "Add a reproducibility appendix or machine-readable record specifying the stationarity statistic and threshold, random seeds, exact code entry point, and per-run diagnostics for B0 and E0.",
+      "acceptance_criterion": "A reader can rerun E0-NUMERICS from committed code and parameters and reproduce the reported 0.26584885869833064 Gini change and stationarity_pass=false without relying on runtime state."
+    },
+    {
+      "severity": "P1",
+      "type": "evidence",
+      "evidence_ref": "research/paper/nature/main.tex -> Methods/Experiments; research/findings.json -> reconciliation.results.E1-MATCHED-LANDSCAPES=failed, E2-CHANNEL-ABLATION=failed, E3-ROBUSTNESS-HOLDOUT=failed",
+      "requested_action": "Separate configuration metadata from empirical results, and verify or remove every E1-E3 design number (seed counts, condition counts, N, grid size) against a declared parameter-lock or experiment-spec artifact.",
+      "acceptance_criterion": "Each quantitative design claim in Methods is either traceable to a declared input or deleted, and no design detail is presented as observed evidence."
+    },
+    {
+      "severity": "P2",
+      "type": "presentation",
+      "evidence_ref": "research/paper/nature/main.tex -> Table 2 and Figures 1-3; research/findings.json -> claims[0].falsification_check.dt_convergence.observed=0.26584885869833064, stationarity.observed=false",
+      "requested_action": "Add quantitative diagnostic panels for the failed checks, such as stationarity traces over the steady window and paired dt/2-versus-dt/4 Gini differences, rather than relying only on schematic diagrams and a pass/fail table.",
+      "acceptance_criterion": "A reader can inspect the actual failure mode visually from at least one data figure showing stationarity and time-step convergence diagnostics."
+    },
+    {
+      "severity": "P2",
+      "type": "journal-fit",
+      "evidence_ref": "research/paper/nature/main.tex -> Status paragraph; research/orchestration/comprehensive.json -> journal_recommendations[0]",
+      "requested_action": "If a journal version is ever produced, restate the contribution in one sentence that goes beyond 'the test was blocked' and either demonstrate the reproducibility of the numerical boundary or report future E1-E3 evidence.",
+      "acceptance_criterion": "The abstract and opening paragraph contain a concrete, externally meaningful contribution, or no journal version is generated until confirmatory evidence exists."
+    },
+    {
+      "severity": "P3",
+      "type": "clarity",
+      "evidence_ref": "research/paper/nature/main.tex -> Methods/Wealth exchange: A_i = epsilon_i * w_i/(w_i + w_ref)",
+      "requested_action": "Define epsilon_i on first use in the wealth-exchange equation, and state whether it is the same production noise factor used in the local resource gain.",
+      "acceptance_criterion": "Every symbol in each displayed equation is defined on first use and no undefined symbol remains for a broad reader."
+    }
+  ]
+}

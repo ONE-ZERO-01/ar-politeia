@@ -1,0 +1,62 @@
+{
+  "simulated": true,
+  "verdict": "reject",
+  "strengths": [
+    "The manuscript is appropriately honest about its status: it labels itself an internal draft and explicitly states that Cycle 1 supports no confirmatory claim.",
+    "The claimed verdicts match the declared evidence: research/findings.json marks C1-NUM contradicted and C2-LANDSCAPE, C3-CHANNELS, and C4-ROBUSTNESS inconclusive; research/orchestration/comprehensive.json reports the same four verdicts.",
+    "The numerical values in Table 2 are traceable to research/findings.json#/claims/0/falsification_check: conservation 2.511e-9, non-negativity 5.1766e-41, equal-state 0.0, dt-convergence wealth_gini 0.26584885869833064, and stationarity_pass false.",
+    "The preregistered, outcome-blind calibration gate is a scientifically valuable design decision: it correctly blocks confirmatory interpretation when stationarity and dt-convergence fail.",
+    "The two-channel landscape intervention is well suited to make the arrangement question falsifiable and avoids attributing effects to an unmeasured topology term."
+  ],
+  "weaknesses": [
+    "The manuscript contains no confirmatory scientific result: E1-MATCHED-LANDSCAPES, E2-CHANNEL-ABLATION, and E3-ROBUSTNESS-HOLDOUT were all blocked, so the central question remains unanswered (research/findings.json#/claims/1, #/claims/2, #/claims/3).",
+    "The numerical scheme is not yet trustworthy for the primary science: E0-NUMERICS failed both dt-convergence and stationarity, and B0-DYNAMICS-PILOT failed stationarity for all three seeds (research/findings.json#/reconciliation and #/claims/0/falsification_check).",
+    "The abstract calls the numerical boundary 'reproducible,' but the declared evidence only shows the failure within the Cycle 1 25-run calibration set; cross-run or cross-environment reproducibility is not demonstrated.",
+    "The executed evidence base is small and incomplete for a journal report: three pilot seeds and twenty-five calibration runs, with no confirmatory replicates, effect estimates, or robustness results.",
+    "As a Nature-format manuscript, the work does not yet meet the professional/scientific bar of a substantive, generalizable finding; the current contribution is a well-documented negative methodological gate rather than a discovery."
+  ],
+  "actionable_items": [
+    {
+      "severity": "P0",
+      "type": "scientific_result",
+      "evidence_ref": "research/orchestration/comprehensive.json#/journal_recommendations/0",
+      "requested_action": "Do not submit in this form. Return to the science gate, revise the candidate parameter lock, rerun E0-NUMERICS, and only after all calibration checks pass execute the blocked E1-E3 confirmatory experiments.",
+      "acceptance_criterion": "At least one executed confirmatory experiment produces a stationarity- and dt-convergence-validated effect estimate, and the corresponding C2/C3/C4 claim is no longer inconclusive solely because of a blocked upstream gate."
+    },
+    {
+      "severity": "P0",
+      "type": "numerical_validation",
+      "evidence_ref": "research/findings.json#/claims/0/falsification_check/dt_convergence",
+      "requested_action": "Fix the observed wealth-Gini discretization sensitivity (0.26584885869833064 between dt/2 and dt/4 against a 0.02 limit) before any landscape interpretation.",
+      "acceptance_criterion": "All preregistered main observables have dt/2-vs-dt/4 mean absolute change <= 0.02 in a rerun of E0-NUMERICS."
+    },
+    {
+      "severity": "P0",
+      "type": "stationarity",
+      "evidence_ref": "research/findings.json#/claims/0/falsification_check/stationarity",
+      "requested_action": "Diagnose and eliminate the non-stationarity observed in B0-DYNAMICS-PILOT and E0-NUMERICS before authorizing confirmatory runs.",
+      "acceptance_criterion": "The rerun calibration set reports stationarity_pass true for the preregistered steady-window statistics across the full run set."
+    },
+    {
+      "severity": "P1",
+      "type": "scope_claim",
+      "evidence_ref": "research/paper/nature/main.tex",
+      "requested_action": "Soften the abstract's characterization of the numerical boundary as 'reproducible' to a claim bounded by the Cycle 1 25-run calibration evidence, or provide explicit replication evidence across independent reruns/environments.",
+      "acceptance_criterion": "The word 'reproducible' is either removed/qualified or supported by a cited independent replication artifact."
+    },
+    {
+      "severity": "P2",
+      "type": "journal_fit",
+      "evidence_ref": "research/orchestration/comprehensive.json#/journal_recommendations/0",
+      "requested_action": "For any future manuscript, lead with a confirmatory finding and reserve the gate-failure narrative for Methods/robustness; if no confirmatory result is available, target a venue or format appropriate for registered negative reports rather than Nature.",
+      "acceptance_criterion": "The abstract and title foreground an executed scientific comparison with interpretable results, or the submission venue is explicitly justified for a negative methodological report."
+    },
+    {
+      "severity": "P3",
+      "type": "reproducibility",
+      "evidence_ref": "research/paper/nature/main.tex",
+      "requested_action": "Add the exact software/commit identity, parameter-lock hash, seeds, and runner configuration used for B0 and E0 so the negative gate result can be independently checked.",
+      "acceptance_criterion": "A reader can locate and rerun the exact B0/E0 configuration from the manuscript or a referenced artifact path."
+    }
+  ]
+}

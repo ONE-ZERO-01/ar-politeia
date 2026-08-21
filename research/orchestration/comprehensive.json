@@ -1,0 +1,56 @@
+{
+  "cycle": 1,
+  "paper_dir": "research/paper/comprehensive",
+  "claims": [
+    {
+      "claim_id": "C1-NUM",
+      "verdict": "contradicted",
+      "evidence": [
+        "research/jobs/E0-NUMERICS/result.json",
+        "research/jobs/E0-NUMERICS/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+        "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv"
+      ]
+    },
+    {
+      "claim_id": "C2-LANDSCAPE",
+      "verdict": "inconclusive",
+      "evidence": [
+        "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ]
+    },
+    {
+      "claim_id": "C3-CHANNELS",
+      "verdict": "inconclusive",
+      "evidence": [
+        "research/jobs/E2-CHANNEL-ABLATION/result.json",
+        "research/parameter_lock.json"
+      ]
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS",
+      "verdict": "inconclusive",
+      "evidence": [
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "E0 numerical calibration failed on dt_convergence and stationarity, so the frozen SESOI cannot yet be used as a confirmatory threshold.",
+    "B0 dynamics-health pilot failed the stationarity gate for all three seeds while passing wealth non-negativity, fixed population, and finite-metric checks.",
+    "The candidate parameter lock remains non-final and confirmatory execution is not authorized.",
+    "No confirmatory E1-E3 numerical runs were executed, so C2-C4 have no direct empirical evidence.",
+    "Wealth dynamics show strong time-step sensitivity: wealth Gini changes by 0.26584885869833064 between dt/2 and dt/4, so wealth observables are not discretization-converged.",
+    "The evidence boundary is synthetic generative mechanism only; no claim about specific civilizations, states, empires, or historical causation is permitted.",
+    "Cycle 1 disables reproduction, mortality, culture, technology, loyalty, conquest, taxation, and polity classification, so the results cannot speak to those mechanisms."
+  ],
+  "journal_recommendations": [
+    "Do not submit a journal version in Cycle 1: C1-NUM is contradicted and C2-C4 are inconclusive because no confirmatory runs were executed.",
+    "Return to the human/science gate, revise the candidate parameter lock using only runtime, numerical-stability, and outcome-blind health diagnostics, rerun E0-NUMERICS until conservation, non-negativity, dt-convergence, and stationarity all pass, then re-submit E1-E3.",
+    "Only after a future cycle passes the calibration gate and executes E1-E3 should WRITE-JOURNAL condense this comprehensive record into Nature/PRL versions."
+  ]
+}

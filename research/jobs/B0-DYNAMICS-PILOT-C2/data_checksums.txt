@@ -1,0 +1,2 @@
+external_data: none
+generated_inputs: runtime SHA-256 values recorded in workspace/matched_input_audit.json

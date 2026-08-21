@@ -1,0 +1,141 @@
+{
+  "generated_at": "2026-08-20T23:48:40+08:00",
+  "cycle_output": "/home/wanwb/ONE/ar-politeia/research/orchestration/cycle-output.json",
+  "run_dir": "/home/wanwb/ONE/ar-politeia/research",
+  "problems": [],
+  "checked_paths": [
+    {
+      "path": "research/jobs/E0-NUMERICS/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/result.json",
+      "claim_id": "C1-NUM"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/numerical_calibration.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/numerical_calibration.json",
+      "claim_id": "C1-NUM"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+      "claim_id": "C1-NUM"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+      "claim_id": "C1-NUM"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv",
+      "claim_id": "C1-NUM"
+    },
+    {
+      "path": "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+      "claim_id": "C2-LANDSCAPE"
+    },
+    {
+      "path": "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+      "claim_id": "C2-LANDSCAPE"
+    },
+    {
+      "path": "research/parameter_lock.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/parameter_lock.json",
+      "claim_id": "C2-LANDSCAPE"
+    },
+    {
+      "path": "research/jobs/E2-CHANNEL-ABLATION/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E2-CHANNEL-ABLATION/result.json",
+      "claim_id": "C3-CHANNELS"
+    },
+    {
+      "path": "research/parameter_lock.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/parameter_lock.json",
+      "claim_id": "C3-CHANNELS"
+    },
+    {
+      "path": "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+      "claim_id": "C4-ROBUSTNESS"
+    },
+    {
+      "path": "research/parameter_lock.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/parameter_lock.json",
+      "claim_id": "C4-ROBUSTNESS"
+    },
+    {
+      "path": "research/jobs/B0-DYNAMICS-PILOT/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/B0-DYNAMICS-PILOT/result.json"
+    },
+    {
+      "path": "research/jobs/B0-DYNAMICS-PILOT/workspace/pilot_health.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/B0-DYNAMICS-PILOT/workspace/pilot_health.json"
+    },
+    {
+      "path": "research/jobs/B0-DYNAMICS-PILOT/workspace/stationarity_report.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/B0-DYNAMICS-PILOT/workspace/stationarity_report.json"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/result.json"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/numerical_calibration.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/numerical_calibration.json"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/numerical_calibration.json"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv"
+    },
+    {
+      "path": "research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E0-NUMERICS/workspace/stationarity_report.json"
+    },
+    {
+      "path": "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E1-MATCHED-LANDSCAPES/result.json"
+    },
+    {
+      "path": "research/jobs/E2-CHANNEL-ABLATION/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E2-CHANNEL-ABLATION/result.json"
+    },
+    {
+      "path": "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json"
+    },
+    {
+      "path": "research/parameter_lock.json",
+      "valid": true,
+      "resolved": "/home/wanwb/ONE/ar-politeia/research/parameter_lock.json"
+    }
+  ],
+  "pass": true
+}

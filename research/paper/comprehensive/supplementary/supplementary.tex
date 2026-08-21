@@ -1,0 +1,155 @@
+% AR-Politeia Cycle 1 -- Supplementary Material (authoritative diagnostics)
+% Full diagnostic definitions, proof sketches for executed checks, and the
+% expanded claim-to-evidence map.
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
+
+\newtheorem{sketch}{Proof sketch}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Supplementary Material -- AR-Politeia Cycle 1}
+\author{AutoResearcher Project \texttt{ar-politeia}, Cycle 1}
+\date{Generated 2026-08-20}
+
+\begin{document}
+\maketitle
+
+\section{Observable definitions}
+\label{sec:observables}
+
+All definitions below are the exact functions in
+\code{research/src/experiments/landscape\_study.py}. The density grid bins
+particle positions onto the resource grid shape with the domain bounds.
+
+\subsection{Resource--density Spearman correlation}
+The primary observable is the Spearman rank correlation between the resource
+field and the binned density field. Ties receive average ranks, and a constant
+input is defined to have correlation zero. Physically, this measures whether
+agents accumulate on high-resource cells: values near $+1$ mean dense cells are
+resource-rich.
+
+\subsection{Moran's I}
+The global Moran's $I$ uses a symmetric four-neighbour lattice. For a centered
+field $z$ with variance denominator $S$, it is
+\begin{equation}
+I = \frac{n}{w}\cdot\frac{\sum_{i\sim j} z_i z_j}{\sum_i z_i^2},
+\qquad w = 2\bigl(R(C-1)+(R-1)C\bigr),
+\end{equation}
+where the numerator sums horizontal and vertical neighbouring products. It
+measures spatial autocorrelation of density: positive values mean neighbouring
+cells have similar occupancy.
+
+\subsection{Occupancy entropy}
+Occupancy entropy is the Shannon entropy of the normalized density mass,
+divided by $\log(\#\text{cells})$, so it lies in $[0,1]$. It measures how
+spread-out the population is: near $1$ means uniform occupancy, small values
+mean concentrated occupancy.
+
+\subsection{Wealth Gini}
+The Gini coefficient is computed over non-negative wealth with the standard
+mean-difference formula. It measures wealth inequality from $0$ (equal) to
+$1$ (maximal concentration).
+
+\section{Stationarity diagnostics}
+\label{sec:stationarity}
+
+For a steady-window sequence $y_1,\dots,y_m$, the diagnostic fits a linear
+slope, normalizes the total window drift by $\max(|\bar y|,\mathrm{range}(y),10^{-12})$,
+estimates the integrated autocorrelation time (IAT) with an initial-positive
+autocorrelation sequence, and requires both
+\begin{equation}
+\mathrm{normalized\_drift} \le \mathrm{max\_normalized\_drift}
+\quad\text{and}\quad
+\mathrm{effective\_samples} = m/\mathrm{IAT} \ge \mathrm{min\_effective\_samples}.
+\end{equation}
+These are the preregistered thresholds in each job config.
+
+\section{Proof sketches for executed checks}
+\label{sec:proofs}
+
+These sketches concern only what \code{E0-NUMERICS} actually executed and
+passed; they are not asserted as general theorems beyond that regime.
+
+\begin{sketch}[Total wealth conservation under the exchange rule]
+For each interacting pair $(i,j)$, the transfer $\Delta w$ is added to $w_i$ and
+subtracted from $w_j$ (or, in the OpenMP path, accumulated as $\pm\Delta w$ in
+the two per-particle buffers). Therefore every pair contributes zero to the
+sum of wealth. In \code{E0-NUMERICS} the production, consumption, and decay
+rates are all zero, so the only wealth-changing process is the zero-sum
+exchange; total wealth is conserved up to floating-point round-off. The
+observed relative drift $2.511028287699446\times10^{-9}$ is within the
+$10^{-8}$ threshold.
+\end{sketch}
+
+\begin{sketch}[Non-negativity in the tested regime]
+For a single pairwise transfer, $|A_i-A_j|/(A_i+A_j)<1$ when both abilities
+are positive, so $|\Delta w| < \eta\min(w_i,w_j)$ with $\eta=0.003$. Hence one
+pairwise transfer cannot make either wealth negative when both are positive.
+Because the code also guards $w\le0$ (skips such particles) and the observed
+minimum wealth over all 25 runs is $5.1766245\times10^{-41}\ge -10^{-12}$, the
+preregistered non-negativity check passes. This is an empirical statement for
+the tested densities and step sizes, not a proof for arbitrary configurations
+under the parallel accumulation scheme.
+\end{sketch}
+
+\begin{sketch}[Equal-wealth absorbing state]
+If $w_i=w_j=w_0$ and $\epsilon_i=\epsilon_j$ (the equal-state conditions), then
+$A_i=A_j$, so $\Delta w=0$ for every pair. The observed maximum wealth variance
+under equal initial conditions is exactly $0.0$, within the $10^{-20}$
+threshold. The uniform-wealth configuration is therefore an absorbing state of
+the deterministic exchange kernel.
+\end{sketch}
+
+\section{Expanded claim-to-evidence map}
+\label{sec:map}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}llp{8.6cm}@{}}
+\toprule
+\textbf{Claim} & \textbf{Verdict} & \textbf{Evidence} \\
+\midrule
+\code{C1-NUM} & contradicted &
+\code{research/jobs/E0-NUMERICS/result.json} (executed; \code{pass:false}; failed checks \code{dt\_convergence}, \code{stationarity});\newline
+\code{research/jobs/E0-NUMERICS/numerical\_calibration.json};\newline
+\code{research/jobs/E0-NUMERICS/workspace/numerical\_calibration.json};\newline
+\code{research/jobs/E0-NUMERICS/workspace/stationarity\_report.json};\newline
+\code{research/jobs/E0-NUMERICS/workspace/replicate\_metrics.csv}. \\
+\code{C2-LANDSCAPE} & inconclusive &
+\code{research/jobs/E1-MATCHED-LANDSCAPES/result.json} (\code{status:blocked});\newline
+\code{research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json} (\code{status:blocked});\newline
+\code{research/parameter\_lock.json} (\code{confirmatory\_execution\_authorized:false}). \\
+\code{C3-CHANNELS} & inconclusive &
+\code{research/jobs/E2-CHANNEL-ABLATION/result.json} (\code{status:blocked}, missing \code{channel\_effects.json});\newline
+\code{research/parameter\_lock.json}. \\
+\code{C4-ROBUSTNESS} & inconclusive &
+\code{research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json} (\code{status:blocked}, missing \code{holdout\_effects.json});\newline
+\code{research/parameter\_lock.json}. \\
+\bottomrule
+\end{tabular}
+\caption{Expanded claim-to-evidence map with the exact status recorded in each
+artifact.}
+\label{tab:map}
+\end{table}
+
+\section{Raw artifact inventory}
+\label{sec:artifacts}
+
+The authoritative machine artifacts are under
+\code{research/jobs/<exp\_id>/}. The tracked results are
+\code{B0-DYNAMICS-PILOT/result.json} (completed, \code{pass:false}),
+\code{E0-NUMERICS/result.json} (completed, \code{pass:false}),
+\code{E0-NUMERICS/numerical\_calibration.json} (tracked calibration,
+\code{pass:false}), and the three blocked
+\code{E1/E2/E3-*}/result.json files. The PDF of the main record is generated
+from \code{main.tex} and is Git-ignored.
+
+\end{document}

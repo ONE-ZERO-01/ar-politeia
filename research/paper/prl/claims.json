@@ -1,0 +1,86 @@
+{
+  "project": "ar-politeia",
+  "cycle": 1,
+  "node": "journal_prl",
+  "source": [
+    "research/orchestration/comprehensive.json",
+    "research/findings.json",
+    "rules/journal-formats.md"
+  ],
+  "draft_status": "negative_inconclusive_prl_letter",
+  "editorial_position": "Cycle 1 produced no confirmatory scientific claim. The PRL draft reports an honest numerical-calibration stop and does not submit the blocked landscape experiments as a null result.",
+  "claims": [
+    {
+      "claim_id": "C1-NUM",
+      "verdict": "contradicted",
+      "claim_text": "The minimal model conserves wealth, preserves non-negativity, and its main observables converge in time step under non-degenerate small perturbations.",
+      "traceability": {
+        "conservation": {
+          "passed": true,
+          "observed": "max absolute total-wealth relative drift 2.511028287699446e-09",
+          "threshold": "<= 1e-8"
+        },
+        "non_negativity": {
+          "passed": true,
+          "observed": "minimum wealth 5.1766245e-41",
+          "threshold": ">= -1e-12"
+        },
+        "equal_state_absorbing": {
+          "passed": true,
+          "observed": "equal-exchange max wealth variance 0.0",
+          "threshold": "<= 1e-20"
+        },
+        "dt_convergence": {
+          "passed": false,
+          "observed": "wealth_gini dt/2-vs-dt/4 mean absolute change 0.26584885869833064",
+          "threshold": "all main observables <= 0.02"
+        },
+        "stationarity": {
+          "passed": false,
+          "observed": "stationarity_pass false across the E0 run set"
+        }
+      }
+    },
+    {
+      "claim_id": "C2-LANDSCAPE",
+      "verdict": "inconclusive",
+      "claim_text": "After matching total resources, pixel histogram, and accessible area, clustered resource landscapes produce population-spatial-structure differences beyond numerical noise relative to spatially shuffled landscapes.",
+      "reason": "No confirmatory landscape-contrast runs were executed because the parameter lock is non-final and the E0 calibration dependency failed."
+    },
+    {
+      "claim_id": "C3-CHANNELS",
+      "verdict": "inconclusive",
+      "claim_text": "The landscape effect can be decomposed into quantifiable movement-by-production main and interaction effects using a 2x2 factorial ablation.",
+      "reason": "No E2 channel-ablation runs were executed; channel effect estimates and replicate metrics are missing by design of the abort."
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS",
+      "verdict": "inconclusive",
+      "claim_text": "The core effect direction is consistent across preregistered population sizes, grid resolutions, and held-out landscape families.",
+      "reason": "No robustness holdout runs were executed because E0, E1, and E2 upstream dependencies were blocked."
+    }
+  ],
+  "limitations_preserved": [
+    "E0 numerical calibration failed on dt_convergence and stationarity, so the frozen SESOI cannot yet be used as a confirmatory threshold.",
+    "B0 dynamics-health pilot failed the stationarity gate for all three seeds while passing wealth non-negativity, fixed population, and finite-metric checks.",
+    "The candidate parameter lock remains non-final and confirmatory execution is not authorized.",
+    "No confirmatory E1-E3 numerical runs were executed, so C2-C4 have no direct empirical evidence and remain inconclusive.",
+    "Wealth dynamics show strong time-step sensitivity: wealth Gini changes by 0.26584885869833064 between dt/2 and dt/4, so wealth observables are not discretization-converged.",
+    "The evidence boundary is synthetic generative mechanism only; no claim about specific civilizations, states, empires, or historical causation is permitted.",
+    "Cycle 1 disables reproduction, mortality, culture, technology, loyalty, conquest, taxation, and polity classification, so the results cannot speak to those mechanisms."
+  ],
+  "prl_narrative_checks": {
+    "single_core_result": true,
+    "core_result": "The cycle stopped at the numerical-calibration gate because wealth observables are not stationarity- or dt-convergence-certified; no landscape effect is claimed.",
+    "physical_intuition_present": true,
+    "introduction_gap_then_contribution": true,
+    "prior_work_contrast_present": true,
+    "conclusions_match_evidence": true,
+    "no_overclaim": true
+  },
+  "journal_recommendations_preserved": [
+    "Do not submit a journal version as a positive scientific result in Cycle 1.",
+    "Return to the human/science gate, revise the candidate parameter lock using only runtime and outcome-blind health diagnostics, rerun E0 until all calibration checks pass, and then resubmit E1-E3."
+  ],
+  "nonempty_output_assertion": true
+}
