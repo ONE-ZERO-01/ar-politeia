@@ -33,6 +33,27 @@
   2. 论文初稿成型（哪怕草稿）；
   3. 每 30 天兜底一次。
 
+## 结果回传同步（服务器 → 本地）
+
+研究结果（代码、`result.json`、`findings.json`、论文 `.tex`/`claims.json`、审稿、strategy
+决策）由服务器上的 Agent 产出，落于共享 NFS 工作区但**尚未进 git**。回传本地按以下两步：
+
+1. 在服务器（`ssh zeus`）提交结果，`.gitignore` 会自动排除数据（`workspace/`、`*.pdf`、
+   `.autoresearcher/` 运行态）：
+
+   ```bash
+   cd /home/wanwb/ONE/ar-politeia
+   bash scripts/commit-research.sh "cycle(1): strategy=replan"
+   ```
+
+2. 在本地拉取：
+
+   ```bash
+   bash scripts/sync-research.sh
+   ```
+
+数据永不跨过此边界：服务器提交时只暂存 `.gitignore` 允许的文件，本地拉取只拿这些提交。
+
 ## 安全红线
 
 - 永不 `push --force`（尤其对 `github` 与 `umi` 主分支）。
