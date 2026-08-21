@@ -1,0 +1,92 @@
+{
+  "project": "ar-politeia",
+  "cycle": 1,
+  "node": "analyze",
+  "generated_at": "2026-08-20T00:00:00+08:00",
+  "reconciliation": {
+    "method": "jobctl reconcile semantics",
+    "results": {
+      "B0-DYNAMICS-PILOT": "completed: worker exit code 0 and declared artifacts valid",
+      "E0-NUMERICS": "completed: worker exit code 0 and declared artifacts valid",
+      "E1-MATCHED-LANDSCAPES": "failed: worker exit code 1 before numeric artifacts were produced",
+      "E2-CHANNEL-ABLATION": "failed: worker exit code 1 before numeric artifacts were produced",
+      "E3-ROBUSTNESS-HOLDOUT": "failed: worker exit code 1 before numeric artifacts were produced"
+    },
+    "artifact_validation": "B0 and E0 declared artifacts are present and non-empty; E1-E3 are blocked before producing replicate metrics, effect estimates, and stationarity reports."
+  },
+  "claims": [
+    {
+      "claim_id": "C1-NUM",
+      "verdict": "contradicted",
+      "claim_text": "最小模型在非退化小扰动初值下保持财富守恒和非负性，且主要观测量对时间步收敛。",
+      "interpretation": "E0-NUMERICS completed 25 runs and its jobctl reconcile passed, but the E0 calibration gate failed on dt_convergence and stationarity. Wealth conservation and non-negativity passed, but the joint claim requires time-step convergence and stationarity, so the claim as a whole is falsified by the preregistered criteria.",
+      "falsification_check": {
+        "wealth_conservation": {
+          "passed": true,
+          "observed": "max absolute total-wealth relative drift 2.511e-9",
+          "threshold": "<= 1e-8"
+        },
+        "wealth_nonnegative": {
+          "passed": true,
+          "observed": "minimum wealth 5.1766e-41",
+          "threshold": ">= -1e-12"
+        },
+        "dt_convergence": {
+          "passed": false,
+          "observed": "dt/2-vs-dt/4 mean absolute change wealth_gini=0.26584885869833064",
+          "threshold": "all main observables <= 0.02"
+        },
+        "stationarity": {
+          "passed": false,
+          "observed": "stationarity_pass false across the E0 run set"
+        },
+        "equal_state_is_absorbing": {
+          "passed": true,
+          "observed": "equal-exchange max wealth variance 0.0",
+          "threshold": "<= 1e-20"
+        }
+      },
+      "evidence": [
+        "research/jobs/E0-NUMERICS/result.json",
+        "research/jobs/E0-NUMERICS/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+        "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv"
+      ]
+    },
+    {
+      "claim_id": "C2-LANDSCAPE",
+      "verdict": "inconclusive",
+      "claim_text": "在资源总量、像素值直方图和可达面积匹配后，聚集型资源景观相对空间打乱景观产生超过数值噪声界限的人口空间结构差异。",
+      "interpretation": "No confirmatory landscape-contrast runs were executed. E1-MATCHED-LANDSCAPES and E3-ROBUSTNESS-HOLDOUT both report blocked status because the parameter lock is not final and the E0 calibration dependency failed. Missing evidence must not be converted into a positive landscape effect.",
+      "blocked_reason": "parameter_lock_final=false, parameter_lock_status=candidate_pending_non_evidentiary_runtime_pilot_and_e0, e0_calibration_pass=false",
+      "evidence": [
+        "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ]
+    },
+    {
+      "claim_id": "C3-CHANNELS",
+      "verdict": "inconclusive",
+      "claim_text": "景观效应可通过移动通道×生产通道的 2×2 因子消融分解为可量化的主效应和交互效应。",
+      "interpretation": "No E2-CHANNEL-ABLATION runs were executed. The jobctl reconciliation returned failed with exit code 1 and the runner aborted before producing channel effect estimates, so neither a support nor a contradiction can be established for the decomposition claim.",
+      "blocked_reason": "parameter_lock_final=false and e0_calibration_pass=false; channel_effects.json and replicate_metrics.csv are missing by design of the abort",
+      "evidence": [
+        "research/jobs/E2-CHANNEL-ABLATION/result.json",
+        "research/parameter_lock.json"
+      ]
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS",
+      "verdict": "inconclusive",
+      "claim_text": "核心效应在预注册的人口规模、网格分辨率和未用于参数选择的景观家族上保持方向一致。",
+      "interpretation": "No robustness holdout runs were executed. E3-ROBUSTNESS-HOLDOUT was blocked by upstream dependencies, so there is no scale or held-out-landscape evidence with which to assess direction consistency.",
+      "blocked_reason": "parameter_lock_final=false, e0_calibration_pass=false, E1-MATCHED-LANDSCAPES blocked, E2-CHANNEL-ABLATION blocked",
+      "evidence": [
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ]
+    }
+  ]
+}

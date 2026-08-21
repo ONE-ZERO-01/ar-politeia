@@ -1,0 +1,43 @@
+{
+  "experiment": "E0-NUMERICS",
+  "status": "completed",
+  "pass": false,
+  "runs_completed": 25,
+  "runs_executed_this_invocation": 25,
+  "runs_reused_from_completion_markers": 0,
+  "elapsed_seconds_executed_this_invocation": 53.59880726970732,
+  "config_sha256": "6f44e7a4c6f63ec3c4474d22c0c09c81ec5ef891a56ecd50d49cb3ca72300ac6",
+  "omp_threads": 8,
+  "parameter_lock_sha256": null,
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/E0-NUMERICS/workspace/matched_input_audit.json",
+    "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+    "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv",
+    "research/jobs/E0-NUMERICS/workspace/run_specs.json",
+    "research/jobs/E0-NUMERICS/workspace/stationarity_report.json"
+  ],
+  "tracked_calibration_result": "research/jobs/E0-NUMERICS/numerical_calibration.json",
+  "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
+  "exit_code": 0,
+  "jobctl_reconcile": "completed",
+  "deviation_from_plan": "Execution completed, but the E0 calibration gate did not pass: stationarity=false and dt_convergence=false. No rerun was attempted and no parameters were tuned, per the declared failure policy.",
+  "failed_checks": [
+    "dt_convergence",
+    "stationarity"
+  ],
+  "raw_metrics_file": "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv",
+  "raw_metrics_summary": {
+    "max_absolute_wealth_drift": 2.511028287699446e-09,
+    "minimum_wealth": 5.1766245e-41,
+    "equal_exchange_max_wealth_variance": 0.0,
+    "dt_half_vs_quarter_mean_absolute_change": {
+      "resource_density_spearman_rho": 0.0,
+      "density_morans_i": 0.008572825641811355,
+      "occupancy_entropy": 0.0011749233757867516,
+      "wealth_gini": 0.26584885869833064
+    },
+    "stationarity_pass": false,
+    "dt_convergence_pass": false
+  }
+}

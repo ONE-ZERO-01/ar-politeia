@@ -1,0 +1,338 @@
+{
+  "project_id": "ar-politeia",
+  "cycle": 1,
+  "status": "implementation",
+  "created": "2026-08-18T00:00:00+08:00",
+  "summary": "Matched-landscape causal study of spatial aggregation and wealth structure in a minimal fixed-population Langevin model.",
+  "question": "在总资源量、资源边际分布、可达面积、人口数和财富初值均匹配时，资源景观的空间自相关性是否会改变稳态人口聚集和财富结构？",
+  "scope": {
+    "included_state": ["position", "momentum", "wealth"],
+    "fixed_state": {"epsilon": 1.0, "population": true},
+    "disabled_modules": [
+      "culture",
+      "technology_jumps",
+      "reproduction",
+      "mortality",
+      "plague",
+      "loyalty",
+      "conquest",
+      "taxation",
+      "polity_classification"
+    ],
+    "inference_boundary": "Cycle 1 supports only synthetic generative-mechanism claims; no claims about specific civilizations, states, empires, or historical causation."
+  },
+  "claims": [
+    {
+      "id": "C1-NUM",
+      "text": "最小模型在非退化小扰动初值下保持财富守恒和非负性，且主要观测量对时间步收敛。",
+      "type": "calibration",
+      "falsification": "关闭生产、消费和衰减后总财富相对漂移超过 1e-8，任一个体财富低于 -1e-12，或将 dt 减半后主要观测量差异超过 2%。",
+      "experiments": ["E0-NUMERICS"],
+      "priority": "P0"
+    },
+    {
+      "id": "C2-LANDSCAPE",
+      "text": "在资源总量、像素值直方图和可达面积匹配后，聚集型资源景观相对空间打乱景观产生超过数值噪声界限的人口空间结构差异。",
+      "type": "core",
+      "falsification": "配对种子的资源—密度 Spearman rho、密度 Moran's I 和占据熵效应全部落入由 E0 预注册的等效区间，或效应方向在保留景观上反转。",
+      "experiments": ["E1-MATCHED-LANDSCAPES", "E3-ROBUSTNESS-HOLDOUT"],
+      "priority": "P0"
+    },
+    {
+      "id": "C3-CHANNELS",
+      "text": "景观效应可通过移动通道×生产通道的 2×2 因子消融分解为可量化的主效应和交互效应。",
+      "type": "mechanism",
+      "falsification": "因子对比的区间估计无法排除数值噪声，或结果仅能识别组合效应而无法归因于任一单通道。",
+      "experiments": ["E2-CHANNEL-ABLATION"],
+      "priority": "P0"
+    },
+    {
+      "id": "C4-ROBUSTNESS",
+      "text": "核心效应在预注册的人口规模、网格分辨率和未用于参数选择的景观家族上保持方向一致。",
+      "type": "robustness",
+      "falsification": "主要效应仅在一个人口规模或分辨率上出现，或在保留景观上落入等效区间或发生方向反转。",
+      "experiments": ["E3-ROBUSTNESS-HOLDOUT"],
+      "priority": "P1"
+    }
+  ],
+  "analysis_policy": {
+    "confirmatory_unit": "paired random seed across matched landscapes",
+    "primary_metric": "steady_window_resource_density_spearman_rho",
+    "co_primary_metrics": ["steady_window_density_morans_i", "steady_window_occupancy_entropy"],
+    "secondary_metrics": [
+      "wealth_gini",
+      "wealth_variance",
+      "total_wealth_relative_drift",
+      "integrated_autocorrelation_time",
+      "effective_sample_size"
+    ],
+    "uncertainty": "paired effect sizes with bootstrap 95% confidence intervals",
+    "multiplicity": "Holm correction within each confirmatory metric family",
+    "equivalence_rule": "SESOI is frozen from paired same-seed dt/2-versus-dt/4 discretization differences in E0 before E1-E3 outcomes are inspected; it is a simulation-resolution limit, not a substantive social-science effect size",
+    "missing_runs": "No seed replacement after outcomes are observed; failed runs are reported and rerun only under the declared failure policy.",
+    "steady_state_rule": "Use preregistered drift and integrated-autocorrelation diagnostics; do not extend runs because an outcome is close to a desired threshold."
+  },
+  "experiments": [
+    {
+      "id": "B0-DYNAMICS-PILOT",
+      "claim_ids": [],
+      "objective": "在不设置 shuffled 对照、不估计景观效应的前提下，测量候选参数的运行成本并检查动力学健康状态。",
+      "priority": "P1",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "server_preflight_passed_inputs_prepared_not_executed",
+      "non_evidentiary": true,
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "B0-DYNAMICS-PILOT",
+        "--config",
+        "research/jobs/B0-DYNAMICS-PILOT/config.json",
+        "--output-dir",
+        "research/jobs/B0-DYNAMICS-PILOT/workspace"
+      ],
+      "baseline": "Only clustered-active landscapes at N=500 and 64x64 resolution; there is deliberately no shuffled control.",
+      "seeds": [7103, 7207, 7309],
+      "metrics": [
+        "wall_clock_seconds",
+        "stationarity_diagnostics",
+        "minimum_wealth",
+        "particle_count",
+        "finite_metric_audit"
+      ],
+      "acceptance": [
+        "All three runs complete within the declared timeout.",
+        "Wealth remains non-negative and population remains fixed.",
+        "All analysis metrics are finite and the preregistered steady-window gate passes."
+      ],
+      "artifacts": ["result.json", "replicate_metrics.csv", "pilot_health.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
+      "timeout_seconds": 7200,
+      "gpu_count": 0,
+      "failure_policy": "A failure keeps the parameter lock in candidate status. Amendments may use only runtime, stability and health diagnostics and must not inspect a landscape contrast."
+    },
+    {
+      "id": "E0-NUMERICS",
+      "claim_ids": ["C1-NUM"],
+      "objective": "校准最小交换—动力学模型的守恒、非负、步长收敛和数值噪声上界。",
+      "priority": "P0",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "preflight_passed_inputs_prepared_not_executed",
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E0-NUMERICS",
+        "--config",
+        "research/jobs/E0-NUMERICS/config.json",
+        "--output-dir",
+        "research/jobs/E0-NUMERICS/workspace"
+      ],
+      "baseline": "Flat landscape, exchange disabled, identical initial wealth.",
+      "ablations": [
+        "Exchange enabled with exactly identical wealth and epsilon to expose absorbing-state behavior.",
+        "Exchange enabled with preregistered 1% lognormal wealth perturbation.",
+        "dt, dt/2 and dt/4 convergence comparison."
+      ],
+      "seeds": [1103, 2207, 3301, 4409, 5519],
+      "metrics": [
+        "total_wealth_relative_drift",
+        "minimum_wealth",
+        "observable_dt_convergence",
+        "replicate_numerical_noise",
+        "wealth_variance_trajectory"
+      ],
+      "acceptance": [
+        "Closed-system relative wealth drift <= 1e-8.",
+        "Minimum wealth >= -1e-12.",
+        "Halving dt changes primary observables by <= 2%.",
+        "SESOI for later experiments is frozen from paired same-seed dt/2-versus-dt/4 discretization differences before E1-E3 are analyzed."
+      ],
+      "artifacts": ["result.json", "replicate_metrics.csv", "numerical_calibration.json", "matched_input_audit.json", "stationarity_report.json", "run_specs.json"],
+      "timeout_seconds": 28800,
+      "gpu_count": 0,
+      "failure_policy": "Any conservation, non-negativity, or convergence failure blocks E1-E3 and triggers a micro-model or integrator correction; no parameter search for desired social outcomes is allowed."
+    },
+    {
+      "id": "E1-MATCHED-LANDSCAPES",
+      "claim_ids": ["C2-LANDSCAPE"],
+      "objective": "比较资源总量、直方图、可达面积与边界条件完全匹配的聚集型和空间打乱景观。",
+      "priority": "P0",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_and_E0",
+      "depends_on": ["E0-NUMERICS"],
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E1-MATCHED-LANDSCAPES",
+        "--config",
+        "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
+        "--output-dir",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace"
+      ],
+      "baseline": "Spatially shuffled landscape preserving the exact resource-value histogram, total resource, accessible area and boundary conditions.",
+      "ablations": [
+        "Flat total-resource-matched landscape as a diagnostic baseline.",
+        "Clustered versus shuffled landscapes paired by seed and pixel histogram.",
+        "No-exchange diagnostic to separate wealth transfer from local production."
+      ],
+      "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+      "metrics": [
+        "steady_window_resource_density_spearman_rho",
+        "steady_window_density_morans_i",
+        "steady_window_occupancy_entropy",
+        "wealth_gini",
+        "wealth_variance",
+        "stationarity_diagnostics"
+      ],
+      "acceptance": [
+        "Matched-input audit passes exactly for histogram, total resource, accessible area and population.",
+        "At least one preregistered spatial primary metric has a paired 95% interval excluding zero and the E0-derived SESOI after Holm correction.",
+        "Report wealth outcomes separately; spatial evidence alone cannot support a wealth claim."
+      ],
+      "artifacts": ["result.json", "matched_input_audit.json", "replicate_metrics.csv", "paired_effects.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 86400,
+      "gpu_count": 0,
+      "failure_policy": "A failed matching audit invalidates the run. If stationarity fails under the preregistered horizon, report inconclusive and redesign the horizon using an independent pilot rather than extending only favorable runs."
+    },
+    {
+      "id": "E2-CHANNEL-ABLATION",
+      "claim_ids": ["C3-CHANNELS"],
+      "objective": "用移动通道×生产通道 2×2 因子设计分解景观效应。",
+      "priority": "P0",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_and_E0",
+      "depends_on": ["E0-NUMERICS"],
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E2-CHANNEL-ABLATION",
+        "--config",
+        "research/jobs/E2-CHANNEL-ABLATION/config.json",
+        "--output-dir",
+        "research/jobs/E2-CHANNEL-ABLATION/workspace"
+      ],
+      "baseline": "Both movement and production channels disabled while retaining the same landscape file and random seeds.",
+      "ablations": [
+        "movement=off, production=off",
+        "movement=on, production=off",
+        "movement=off, production=on",
+        "movement=on, production=on"
+      ],
+      "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+      "metrics": [
+        "movement_channel_main_effect",
+        "production_channel_main_effect",
+        "channel_interaction_effect",
+        "steady_window_resource_density_spearman_rho",
+        "steady_window_density_morans_i",
+        "wealth_gini"
+      ],
+      "acceptance": [
+        "Estimate both main effects and their interaction with paired 95% intervals.",
+        "Attribute a channel only when its interval excludes the E0-derived equivalence region.",
+        "If only the interaction is identifiable, retain only the combined-mechanism claim."
+      ],
+      "artifacts": ["result.json", "replicate_metrics.csv", "channel_effects.json", "matched_input_audit.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 172800,
+      "gpu_count": 0,
+      "failure_policy": "Do not tune channel strengths after inspecting confirmatory outcomes. Non-identifiable effects are reported as inconclusive, not repaired by post hoc thresholds."
+    },
+    {
+      "id": "E3-ROBUSTNESS-HOLDOUT",
+      "claim_ids": ["C2-LANDSCAPE", "C4-ROBUSTNESS"],
+      "objective": "在固定参数后，检验效应对人口规模、分辨率和保留景观家族的稳健性。",
+      "priority": "P1",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "server_preflight_passed_inputs_prepared_blocked_on_candidate_lock_E0_E1_E2",
+      "depends_on": ["E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"],
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E3-ROBUSTNESS-HOLDOUT",
+        "--config",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+        "--output-dir",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
+      ],
+      "baseline": "The same matched shuffled control used in E1, regenerated independently for each scale and holdout family.",
+      "ablations": [
+        "population N in {2000, 5000, 10000}",
+        "landscape resolution in {128, 256}",
+        "held-out Gaussian-mixture and correlated-random-field landscape families",
+        "fixed parameters selected without using holdout outcomes"
+      ],
+      "seeds": [2203, 2309, 2411, 2503, 2609, 2707, 2801, 2903, 3001, 3109],
+      "metrics": [
+        "scale_specific_paired_effects",
+        "cross_scale_direction_consistency",
+        "holdout_paired_effects",
+        "resolution_sensitivity",
+        "stationarity_diagnostics"
+      ],
+      "acceptance": [
+        "Primary-effect direction is consistent at all preregistered population sizes.",
+        "Holdout-family pooled 95% interval excludes zero and the E0-derived SESOI.",
+        "Resolution change does not alter the primary effect by more than 20% relative."
+      ],
+      "artifacts": ["result.json", "replicate_metrics.csv", "holdout_effects.json", "matched_input_audit.json", "stationarity_report.json", "parameter_lock_audit.json", "run_specs.json"],
+      "timeout_seconds": 432000,
+      "gpu_count": 0,
+      "failure_policy": "A scale-specific failure is retained as evidence against robustness. No replacement landscape family or scale is introduced after outcomes are known."
+    }
+  ],
+  "budget": {
+    "cpu_hours": null,
+    "gpu_hours": null,
+    "agent_seconds": null,
+    "status": "awaiting_human_approval_for_B0_only",
+    "proposed_B0_cap": {
+      "cpu_hours": 12,
+      "wall_clock_hours": 2,
+      "gpu_hours": 0,
+      "basis": "3 sequential runs x 1800-second per-run timeout x 8 OpenMP threads, with a 7200-second job timeout"
+    },
+    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and an explicit CPU-time budget are complete. Cycle 1 currently requests no GPU. B0 requests a separate small pilot budget. E0 has 25 prepared runs; E1 and E2 have 80 and 160 prepared runs but remain blocked until B0 finalizes the parameter lock and E0 passes with a tracked calibration hash."
+  },
+  "computational_strategy": {
+    "approach": "Small-system calibration followed by matched paired ensembles and a fixed holdout stage on umi.",
+    "evidence_role": "confirmatory after E0 calibration",
+    "supports_core_claim": true,
+    "evidence_boundary": "Synthetic landscapes only; screening or pilot results cannot directly support C2-C4.",
+    "reference_method": "Direct full-model reruns at preregistered dt, dt/2 and selected population/resolution points.",
+    "validation_points": [
+      "flat numerical baseline",
+      "largest clustered-landscape effect",
+      "near-equivalence matched pair",
+      "held-out landscape family"
+    ],
+    "agreement": {
+      "primary_observable_relative_tolerance": 0.02,
+      "effect_direction_must_match": true
+    }
+  },
+  "revision": {
+    "reason": "Restart after code-and-evidence audit showed that the imported civilization-wide plan was over-broad, historically confounded, and partly tautological with implementation-defined hierarchy and polity labels.",
+    "retired_claims": [
+      "loyalty is an empirically demonstrated necessary condition for hierarchy",
+      "crossing population 1000 demonstrates state emergence",
+      "China-Europe polity differences are caused by terrain topology",
+      "social temperature and fluctuation-dissipation interpretations are validated social laws"
+    ],
+    "new_claims": ["C1-NUM", "C2-LANDSCAPE", "C3-CHANNELS", "C4-ROBUSTNESS"],
+    "legacy_evidence_policy": "Imported results are exploratory provenance and bug history only; they are not pooled with Cycle 1 confirmatory evidence."
+  },
+  "readiness": {
+    "scientific_design": "cycle1_scope_and_falsification_rules_frozen",
+    "experiment_implementation": "B0_and_E0-E3_implemented; confirmatory execution hard-blocked by candidate lock and pending E0 hash",
+    "preflight": "B0/E0-E3 passed local and umi preflight with deterministic inputs prepared",
+    "execution": "awaiting explicit approval of B0 cap: 12 CPU-hours, 2 wall-clock hours, 0 GPU; server only on umi"
+  }
+}

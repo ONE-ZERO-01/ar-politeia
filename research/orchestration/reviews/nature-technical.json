@@ -1,0 +1,86 @@
+{
+  "simulated": true,
+  "node_id": "nature_technical_review",
+  "project_id": "ar-politeia",
+  "cycle": 1,
+  "manuscript": "research/paper/nature/main.tex",
+  "verdict": "reject",
+  "review_summary": "The manuscript is technically careful about what it does claim, and its calibration numbers match the declared evidence. However, it contains no confirmatory scientific result: C1-NUM is contradicted and C2-C4 are inconclusive because E1-E3 never executed. As a Nature research article this is not currently publishable, and the reproducibility record is incomplete in the manuscript itself (no code-availability/version/environment statement).",
+  "claims_checked": [
+    {
+      "claim": "C1-NUM: conservation, non-negativity, and equal-state absorption pass; dt convergence and stationarity fail",
+      "status": "accurate",
+      "evidence_ref": "research/jobs/E0-NUMERICS/result.json, research/findings.json (claim C1-NUM.falsification_check)"
+    },
+    {
+      "claim": "E0 ran 5 seeds by 5 conditions (25 runs)",
+      "status": "accurate",
+      "evidence_ref": "research/jobs/E0-NUMERICS/result.json (runs_completed=25)"
+    },
+    {
+      "claim": "E1-E3 were blocked before numeric artifacts were produced",
+      "status": "accurate",
+      "evidence_ref": "research/findings.json (reconciliation.results), research/orchestration/comprehensive.json (C2-C4 blocked_reason)"
+    },
+    {
+      "claim": "wealth Gini dt/2-vs-dt/4 change is 0.26584885869833064 against 0.02",
+      "status": "accurate",
+      "evidence_ref": "research/jobs/E0-NUMERICS/numerical_calibration.json (dt_half_vs_quarter_mean_absolute_change.wealth_gini)"
+    },
+    {
+      "claim": "B0 passed non-negativity, fixed population, and finite metrics but failed stationarity for all three seeds",
+      "status": "accurate",
+      "evidence_ref": "research/jobs/B0-DYNAMICS-PILOT/result.json (raw_metrics_summary)"
+    }
+  ],
+  "strengths": [
+    "Does not overstate the blocked experiments: C2-C4 are reported as inconclusive rather than converted into a positive landscape result.",
+    "Numerical gate values (2.511e-9 drift, 5.1766e-41 minimum wealth, 0.26584885869833064 Gini change) are verbatim-consistent with E0 evidence.",
+    "The gate-flow logic is transparent: B0 and E0 failed stationarity, so E1-E3 were correctly hard-blocked and this is not presented as a null effect.",
+    "The preregistered, outcome-blind calibration design is a scientifically sound boundary for generative-model inference."
+  ],
+  "weaknesses": [
+    "There is no confirmatory scientific finding in this cycle: C1-NUM is contradicted and C2-C4 are inconclusive, so the manuscript is a gate-failure report rather than a Nature research article.",
+    "The manuscript has no Code/Software availability statement: no repository URL, commit SHA, environment/container, dependency versions, or exact reproduction command, despite the job records containing config_sha256 and commit files.",
+    "The dt-convergence result is multivariate but the manuscript reports only wealth Gini; the other observables (rho=0.0, Moran's I=0.008572825641811355, occupancy entropy=0.0011749233757867516) also matter to the failed gate and should be shown.",
+    "The phrase 'frozen simulation-resolution equivalence threshold was therefore not authorized' is internally contradictory: E0 computed SESOI values but did not finalize them, so 'frozen' is misleading.",
+    "Methods defines H=Rmax-R but then says movement follows +grad R; the elevation field is either unused or the gradient sign is inconsistent, which weakens technical precision."
+  ],
+  "actionable_items": [
+    {
+      "severity": "P0",
+      "type": "scientific_evidence",
+      "evidence_ref": "research/orchestration/comprehensive.json (claims C1-C4, journal_recommendations[0])",
+      "requested_action": "Do not submit this draft as a Nature research article. Either defer journal writing until E0-NUMERICS passes conservation, non-negativity, dt-convergence, and stationarity and E1-E3 are executed, or reframe and submit explicitly as a gate-failure/methods report.",
+      "acceptance_criterion": "The submission class is aligned with the available evidence: confirmatory E1-E3 artifacts and a passed calibration gate exist for a research article, or the journal accepts a methodological negative-result format."
+    },
+    {
+      "severity": "P0",
+      "type": "reproducibility",
+      "evidence_ref": "research/jobs/E0-NUMERICS/result.json (config_sha256), research/jobs/B0-DYNAMICS-PILOT/commit.txt",
+      "requested_action": "Add a Code and Software availability section with the repository URL, exact commit SHA, Python/compiler environment, dependency versions, and the jobctl command used to regenerate B0/E0.",
+      "acceptance_criterion": "A reader can reproduce B0-DYNAMICS-PILOT and E0-NUMERICS from one commit and obtain the same config SHA-256, calibration JSON, and reported values without undocumented manual steps."
+    },
+    {
+      "severity": "P1",
+      "type": "reporting_completeness",
+      "evidence_ref": "research/jobs/E0-NUMERICS/numerical_calibration.json (dt_half_vs_quarter_mean_absolute_change)",
+      "requested_action": "Report all four dt/2-vs-dt/4 observables in the main text or table, not only wealth Gini, and state explicitly which observables passed the 0.02 threshold.",
+      "acceptance_criterion": "The calibration section unambiguously identifies the failing and passing observables for the multivariate dt-convergence check."
+    },
+    {
+      "severity": "P1",
+      "type": "terminology_consistency",
+      "evidence_ref": "research/jobs/E0-NUMERICS/numerical_calibration.json (sesoi_basis, pass=false); research/paper/nature/main.tex:117",
+      "requested_action": "Replace 'frozen simulation-resolution equivalence threshold was therefore not authorized' with a non-contradictory statement such as 'the SESOI was computed but not finalized/authorized for confirmatory use.'",
+      "acceptance_criterion": "The manuscript never implies a confirmatory SESOI was locked while also saying it was not authorized."
+    },
+    {
+      "severity": "P2",
+      "type": "model_specification",
+      "evidence_ref": "research/paper/nature/main.tex:260",
+      "requested_action": "Reconcile the elevation-field definition H=Rmax-R with the stated +grad R movement force; either remove the unused H definition or specify the sign convention and confirm the code implements it.",
+      "acceptance_criterion": "The model equations have one unambiguous terrain-force sign convention and no unused or contradictory definition."
+    }
+  ]
+}

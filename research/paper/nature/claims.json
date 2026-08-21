@@ -1,0 +1,76 @@
+{
+  "project": "ar-politeia",
+  "cycle": 1,
+  "node": "journal_nature",
+  "journal": "nature",
+  "draft_path": "research/paper/nature/main.tex",
+  "generated_at": "2026-08-21T00:00:00+08:00",
+  "source": [
+    "research/orchestration/comprehensive.json",
+    "research/findings.json",
+    "rules/journal-formats.md"
+  ],
+  "submission_recommended": false,
+  "submission_recommendation_reason": "Cycle 1 has no supported positive result: C1-NUM is contradicted and C2-C4 are inconclusive because no confirmatory runs were executed. The comprehensive record recommends returning to the science gate before any journal submission.",
+  "status": "internal_draft_not_for_external_submission",
+  "claims": [
+    {
+      "claim_id": "C1-NUM",
+      "verdict": "contradicted",
+      "claim_text": "Minimal model under non-degenerate small-perturbation initial conditions preserves wealth conservation and non-negativity, and main observables converge in time step.",
+      "journal_representation": "The numerical-calibration gate passed conservation, non-negativity, and equal-state absorption, but failed stationarity and dt-convergence.",
+      "evidence": [
+        "research/jobs/E0-NUMERICS/result.json",
+        "research/jobs/E0-NUMERICS/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/numerical_calibration.json",
+        "research/jobs/E0-NUMERICS/workspace/stationarity_report.json",
+        "research/jobs/E0-NUMERICS/workspace/replicate_metrics.csv"
+      ],
+      "traceable": true
+    },
+    {
+      "claim_id": "C2-LANDSCAPE",
+      "verdict": "inconclusive",
+      "claim_text": "After matching total resource, pixel histogram, and accessible area, clustered resource landscapes produce population-spatial-structure differences beyond numerical noise relative to spatially shuffled landscapes.",
+      "journal_representation": "No confirmatory matched-landscape runs were executed, so no landscape effect is claimed.",
+      "evidence": [
+        "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ],
+      "traceable": true
+    },
+    {
+      "claim_id": "C3-CHANNELS",
+      "verdict": "inconclusive",
+      "claim_text": "The landscape effect can be decomposed through a movement-channel by production-channel 2x2 factorial ablation into quantifiable main effects and an interaction effect.",
+      "journal_representation": "No channel-ablation effect estimates were produced because E2 was blocked before execution.",
+      "evidence": [
+        "research/jobs/E2-CHANNEL-ABLATION/result.json",
+        "research/parameter_lock.json"
+      ],
+      "traceable": true
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS",
+      "verdict": "inconclusive",
+      "claim_text": "The core effect remains directionally consistent across preregistered population sizes, grid resolutions, and held-out landscape families.",
+      "journal_representation": "No robustness holdout runs were executed, so scale, resolution, and held-out-family direction consistency are unassessed.",
+      "evidence": [
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
+        "research/parameter_lock.json"
+      ],
+      "traceable": true
+    }
+  ],
+  "limitations": [
+    "E0 numerical calibration failed on dt_convergence and stationarity, so the frozen SESOI cannot yet be used as a confirmatory threshold.",
+    "B0 dynamics-health pilot failed the stationarity gate for all three seeds while passing wealth non-negativity, fixed population, and finite-metric checks.",
+    "No confirmatory E1-E3 numerical runs were executed; C2-C4 therefore have no direct empirical evidence and remain inconclusive.",
+    "The candidate parameter lock remains non-final (candidate_pending_non_evidentiary_runtime_pilot_and_e0) and confirmatory execution is not authorized.",
+    "The evidence boundary is synthetic generative mechanism only; no claim about specific civilizations, states, empires, or historical causation is permitted.",
+    "Wealth dynamics show strong time-step sensitivity (wealth Gini changes by 0.26584885869833064 between dt/2 and dt/4), so wealth observables are not discretization-converged.",
+    "Cycle 1 disables reproduction, mortality, culture, technology, loyalty, conquest, taxation, and polity classification, so the results cannot speak to those mechanisms."
+  ],
+  "journal_recommendation": "Do not submit this Nature version in Cycle 1. Return to the human/science gate, revise the candidate parameter lock using only runtime and outcome-blind health diagnostics, rerun E0-NUMERICS until conservation, non-negativity, dt-convergence, and stationarity all pass, then re-submit E1-E3. Only a future passing cycle should condense the comprehensive record into a Nature submission."
+}

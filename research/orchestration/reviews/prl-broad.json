@@ -1,0 +1,63 @@
+{
+  "simulated": true,
+  "verdict": "reject",
+  "strengths": [
+    "The manuscript is admirably honest about being an inconclusive/negative calibration-stop cycle and explicitly avoids converting blocked E1-E3 runs into a null landscape result; this matches the declared records (research/orchestration/comprehensive.json claim verdicts and research/findings.json claim interpretations).",
+    "The preregistered, machine-checked gate logic (conservation, non-negativity, equal-state absorption, dt convergence, stationarity) is a genuine methodological strength and is clearly explained for a non-specialist audience.",
+    "The core physical model is compact and legible: the BBK Langevin equation, the antisymmetric saturating wealth-exchange rule, and the two switchable terrain channels give the reader a concrete causal picture.",
+    "The quantitative gate facts in the abstract and discussion are consistent with research/findings.json: wealth conservation passed at 2.511e-9 against <=1e-8, non-negativity passed at 5.1766e-41 against >=-1e-12, equal-state absorption passed at 0.0 against <=1e-20, and dt convergence failed with wealth Gini change 0.26584885869833064 against 0.02.",
+    "The paper correctly identifies the actionable distinction between a dynamics-health/numerical failure and a scientific landscape-effect conclusion."
+  ],
+  "weaknesses": [
+    "From a broad-impact standpoint the paper has no substantive scientific result: C1-NUM is contradicted and C2-LANDSCAPE, C3-CHANNELS, and C4-ROBUSTNESS are all inconclusive because E1-E3 were never executed (research/orchestration/comprehensive.json claims).",
+    "The central question of whether resource autocorrelation changes population and wealth structure is never tested, so PRL readers gain no new evidence about the claimed socio-physical phenomenon.",
+    "The manuscript is a project-status/numerical-health report rather than a condensed Letter announcing a new physical insight; as such its fit to PRL's broad-impact mandate is weak.",
+    "Several table entries in the manuscript, including the discretization changes for density Moran's I (0.008572825641811355) and occupancy entropy (0.0011749233757867516), are not present in the declared comprehensive/findings JSONs, so a reader of only the declared evidence cannot verify them.",
+    "The text relies on internal operational identifiers (B0, E0, E1-E3, C1-NUM through C4-ROBUSTNESS, candidate_pending_non_evidentiary_runtime_pilot_and_e0) that reduce accessibility for a broad PRL audience despite otherwise clear prose.",
+    "The evidence boundary is very narrow: reproduction, mortality, culture, technology, loyalty, conquest, taxation, and polity classification are disabled, so even a successful future cycle would offer only a minimal-generative-mechanism result."
+  ],
+  "actionable_items": [
+    {
+      "severity": "P0",
+      "type": "scientific_substance",
+      "evidence_ref": "research/orchestration/comprehensive.json#/claims/1/verdict",
+      "requested_action": "Do not present this as a PRL research Letter until a future cycle passes the E0 calibration gate and executes E1-E3 with a confirmatory C2-C4 result, or explicitly reposition the manuscript as a methods/preregistered-gate report.",
+      "acceptance_criterion": "The resubmission either contains direct E1-E3 evidence supporting a landscape or channel effect, or the title, abstract, and venue framing state unambiguously that the contribution is methodology-only with no socio-physical claim."
+    },
+    {
+      "severity": "P1",
+      "type": "evidence_traceability",
+      "evidence_ref": "research/paper/prl/main.tex Table tab:dt",
+      "requested_action": "Add the exact discretization changes for Spearman rho, Moran's I, and occupancy entropy to the declared comprehensive/findings JSONs, or explicitly cite the specific E0 artifact fields containing them.",
+      "acceptance_criterion": "Every numeric value in Table tab:dt can be traced to a specific claim/evidence path in research/orchestration/comprehensive.json or research/findings.json without opening undeclared workspace files."
+    },
+    {
+      "severity": "P1",
+      "type": "broad_accessibility",
+      "evidence_ref": "research/paper/prl/main.tex Results section",
+      "requested_action": "Replace or gloss internal experiment IDs and parameter-lock status strings with plain-language descriptions for a broad PRL audience.",
+      "acceptance_criterion": "A reader unfamiliar with the AutoResearcher workflow can understand the sequence (health pilot, numerical calibration, blocked confirmatory experiments) without decoding B0/E0/E1-E3 or raw status tokens."
+    },
+    {
+      "severity": "P1",
+      "type": "fit_and_significance",
+      "evidence_ref": "research/paper/prl/main.tex Introduction",
+      "requested_action": "State explicitly what general insight a PRL reader gains from a halted calibration beyond protocol compliance and reproducibility.",
+      "acceptance_criterion": "The introduction or discussion articulates a transferable physical/methodological lesson that would interest the broad PRL readership, or the fit argument is removed if no such lesson exists."
+    },
+    {
+      "severity": "P2",
+      "type": "reproducibility",
+      "evidence_ref": "research/paper/prl/main.tex Discussion",
+      "requested_action": "Specify the exact parameter-lock artifact path and the precise seed/dt/condition schedule used for the future outcome-blind revision so others can reproduce the repair.",
+      "acceptance_criterion": "The repair path names the concrete parameter-lock file and numerical-health criteria, not only a prose recommendation."
+    },
+    {
+      "severity": "P2",
+      "type": "impact_scope",
+      "evidence_ref": "research/paper/prl/main.tex Conclusion",
+      "requested_action": "Clarify how the disabled mechanisms and synthetic evidence boundary limit any future socio-economic interpretation.",
+      "acceptance_criterion": "The limitation statement explicitly connects each disabled mechanism to the class of historical/social claims that cannot be made even after recalibration."
+    }
+  ]
+}
