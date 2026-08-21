@@ -24,21 +24,6 @@
         "-"
       ],
       "prompt_mode": "stdin"
-    },
-    "cursor": {
-      "command": [
-        "cursor-agent",
-        "--print",
-        "--output-format",
-        "text",
-        "--trust",
-        "--sandbox",
-        "enabled",
-        "--workspace",
-        "{workspace}",
-        "{prompt}"
-      ],
-      "prompt_mode": "argument"
     }
   },
   "cycle_control": {
@@ -288,7 +273,6 @@
       "depends_on": [
         "journal_nature"
       ],
-      "adapter": "cursor",
       "prompt_file": "orchestration/prompts/reviewer-agent.md",
       "inputs": [
         "research/paper/nature/main.tex",
@@ -352,7 +336,6 @@
       "depends_on": [
         "journal_prl"
       ],
-      "adapter": "cursor",
       "prompt_file": "orchestration/prompts/reviewer-agent.md",
       "inputs": [
         "research/paper/prl/main.tex",
