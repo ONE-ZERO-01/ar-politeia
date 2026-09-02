@@ -137,7 +137,10 @@ Real exchange_resources(
                 perturbation *= 1.0 + params.river_exchange_strength * prox;
             }
 
-            Real share = wi / total + perturbation;
+            // Baseline share = 1/2 (equal split) supplies the mean-reverting
+            // drift 0.5·(w_j − w_i) that counteracts the ability-difference
+            // drift η_d·D — this is what yields a non-trivial steady state.
+            Real share = 0.5 + perturbation;
             if (share < 0.0) share = 0.0;
             if (share > 1.0) share = 1.0;
 

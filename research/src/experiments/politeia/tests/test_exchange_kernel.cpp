@@ -90,16 +90,20 @@ void test_non_negative_under_strong_noise() {
     }
 }
 
-void test_noise_off_matches_legacy_drift_direction() {
-    // With noise disabled, the rich particle gains and the poor particle loses.
+void test_mean_reversion_with_ability_tilt() {
+    // Candidate C, noise disabled: the equal-split baseline mean-reverts (rich
+    // loses toward the mean, poor gains toward the mean), while the ability
+    // difference tilts the rich particle's share slightly above 1/2.
     auto particles = make_pair(10.0, 2.0);
     auto cells = make_cells();
     auto params = make_params(0.003, 0.0);
     const Real w0 = particles.wealth(0);
     const Real w1 = particles.wealth(1);
+    const Real mean = (w0 + w1) / 2.0;
     (void)run_step(particles, cells, params, 0);
-    require(particles.wealth(0) > w0, "rich particle did not gain under drift");
-    require(particles.wealth(1) < w1, "poor particle did not lose under drift");
+    require(particles.wealth(0) < w0, "rich particle did not lose toward mean");
+    require(particles.wealth(1) > w1, "poor particle did not gain toward mean");
+    require(particles.wealth(0) > mean, "ability tilt did not keep rich share above 1/2");
     require(
         close(particles.wealth(0) + particles.wealth(1), w0 + w1, 1e-12),
         "drift-only exchange is not zero-sum"
@@ -128,7 +132,7 @@ int main() {
     test_equal_state_is_absorbing_with_noise();
     test_zero_sum_conservation_across_steps();
     test_non_negative_under_strong_noise();
-    test_noise_off_matches_legacy_drift_direction();
+    test_mean_reversion_with_ability_tilt();
     test_ability_diff_drives_direction();
     std::cout << "exchange kernel invariant tests passed\n";
     return 0;

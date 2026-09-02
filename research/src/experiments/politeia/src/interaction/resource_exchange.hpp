@@ -21,19 +21,20 @@ struct ExchangeParams {
 
 /// Perform symmetric resource exchange between neighboring particles.
 ///
-/// Rule (Cycle 3, §3 candidate C — multiplicative reallocation):
+/// Rule (Cycle 3, §3 candidate C — mean-reverting multiplicative reallocation):
 ///   A_i = w_i × f(ε_i),  A_j = w_j × f(ε_j)
 ///   D_ij = (A_i − A_j) / (A_i + A_j)
 ///   total = w_i + w_j
-///   share = w_i/total + η_d·D_ij + η_n·|D_ij|·s_ij   (clamped to [0,1])
+///   share = 1/2 + η_d·D_ij + η_n·|D_ij|·s_ij   (clamped to [0,1])
 ///   w_i' = share·total,  w_j' = (1 − share)·total
 ///
 /// s_ij ∈ {+1,−1} is a deterministic antisymmetric factor (s_ji = −s_ij),
 /// so the rule stays symmetric under label exchange i↔j, exactly zero-sum, and
-/// non-negative by construction (share ∈ [0,1]). The fluctuation magnitude is
-/// proportional to total wealth, so it stays effective when the wealth gap is
-/// large — this is what yields a non-trivial stationary wealth distribution;
-/// the equal state (w_i=w_j, ε_i=ε_j) remains absorbing (D_ij = 0 ⇒ share = 1/2).
+/// non-negative by construction (share ∈ [0,1]). The equal-split baseline 1/2
+/// supplies the mean-reverting drift ½·(w_j − w_i) that counteracts the
+/// ability-difference drift η_d·D, yielding a non-trivial stationary wealth
+/// distribution; the equal state (w_i=w_j, ε_i=ε_j) remains absorbing
+/// (D_ij = 0 ⇒ share = 1/2).
 ///
 /// `step` seeds the per-pair fluctuation sign, making it time-dependent while
 /// remaining reproducible (deterministic hash, no shared RNG state).
