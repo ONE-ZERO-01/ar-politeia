@@ -31,16 +31,46 @@
 
 namespace politeia {
 
+namespace {
+
+/// SplitMix64 finalizer: cheap, deterministic, no hidden state (OpenMP-safe).
+inline std::uint64_t splitmix64(std::uint64_t x) {
+    x += 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    x = x ^ (x >> 31);
+    return x;
+}
+
+/// Deterministic antisymmetric sign for pair (i,j) at time step `step`.
+/// Returns s with s(i,j) = −s(j,i), reproducible across runs, and independent
+/// of the traversal direction — so the OpenMP `for_neighbors_of` path (which
+/// visits each pair from both endpoints) stays exactly zero-sum.
+inline Real antisymmetric_sign(std::uint64_t i, std::uint64_t j, std::uint64_t step) {
+    const std::uint64_t lo = (i < j) ? i : j;
+    const std::uint64_t hi = (i < j) ? j : i;
+    const std::uint64_t key = splitmix64(lo)
+                            ^ (splitmix64(hi) * 0x9e3779b97f4a7c15ULL)
+                            ^ (step * 0xd6e8feb86659fd93ULL);
+    const std::uint64_t r = splitmix64(key);
+    const Real mag = ((r >> 63) & 1ULL) ? 1.0 : -1.0;
+    return (i < j) ? mag : -mag;
+}
+
+} // namespace
+
 Real exchange_resources(
     ParticleData& particles,
     const CellList& cells,
     const ExchangeParams& params,
     InteractionNetwork* network,
     const Real* terrain_potential_at_particle,
-    const Real* river_proximity_at_particle
+    const Real* river_proximity_at_particle,
+    std::uint64_t step
 ) {
     const Real cutoff_sq = params.cutoff * params.cutoff;
     const Real eta = params.exchange_rate;
+    const Real eta_n = params.noise_strength;
     const bool barrier = params.terrain_barrier_enabled && terrain_potential_at_particle != nullptr;
     const Real inv_barrier_scale = barrier ? (1.0 / params.terrain_barrier_scale) : 0.0;
     const bool river_bonus = params.river_exchange_enabled && river_proximity_at_particle != nullptr;
@@ -84,7 +114,14 @@ Real exchange_resources(
                 const Real A_sum = Ai + Aj;
                 if (A_sum < 1e-15) return;
 
-                Real dw = eta * (Ai - Aj) / A_sum * std::min(wi, wj);
+                const Real mn = std::min(wi, wj);
+                const Real D = (Ai - Aj) / A_sum;
+                const Real absD = std::abs(D);
+                const Real s = antisymmetric_sign(
+                    static_cast<std::uint64_t>(i),
+                    static_cast<std::uint64_t>(j),
+                    step);
+                Real dw = mn * (eta * D + eta_n * absD * s);
 
                 if (barrier) {
                     Real delta_h = std::abs(terrain_potential_at_particle[i]
@@ -98,6 +135,12 @@ Real exchange_resources(
                     );
                     dw *= 1.0 + params.river_exchange_strength * prox;
                 }
+
+                // Non-negativity clamp. From i's view, i gains dw and j loses
+                // dw, so dw ∈ [−w_i, +w_j] keeps both endpoints non-negative.
+                // The bound is direction-independent, so the j-view produces
+                // −clamp(dw) = clamp(−dw), preserving exact zero-sum balance.
+                dw = std::max(-wi, std::min(dw, wj));
 
                 dw_buf[i] += dw;
                 total_transferred += std::abs(dw);
@@ -144,7 +187,14 @@ Real exchange_resources(
 
             if (A_sum < 1e-15) return;
 
-            Real dw = eta * (Ai - Aj) / A_sum * std::min(wi, wj);
+            const Real mn = std::min(wi, wj);
+            const Real D = (Ai - Aj) / A_sum;
+            const Real absD = std::abs(D);
+            const Real s = antisymmetric_sign(
+                static_cast<std::uint64_t>(i),
+                static_cast<std::uint64_t>(j),
+                step);
+            Real dw = mn * (eta * D + eta_n * absD * s);
 
             if (barrier) {
                 Real delta_h = std::abs(terrain_potential_at_particle[i]
@@ -158,6 +208,8 @@ Real exchange_resources(
                 );
                 dw *= 1.0 + params.river_exchange_strength * prox;
             }
+
+            dw = std::max(-wi, std::min(dw, wj));
 
             w[i] += dw;
             w[j] -= dw;

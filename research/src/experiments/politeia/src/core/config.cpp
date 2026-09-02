@@ -57,6 +57,7 @@ bool apply_key_value(SimConfig& cfg, const std::string& key, const std::string& 
     else if (key == "exchange_rate") cfg.exchange_rate = std::stod(val);
     else if (key == "exchange_cutoff") cfg.exchange_cutoff = std::stod(val);
     else if (key == "ability_saturation_w") cfg.ability_saturation_w = std::stod(val);
+    else if (key == "exchange_noise_strength") cfg.exchange_noise_strength = std::stod(val);
     // Culture dynamics
     else if (key == "assimilation_rate") cfg.assimilation_rate = std::stod(val);
     else if (key == "repulsion_threshold") cfg.repulsion_threshold = std::stod(val);

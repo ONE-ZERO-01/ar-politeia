@@ -386,6 +386,7 @@ int main(int argc, char* argv[]) {
     exchange_params.river_exchange_enabled = cfg.river_enabled && cfg.river_exchange_enabled;
     exchange_params.river_exchange_strength = cfg.river_exchange_strength;
     exchange_params.ability_saturation_w = cfg.ability_saturation_w;
+    exchange_params.noise_strength = cfg.exchange_noise_strength;
 
     // --- Reproduction parameters ---
     politeia::ReproductionParams repro_params;
@@ -671,7 +672,8 @@ int main(int argc, char* argv[]) {
         (void)politeia::exchange_resources(particles, cells, exchange_params,
             need_network ? &network : nullptr,
             terrain_at_particle.empty() ? nullptr : terrain_at_particle.data(),
-            river_proximity_at_particle.empty() ? nullptr : river_proximity_at_particle.data());
+            river_proximity_at_particle.empty() ? nullptr : river_proximity_at_particle.data(),
+            static_cast<std::uint64_t>(step));
         perf.stop(politeia::PerfMonitor::Exchange);
 
         // 3. Cultural dynamics: assimilation between neighbors

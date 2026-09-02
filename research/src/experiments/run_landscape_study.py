@@ -130,6 +130,7 @@ def validate_parameter_lock(
 
 def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[str, Any]]:
     exchange_rate = float(config.get("exchange_rate", 0.003))
+    noise_strength = float(config.get("exchange_noise_strength", 0.0))
     dt = float(config.get("dt", 0.01))
     if experiment == "E0-NUMERICS":
         return [
@@ -139,6 +140,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": False,
                 "terrain_production_enabled": False,
                 "exchange_rate": 0.0,
+                "exchange_noise_strength": 0.0,
                 "wealth_log_sigma": 0.0,
                 "dt": dt,
             },
@@ -148,6 +150,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": False,
                 "terrain_production_enabled": False,
                 "exchange_rate": exchange_rate,
+                "exchange_noise_strength": 0.0,
                 "wealth_log_sigma": 0.0,
                 "dt": dt,
             },
@@ -158,6 +161,9 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                     "terrain_force_enabled": False,
                     "terrain_production_enabled": False,
                     "exchange_rate": exchange_rate * factor,
+                    # Fluctuation is a diffusion term: scale by sqrt(dt) so the
+                    # continuous-time diffusion coefficient stays resolution-invariant.
+                    "exchange_noise_strength": noise_strength * math.sqrt(factor),
                     "wealth_log_sigma": 0.01,
                     "dt": dt * factor,
                 }
@@ -172,6 +178,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": True,
                 "terrain_production_enabled": True,
                 "exchange_rate": exchange_rate,
+                "exchange_noise_strength": noise_strength,
                 "wealth_log_sigma": 0.01,
                 "dt": dt,
             }
@@ -184,6 +191,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": True,
                 "terrain_production_enabled": True,
                 "exchange_rate": exchange_rate,
+                "exchange_noise_strength": noise_strength,
                 "wealth_log_sigma": 0.01,
                 "dt": dt,
             }
@@ -195,6 +203,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": True,
                 "terrain_production_enabled": True,
                 "exchange_rate": 0.0,
+                "exchange_noise_strength": 0.0,
                 "wealth_log_sigma": 0.01,
                 "dt": dt,
             }
@@ -207,6 +216,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_force_enabled": force,
                 "terrain_production_enabled": production,
                 "exchange_rate": exchange_rate,
+                "exchange_noise_strength": noise_strength,
                 "wealth_log_sigma": 0.01,
                 "dt": dt,
             }
@@ -253,6 +263,7 @@ def common_cpp_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         "wealth_decay_rate": float(config.get("wealth_decay_rate", 0.0)),
         "base_production": float(config.get("base_production", 0.01)),
         "ability_saturation_w": float(config.get("ability_saturation_w", 5.0)),
+        "exchange_noise_strength": float(config.get("exchange_noise_strength", 0.0)),
         "terrain_type": "grid",
         "terrain_format": "ascii",
         "terrain_force_scale": float(config.get("terrain_force_scale", 1.0)),
@@ -410,6 +421,9 @@ def prepare_e3_inputs(
                                 "terrain_force_enabled": True,
                                 "terrain_production_enabled": True,
                                 "exchange_rate": exchange_rate,
+                                "exchange_noise_strength": float(
+                                    config.get("exchange_noise_strength", 0.0)
+                                ),
                                 "output_dir": relative_to_project(run_dir),
                             }
                         )
@@ -565,6 +579,9 @@ def prepare_inputs(
                         condition["terrain_production_enabled"]
                     ),
                     "exchange_rate": float(condition["exchange_rate"]),
+                    "exchange_noise_strength": float(
+                        condition.get("exchange_noise_strength", 0.0)
+                    ),
                     "output_dir": relative_to_project(run_dir),
                 }
             )
@@ -581,6 +598,9 @@ def prepare_inputs(
                         condition["terrain_production_enabled"]
                     ),
                     "exchange_rate": float(condition["exchange_rate"]),
+                    "exchange_noise_strength": float(
+                        condition.get("exchange_noise_strength", 0.0)
+                    ),
                     "dt": float(condition.get("dt", config.get("dt", 0.01))),
                     "cpp_config": relative_to_project(cpp_config_path),
                     "run_dir": relative_to_project(run_dir),

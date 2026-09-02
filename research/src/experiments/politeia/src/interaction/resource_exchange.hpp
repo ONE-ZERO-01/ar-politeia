@@ -8,6 +8,7 @@ namespace politeia {
 
 struct ExchangeParams {
     Real exchange_rate = 0.003; // η: fraction of min(w_i,w_j) exchanged per interaction
+    Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation amplitude
     Real cutoff = 2.5;         // 交互距离（与人际交互力的社交视野半径一致）
     bool terrain_barrier_enabled = false;
     Real terrain_barrier_scale = 5.0;  // h0: larger = weaker barrier effect
@@ -20,13 +21,19 @@ struct ExchangeParams {
 
 /// Perform symmetric resource exchange between neighboring particles.
 ///
-/// Rule (research proposal §2.6.2):
+/// Rule (Cycle 3, §3 candidate B):
 ///   A_i = w_i × f(ε_i),  A_j = w_j × f(ε_j)
-///   Δw = η × (A_i − A_j) / (A_i + A_j) × min(w_i, w_j)
+///   D_ij = (A_i − A_j) / (A_i + A_j)
+///   Δw = min(w_i, w_j) × (η_d·D_ij + η_n·|D_ij|·s_ij)
 ///
-/// This rule is symmetric under label exchange i↔j.
-/// Inequality emerges from state differences, not from biased rules.
+/// s_ij ∈ {+1,−1} is a deterministic antisymmetric factor (s_ji = −s_ij),
+/// so the rule stays symmetric under label exchange i↔j, zero-sum, and
+/// non-negative once clamped. The fluctuation term η_n·|D_ij|·s_ij gives the
+/// drift-diffusion balance that yields a non-trivial stationary wealth
+/// distribution; the equal state (w_i=w_j, ε_i=ε_j) remains absorbing.
 ///
+/// `step` seeds the per-pair fluctuation sign, making it time-dependent while
+/// remaining reproducible and OpenMP-safe (no shared RNG state).
 namespace detail { class InteractionNetworkBase; }
 
 /// Forward declaration for optional network recording.
@@ -41,7 +48,8 @@ class InteractionNetwork;
     const ExchangeParams& params,
     class InteractionNetwork* network = nullptr,
     const Real* terrain_potential_at_particle = nullptr,
-    const Real* river_proximity_at_particle = nullptr
+    const Real* river_proximity_at_particle = nullptr,
+    std::uint64_t step = 0
 );
 
 /// Apply per-step resource consumption and terrain-based production.

@@ -50,6 +50,7 @@ struct SimConfig {
     Real exchange_rate = 0.003;
     Real exchange_cutoff = -1.0;  // <0 → use interaction_range
     Real ability_saturation_w = 5.0; // wealth half-saturation for exchange ability
+    Real exchange_noise_strength = 0.0; // η_n: antisymmetric zero-sum fluctuation amplitude
 
     // Culture dynamics
     Real assimilation_rate = 0.01;
