@@ -1,0 +1,41 @@
+{
+  "id": "B0-DYNAMICS-PILOT-C3",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": [],
+  "non_evidentiary": true,
+  "objective": "Cycle-3 dynamics-health pilot of the stationary exchange kernel under active terrain with proportional wealth decay on umi: verify fixed population, wealth non-negativity, finite metrics, wall-clock cost, and steady-window stationarity for three seeds. No shuffled control and no landscape-effect estimate is produced.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "B0-DYNAMICS-PILOT",
+    "--config",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/config.json",
+    "--output-dir",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace"
+  ],
+  "config": "research/jobs/B0-DYNAMICS-PILOT-C3/config.json",
+  "config_sha256": "24343ac884c1d6c03e8537ecee2cbe6c87d62353e2d356e18779f661cb4f2aab",
+  "commit_id": "e722dc59d390078cb7a0af95d06c4ff667dfcb9b",
+  "env_snapshot": "research/jobs/B0-DYNAMICS-PILOT-C3/env.txt",
+  "env_sha256": "fe5f8299afc13ba1a69f9f1aa4acec429a7dc51761e629d76e2de5c407416c91",
+  "seeds": [7103, 7207, 7309],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "pilot_health.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "run_specs.json"
+  ],
+  "timeout_seconds": 7200,
+  "gpu_count": 0,
+  "evidence_boundary": "Runtime and outcome-blind dynamics-health calibration only. This job has no shuffled control and cannot support C2-C4.",
+  "failure_policy": "A failed health gate keeps the cycle-3 parameter candidate non-final. Parameter changes may use only runtime, stability and health diagnostics, never a clustered-minus-shuffled effect."
+}

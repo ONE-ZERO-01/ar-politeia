@@ -1,0 +1,45 @@
+{
+  "id": "E0-NUMERICS-C3",
+  "type": "command",
+  "mode": "server",
+  "priority": "P0",
+  "claim_ids": [
+    "C1-NUM"
+  ],
+  "objective": "Cycle-3 calibration of the stationary exchange kernel: verify wealth conservation, non-negativity, equal-state absorption, dt-scaled drift/diffusion convergence, steady-window stationarity, and freeze a paired discretization-resolution SESOI on a longer finite-time horizon.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E0-NUMERICS",
+    "--config",
+    "research/jobs/E0-NUMERICS-C3/config.json",
+    "--output-dir",
+    "research/jobs/E0-NUMERICS-C3/workspace"
+  ],
+  "config": "research/jobs/E0-NUMERICS-C3/config.json",
+  "config_sha256": "42d2eabbe511f333203af9af496b3c24f38e02cc92628cc446373bca7d5a3112",
+  "commit_id": "e722dc59d390078cb7a0af95d06c4ff667dfcb9b",
+  "env_snapshot": "research/jobs/E0-NUMERICS-C3/env.txt",
+  "env_sha256": "fe5f8299afc13ba1a69f9f1aa4acec429a7dc51761e629d76e2de5c407416c91",
+  "seeds": [1103, 2207, 3301, 4409, 5519],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution"
+  },
+  "artifacts": [
+    "result.json",
+    "replicate_metrics.csv",
+    "numerical_calibration.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "run_specs.json"
+  ],
+  "tracked_artifacts": [
+    "research/jobs/E0-NUMERICS-C3/result.json",
+    "research/jobs/E0-NUMERICS-C3/numerical_calibration.json"
+  ],
+  "timeout_seconds": 14400,
+  "gpu_count": 0,
+  "failure_policy": "Any conservation, non-negativity, dt-convergence or stationarity failure blocks E1-E3. Do not tune parameters for a desired social outcome; noise strength is calibrated only against stationarity and finite Gini, never against a landscape effect."
+}
