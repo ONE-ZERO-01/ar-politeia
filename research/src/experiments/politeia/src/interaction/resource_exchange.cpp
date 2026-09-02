@@ -5,12 +5,16 @@
 ///   交换规则必须是标签对称的：交换 i↔j 后结果只变符号。
 ///   不平等不是规则偏袒产生的，而是从状态差异中自发涌现的。
 ///
-/// 交换公式：
-///   A_i = w_i × ε_i      （综合能力 = 财富 × 技术）
-///   Δw = η × (A_i − A_j) / (A_i + A_j) × min(w_i, w_j)
+/// 交换公式（Cycle 3，候选 C，乘性再分配）：
+///   A_i = w_i × ε_i / (w_i + w_ref)     （饱和能力，A 严格单调增）
+///   D_ij = (A_i − A_j) / (A_i + A_j)
+///   share = w_i/(w_i+w_j) + η_d·D_ij + η_n·|D_ij|·s_ij   （clamp 到 [0,1]）
+///   w_i' = share·(w_i+w_j),  w_j' = (1−share)·(w_i+w_j)
 ///
 /// 物理类比：引力 F=Gm1m2/r² 也是完全对称的，但大质量体依然吸引更多物质。
 /// 同理，交换规则对称，但能力强者自然获益更多。
+/// 与旧核（Δw ∝ min(w_i,w_j)）的区别：转移量 ∝ 总财富 (w_i+w_j)，
+/// 财富悬殊时涨落仍充分作用，漂移—扩散平衡产生非平凡稳态。
 ///
 /// 资源产出：
 ///   dw = R(x) × ε × dt − consumption × dt
@@ -84,95 +88,19 @@ Real exchange_resources(
 
     Real total_transferred = 0.0;
 
-#ifdef POLITEIA_USE_OPENMP
-    std::vector<Real> dw_buf(n, 0.0);
-
-    // Per-thread flow recording buffers (only allocated when network != nullptr)
-    const int nthreads = omp_get_max_threads();
-    struct FlowRecord { Index i; Index j; Real dw; };
-    std::vector<std::vector<FlowRecord>> thread_flows;
-    if (network) thread_flows.resize(nthreads);
-
-    #pragma omp parallel for schedule(dynamic, 64) reduction(+:total_transferred) if(n > 256)
-    for (Index i = 0; i < n; ++i) {
-        if (particles.status(i) != ParticleStatus::Alive || w[i] <= 0.0) continue;
-
-        cells.for_neighbors_of(i, x, n, cutoff_sq,
-            [&](Index j, Real dx, Real dy, Real r2) {
-                const Real wi = w[i];
-                const Real wj = w[j];
-                if (wj <= 0.0) return;
-
-                Real Ai, Aj;
-                if (use_saturation) {
-                    Ai = eps[i] * wi / (wi + w_ref);
-                    Aj = eps[j] * wj / (wj + w_ref);
-                } else {
-                    Ai = wi * eps[i];
-                    Aj = wj * eps[j];
-                }
-                const Real A_sum = Ai + Aj;
-                if (A_sum < 1e-15) return;
-
-                const Real mn = std::min(wi, wj);
-                const Real D = (Ai - Aj) / A_sum;
-                const Real absD = std::abs(D);
-                const Real s = antisymmetric_sign(
-                    static_cast<std::uint64_t>(i),
-                    static_cast<std::uint64_t>(j),
-                    step);
-                Real dw = mn * (eta * D + eta_n * absD * s);
-
-                if (barrier) {
-                    Real delta_h = std::abs(terrain_potential_at_particle[i]
-                                          - terrain_potential_at_particle[j]);
-                    dw *= std::exp(-delta_h * inv_barrier_scale);
-                }
-                if (river_bonus) {
-                    const Real prox = std::min(
-                        std::max(0.0, river_proximity_at_particle[i]),
-                        std::max(0.0, river_proximity_at_particle[j])
-                    );
-                    dw *= 1.0 + params.river_exchange_strength * prox;
-                }
-
-                // Non-negativity clamp. From i's view, i gains dw and j loses
-                // dw, so dw ∈ [−w_i, +w_j] keeps both endpoints non-negative.
-                // The bound is direction-independent, so the j-view produces
-                // −clamp(dw) = clamp(−dw), preserving exact zero-sum balance.
-                dw = std::max(-wi, std::min(dw, wj));
-
-                dw_buf[i] += dw;
-                total_transferred += std::abs(dw);
-
-                // Record flow for network (only from i<j to avoid double-counting)
-                if (network && i < j && std::abs(dw) > 1e-15) {
-                    int tid = omp_get_thread_num();
-                    thread_flows[tid].push_back({i, j, dw});
-                }
-            }
-        );
-    }
-
-    #pragma omp parallel for schedule(static) if(n > 256)
-    for (Index i = 0; i < n; ++i) {
-        w[i] += dw_buf[i];
-    }
-
-    // Merge per-thread flow records into the network (serial, but fast)
-    if (network) {
-        for (int t = 0; t < nthreads; ++t) {
-            for (const auto& fr : thread_flows[t]) {
-                network->record_transfer(fr.i, fr.j, fr.dw);
-            }
-        }
-    }
-#else
+    // Candidate C (Cycle 3): multiplicative reallocation with serial in-place
+    // updates. share ∈ [0,1] keeps both endpoints non-negative and each pair
+    // exactly zero-sum, eliminating the accumulated-clamp negative-wealth bug
+    // of the candidate-B OpenMP dw_buf path. The perturbation is proportional
+    // to total wealth (w_i+w_j), so it stays effective even when the wealth
+    // gap is large — this is what yields a non-trivial steady state.
     cells.for_each_pair(x, n, cutoff_sq,
         [&](Index i, Index j, Real dx, Real dy, Real r2) {
+            if (particles.status(i) != ParticleStatus::Alive) return;
+            if (particles.status(j) != ParticleStatus::Alive) return;
+
             const Real wi = w[i];
             const Real wj = w[j];
-
             if (wi <= 0.0 || wj <= 0.0) return;
 
             Real Ai, Aj;
@@ -184,44 +112,47 @@ Real exchange_resources(
                 Aj = wj * eps[j];
             }
             const Real A_sum = Ai + Aj;
-
             if (A_sum < 1e-15) return;
 
-            const Real mn = std::min(wi, wj);
+            const Real total = wi + wj;
             const Real D = (Ai - Aj) / A_sum;
             const Real absD = std::abs(D);
             const Real s = antisymmetric_sign(
                 static_cast<std::uint64_t>(i),
                 static_cast<std::uint64_t>(j),
                 step);
-            Real dw = mn * (eta * D + eta_n * absD * s);
+
+            Real perturbation = eta * D + eta_n * absD * s;
 
             if (barrier) {
                 Real delta_h = std::abs(terrain_potential_at_particle[i]
                                       - terrain_potential_at_particle[j]);
-                dw *= std::exp(-delta_h * inv_barrier_scale);
+                perturbation *= std::exp(-delta_h * inv_barrier_scale);
             }
             if (river_bonus) {
                 const Real prox = std::min(
                     std::max(0.0, river_proximity_at_particle[i]),
                     std::max(0.0, river_proximity_at_particle[j])
                 );
-                dw *= 1.0 + params.river_exchange_strength * prox;
+                perturbation *= 1.0 + params.river_exchange_strength * prox;
             }
 
-            dw = std::max(-wi, std::min(dw, wj));
+            Real share = wi / total + perturbation;
+            if (share < 0.0) share = 0.0;
+            if (share > 1.0) share = 1.0;
 
-            w[i] += dw;
-            w[j] -= dw;
+            const Real wi_new = share * total;
+            const Real dw = wi_new - wi;
+
+            w[i] = wi_new;
+            w[j] = total - wi_new;
 
             if (network && std::abs(dw) > 1e-15) {
                 network->record_transfer(i, j, dw);
             }
-
             total_transferred += std::abs(dw);
         }
     );
-#endif
 
     return total_transferred;
 }

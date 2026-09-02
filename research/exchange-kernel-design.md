@@ -9,7 +9,9 @@
   这是 Cycle 1→2 的 `stationarity` 与 `dt_convergence` 反复失败的模型层根因，不是数值问题。
 - **修复方向**（用户已确认）：修正交换核，保留标签对称 / 零和守恒 / 非负 / equal-state 吸收，
   新增**非平凡稳态**。
-- **推荐候选**：候选 B（能力差驱动漂移 + 与 |D_ij| 成正比的反对称零和涨落）。
+- **推荐候选**：候选 C（能力差漂移 + 乘性再分配，转移量 ∝ 总财富 `w_i+w_j`）。
+- **候选 B 已被 D2 实证否决**：见 §3.1。其加性涨落幅度 ∝ `min(w_i,w_j)`，财富悬殊时趋于 0，
+  无法对抗富者更富漂移，稳态 Gini 仍极化到 ~0.92。
 - **旧方案呼应**：`politeia-ds` 的 Q1（"对称资源交换是否收敛到 Boltzmann-Gibbs 分布"）从未被回答，
   本设计直接补上这块遗留缺口。
 
@@ -47,7 +49,7 @@ D_ij = (A_i − A_j) / (A_i + A_j)
 否决理由：它破坏 **equal-state 吸收**。均匀态 `w_i = w_j` 在随机 λ 下仍会再分配（除非 λ=1/2），
 与 `E0-NUMERICS` 的 `equal_state_is_absorbing ≤ 1e-20` 检查冲突；且破坏"能力差驱动"的机制叙事。
 
-### 候选 B（能力差漂移 + 反对称零和涨落）—— 推荐
+### 候选 B（能力差漂移 + 反对称零和涨落）—— 已被 D2 实证否决
 
 对每对 `(i,j)`：
 
@@ -60,19 +62,66 @@ D_ij = (A_i − A_j) / (A_i + A_j)
 - `D_ij = (A_i − A_j)/(A_i + A_j) ∈ (−1, 1)`，反对称：`D_ji = −D_ij`。
 - `s_ij ∈ {+1, −1}`：**反对称随机因子**，`s_ji = −s_ij`（构造见 §4）。
 
-物理解释：漂移项延续"能力差驱动的富者更富"，涨落项在财富差越大（|D_ij| 越大）时越强，
-把极端富者拉回，形成漂移—扩散平衡，从而存在非平凡稳态。`η_n/η_d` 比值调节稳态 Gini 水平
-（比值越大越平等）。
+**否决理由（D2 数值实证，`E0-NUMERICS-C3` + `B0-DYNAMICS-PILOT-C3`，η_n=0.15）**：
+
+- `stationarity` 失败：perturbed 条件（`wealth_log_sigma=0.01`）稳态 Gini ≈ 0.92–0.93，仍极化；
+  `wealth_variance` 的 `normalized_window_drift` ≈ 0.14–0.17（>0.1），`wealth_gini` 的 ESS ≈ 2.4–2.6（<4），
+  方差仍在增长。`B0` 的 Gini 也高达 0.89–0.94。
+- 守恒 / dt 收敛 / equal-state 吸收三项通过（守恒漂移 3.7e-9、dt 收敛 ≤0.009、吸收方差 0）。
+- **根因**：涨落项幅度 `η_n·|D_ij|·min(w_i,w_j)` 在财富悬殊时 `min→穷人财富` 而趋于 0，
+  无法把极端富者拉回；漂移项 `η_d·D_ij·min` 是系统性富者恒赢，噪声期望为 0 无法抵消，
+  长期漂移主导 → 极化。§5 的"漂移—扩散平衡"论证忽略了噪声的幅度缩放（∝ min 而非 ∝ total）。
+
+### 候选 C（能力差漂移 + 乘性再分配）—— 推荐
+
+对每对 `(i,j)`，用**乘性份额**而非加性转移：
+
+```
+total  = w_i + w_j
+share  = w_i/total  +  η_d · D_ij  +  η_n · |D_ij| · s_ij
+share  = clamp(share, 0, 1)
+w_i'   = share · total
+w_j'   = (1 − share) · total
+```
+
+等价加性视角（Δw = w_i' − w_i）：
+
+```
+Δw = ( η_d · D_ij  +  η_n · |D_ij| · s_ij ) · (w_i + w_j)
+```
+
+与候选 B 的唯一区别：转移量的财富因子从 `min(w_i,w_j)` 换成 `(w_i + w_j)`。
+
+- 财富悬殊时 `(w_i+w_j)` ≈ 富人财富（大），涨落/漂移仍充分作用，能把极端富者拉回，
+  形成漂移—扩散平衡，存在非平凡稳态。
+- **非负天然保证**：`share ∈ [0,1]` ⟹ `w_i', w_j' ∈ [0, total]`，无需加性 clamp，
+  从而同时消除了候选 B 在 OpenMP 累积路径下的 per-pair clamp 负财富 bug（见 §4.1）。
+- `η_d + η_n ≤ 1/2` 时均匀态无需 clamp（`share` 不越界），越界仅发生在财富悬殊的极端处，
+  clamp 语义为"穷人归零 / 富人取尽"，物理可接受。
+- `η_n/η_d` 比值调节稳态 Gini（比值越大越平等），与候选 B 意图一致但机制正确。
 
 ## 4. 不变式检查
 
-| 不变式 | 候选 B 是否满足 | 说明 |
+| 不变式 | 候选 C 是否满足 | 说明 |
 |---|---|---|
-| 标签对称 | 是 | `D_ij` 反对称，`s_ij` 反对称，`|D_ij|` 对称，整体交换 i↔j 变号 |
-| 零和守恒 | 是 | `w_i += Δw, w_j -= Δw` |
-| 非负 | 是（需 clamp） | `Δw = clamp(Δw, −w_i, w_j)`；`|Δw| ≤ min(w_i,w_j)·(η_d+η_n)`，取 `η_d+η_n ≤ 1` 即安全 |
-| equal-state 吸收 | 是 | `D_ij = 0` 时 `|D_ij| = 0`，涨落项消失，`Δw = 0` |
-| 非平凡稳态 | 是（§5 论证） | 漂移与扩散平衡 |
+| 标签对称 | 是 | `D_ij` 反对称、`s_ij` 反对称、`w_i/total` 在 i↔j 下变 `w_j/total`，整体 `share(i↔j) = 1 − share` |
+| 零和守恒 | 是 | `w_i' + w_j' = share·total + (1−share)·total = total` |
+| 非负 | 是（天然） | `share ∈ [0,1]` ⟹ `w_i', w_j' ∈ [0, total]`，无需加性 clamp |
+| equal-state 吸收 | 是 | `D_ij = 0` 时 `share = w_i/total = 1/2`，`w_i' = w_j' = w` |
+| 非平凡稳态 | 是（§5 论证） | 噪声幅度 ∝ total，财富悬殊时仍充分，能平衡漂移 |
+
+### 4.1 负财富 bug（候选 B 的 OpenMP 累积缺陷，候选 C 顺带修复）
+
+候选 B 的 D2 实测出现负财富（E0 `minimum_wealth = −7.65e-4`、B0 `−1.04e-2`）。根因：
+
+- OpenMP 路径用 `dw_buf[i]` 累积 per-pair `dw`，而非负 clamp `dw = max(−w_i, min(dw, w_j))`
+  用的是 **step 开始时的陈旧 `w_i`**（`w` 数组在累积阶段不变）。
+- 一个穷人若同时是多个富邻居的输家，`dw_buf[i]` 累积多个 `−w_i`，最终 `w[i] += dw_buf[i]` 变负。
+- 串行路径（每对立即更新 `w`）天然非负；OpenMP 累积路径与设计文档"串行 clamp 即安全"的论证错位。
+
+候选 C 的乘性份额 `share ∈ [0,1]` 使每个 pair 的更新天然非负，且实现改为**串行 `for_each_pair`**
+（每对立即更新），彻底消除累积负财富。代价是放弃交换的 OpenMP 并行（n≤1000 串行开销可接受，
+正确性优先，性能后续再评估）。
 
 ### s_ij 的反对称构造（关键实现约束）
 
@@ -121,7 +170,7 @@ D2 校准必须在目标密度下进行，E3 需显式检验密度不变性；�
 | 1 | `research/src/experiments/politeia/src/core/config.hpp`（约 L50） | `SimConfig` 新增 `Real exchange_noise_strength = 0.0;` |
 | 2 | `research/src/experiments/politeia/src/core/config.cpp` | `load_config` 解析 `exchange_noise_strength` |
 | 3 | `research/src/experiments/politeia/src/interaction/resource_exchange.hpp` | `ExchangeParams` 新增 `Real noise_strength = 0.0;` |
-| 4 | `research/src/experiments/politeia/src/interaction/resource_exchange.cpp` | `exchange_resources` 实现 §3 候选 B，含反对称 `s_ij` 构造与非负 clamp |
+| 4 | `research/src/experiments/politeia/src/interaction/resource_exchange.cpp` | `exchange_resources` 实现 §3 候选 C（乘性份额 + 反对称 `s_ij`），改串行 `for_each_pair` 每对立即更新 |
 | 5 | `research/src/experiments/politeia/src/main.cpp`（约 L380） | 将 `cfg.exchange_noise_strength` 传入 `exchange_params` |
 | 6 | `research/src/experiments/run_landscape_study.py`（`common_cpp_config` L255 附近） | 新增 `exchange_noise_strength` 字段并传递到 per-run config |
 | 7 | `research/src/experiments/run_landscape_study.py`（`default_conditions`） | E0 perturbed 条件按需设置噪声强度（涨落按 `sqrt(dt)` 缩放、漂移按 `dt` 缩放） |
@@ -132,8 +181,9 @@ D2 校准必须在目标密度下进行，E3 需显式检验密度不变性；�
 
 ## 7. D2 待校准参数与验收
 
-- **η_n 初值**：`exchange_noise_strength = 0.15`（`η_n/η_d ≈ 50`），D2 用参数扫描在
-  `{0.05, 0.10, 0.15, 0.25, 0.40}` 中确定使稳态 Gini 落在 `[0.3, 0.7]` 且五检查全过的值。
+- **η_n 初值**：候选 C 的涨落幅度 ∝ `total`（远强于候选 B 的 ∝ `min`），故初值下调。
+  建议 `exchange_noise_strength = 0.05`，D2 用参数扫描在 `{0.01, 0.02, 0.05, 0.10, 0.15}`
+  中确定使稳态 Gini 落在 `[0.3, 0.7]` 且五检查全过的值。
 - **五检查验收**（`E0-NUMERICS-C3`）：守恒 ≤1e-8、非负 ≥−1e-12、dt 收敛 ≤0.02、
   equal-state 吸收 ≤1e-20、stationarity（drift≤0.1 且 ESS≥4）**全部通过**。
 - **B0 健康验收**（`B0-DYNAMICS-PILOT-C3`）：固定人口、非负、有限指标、稳态窗口 stationarity 全过。

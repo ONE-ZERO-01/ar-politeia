@@ -7,8 +7,8 @@
 namespace politeia {
 
 struct ExchangeParams {
-    Real exchange_rate = 0.003; // η: fraction of min(w_i,w_j) exchanged per interaction
-    Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation amplitude
+    Real exchange_rate = 0.003; // η_d: ability-difference drift strength (candidate C)
+    Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation amplitude (candidate C)
     Real cutoff = 2.5;         // 交互距离（与人际交互力的社交视野半径一致）
     bool terrain_barrier_enabled = false;
     Real terrain_barrier_scale = 5.0;  // h0: larger = weaker barrier effect
@@ -21,19 +21,22 @@ struct ExchangeParams {
 
 /// Perform symmetric resource exchange between neighboring particles.
 ///
-/// Rule (Cycle 3, §3 candidate B):
+/// Rule (Cycle 3, §3 candidate C — multiplicative reallocation):
 ///   A_i = w_i × f(ε_i),  A_j = w_j × f(ε_j)
 ///   D_ij = (A_i − A_j) / (A_i + A_j)
-///   Δw = min(w_i, w_j) × (η_d·D_ij + η_n·|D_ij|·s_ij)
+///   total = w_i + w_j
+///   share = w_i/total + η_d·D_ij + η_n·|D_ij|·s_ij   (clamped to [0,1])
+///   w_i' = share·total,  w_j' = (1 − share)·total
 ///
 /// s_ij ∈ {+1,−1} is a deterministic antisymmetric factor (s_ji = −s_ij),
-/// so the rule stays symmetric under label exchange i↔j, zero-sum, and
-/// non-negative once clamped. The fluctuation term η_n·|D_ij|·s_ij gives the
-/// drift-diffusion balance that yields a non-trivial stationary wealth
-/// distribution; the equal state (w_i=w_j, ε_i=ε_j) remains absorbing.
+/// so the rule stays symmetric under label exchange i↔j, exactly zero-sum, and
+/// non-negative by construction (share ∈ [0,1]). The fluctuation magnitude is
+/// proportional to total wealth, so it stays effective when the wealth gap is
+/// large — this is what yields a non-trivial stationary wealth distribution;
+/// the equal state (w_i=w_j, ε_i=ε_j) remains absorbing (D_ij = 0 ⇒ share = 1/2).
 ///
 /// `step` seeds the per-pair fluctuation sign, making it time-dependent while
-/// remaining reproducible and OpenMP-safe (no shared RNG state).
+/// remaining reproducible (deterministic hash, no shared RNG state).
 namespace detail { class InteractionNetworkBase; }
 
 /// Forward declaration for optional network recording.
