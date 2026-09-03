@@ -136,12 +136,13 @@ void RiverField::load_ascii(const std::string& filepath) {
         throw std::runtime_error("Cannot open river field file: " + filepath);
     }
 
-    auto read_header = [&](int& nr, int& nc, Real& xll, Real& yll, Real& cs) {
+    auto read_header_from = [&](std::istream& in, int& nr, int& nc,
+                                Real& xll, Real& yll, Real& cs) {
         std::string line;
         std::string key;
         Real nodata = -9999.0;
         for (int i = 0; i < 6; ++i) {
-            if (!std::getline(file, line)) {
+            if (!std::getline(in, line)) {
                 throw std::runtime_error("Unexpected EOF in river field header: " + filepath);
             }
             std::istringstream iss(line);
@@ -153,6 +154,9 @@ void RiverField::load_ascii(const std::string& filepath) {
             else if (key == "cellsize") iss >> cs;
             else if (key == "NODATA_value") iss >> nodata;
         }
+    };
+    auto read_header = [&](int& nr, int& nc, Real& xll, Real& yll, Real& cs) {
+        read_header_from(file, nr, nc, xll, yll, cs);
     };
 
     int nr = 0, nc = 0;
@@ -171,21 +175,40 @@ void RiverField::load_ascii(const std::string& filepath) {
         }
     }
 
-    const std::streampos pos = file.tellg();
-    std::string maybe_key;
-    if (!(file >> maybe_key)) {
+    // After `operator>>` reads the final proximity value, consume the rest of
+    // that line, then inspect the next non-empty line for an optional second
+    // ESRI ASCII header. Using formatted `>>`/`seekg` here is unreliable in
+    // text mode, so parse the second header from an in-memory stream.
+    std::string line;
+    std::getline(file, line);
+    if (!std::getline(file, line)) {
         discharge_data_.clear();
         return;
     }
-    if (maybe_key != "ncols") {
+    std::string key;
+    {
+        std::istringstream peek(line);
+        peek >> key;
+    }
+    if (key != "ncols") {
         discharge_data_.clear();
         return;
     }
-    file.seekg(pos);
+
+    std::string header_text = line + "\n";
+    for (int i = 1; i < 6; ++i) {
+        if (!std::getline(file, line)) {
+            throw std::runtime_error("Unexpected EOF in river field second header: " + filepath);
+        }
+        header_text += line + "\n";
+    }
 
     int nr2 = 0, nc2 = 0;
     Real xll2 = 0.0, yll2 = 0.0, cs2 = 1.0;
-    read_header(nr2, nc2, xll2, yll2, cs2);
+    {
+        std::istringstream header_stream(header_text);
+        read_header_from(header_stream, nr2, nc2, xll2, yll2, cs2);
+    }
     if (nr2 != nrows_ || nc2 != ncols_) {
         throw std::runtime_error("River field second band shape mismatch: " + filepath);
     }

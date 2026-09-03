@@ -25,3 +25,10 @@ add_test(NAME module_invariants COMMAND test_module_invariants)
 set_tests_properties(module_invariants PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_executable(test_io_roundtrip test_io_roundtrip.cpp)
+target_link_libraries(test_io_roundtrip PRIVATE politeia_core)
+add_test(NAME io_roundtrip COMMAND test_io_roundtrip)
+set_tests_properties(io_roundtrip PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
