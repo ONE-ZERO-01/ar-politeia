@@ -126,7 +126,7 @@ private:
     /// 打包/解包粒子
     void pack_particle(const ParticleData& pd, Index i, std::vector<Real>& buf) const;
     void unpack_particle(ParticleData& pd, const Real* buf) const;
-    [[nodiscard]] int pack_size() const noexcept;
+    [[nodiscard]] int pack_size(int culture_dim) const noexcept;
 
     /// 更新 bounding box
     void update_bbox(const ParticleData& particles);

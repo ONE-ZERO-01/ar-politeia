@@ -113,6 +113,14 @@ void SFCDecomposition::rebalance(const std::vector<MortonKey>& local_keys) {
     // 全局排序
     std::sort(all_samples.begin(), all_samples.end());
 
+    if (total_samples == 0) {
+        const MortonKey total_cells = MortonKey(1) << (2 * level_);
+        for (int r = 0; r <= nprocs_; ++r) {
+            splits_[r] = (total_cells * r) / nprocs_;
+        }
+        return;
+    }
+
     // 取等间距分割点
     splits_[0] = 0;
     for (int r = 1; r < nprocs_; ++r) {
@@ -125,10 +133,10 @@ void SFCDecomposition::rebalance(const std::vector<MortonKey>& local_keys) {
 #endif
 }
 
-int SFCDecomposition::pack_size() const noexcept {
+int SFCDecomposition::pack_size(int culture_dim) const noexcept {
     // x(2) + p(2) + w(1) + eps(1) + age(1) + sex(1) + last_birth(1) + status(1)
     // + gid(1) + superior(1) + loyalty(1) + culture(D)
-    return 13 + constants::DEFAULT_CULTURE_DIM;
+    return 13 + culture_dim;
 }
 
 void SFCDecomposition::pack_particle(
@@ -173,7 +181,7 @@ void SFCDecomposition::redistribute(ParticleData& particles) {
     if (is_serial()) return;
 
 #ifdef POLITEIA_USE_MPI
-    const int ps = pack_size();
+    const int ps = pack_size(particles.culture_dim());
     const Index n = particles.count();
 
     // 对每个粒子确定目标 rank
@@ -242,7 +250,7 @@ void SFCDecomposition::migrate_particles(ParticleData& particles) {
     if (is_serial()) return;
 
 #ifdef POLITEIA_USE_MPI
-    const int ps = pack_size();
+    const int ps = pack_size(particles.culture_dim());
     const Index n = particles.count();
     auto keys = compute_keys(particles);
 
@@ -312,14 +320,16 @@ void SFCDecomposition::update_bbox(const ParticleData& particles) {
     Real xmin = global_xmax_, xmax = global_xmin_;
     Real ymin = global_ymax_, ymax = global_ymin_;
     const Real* x = particles.x_data();
+    Index alive_count = 0;
     for (Index i = 0; i < particles.count(); ++i) {
         if (particles.status(i) == ParticleStatus::Dead) continue;
+        ++alive_count;
         xmin = std::min(xmin, x[2 * i]);
         xmax = std::max(xmax, x[2 * i]);
         ymin = std::min(ymin, x[2 * i + 1]);
         ymax = std::max(ymax, x[2 * i + 1]);
     }
-    if (particles.count() == 0) {
+    if (alive_count == 0) {
         xmin = xmax = 0.5 * (global_xmin_ + global_xmax_);
         ymin = ymax = 0.5 * (global_ymin_ + global_ymax_);
     }
@@ -369,7 +379,7 @@ void SFCDecomposition::exchange_halos(
     if (is_serial()) return;
 
 #ifdef POLITEIA_USE_MPI
-    const int ps = pack_size();
+    const int ps = pack_size(particles.culture_dim());
 
     for (int nb : neighbors_) {
         // 收集 cutoff 范围内靠近 nb 的粒子
