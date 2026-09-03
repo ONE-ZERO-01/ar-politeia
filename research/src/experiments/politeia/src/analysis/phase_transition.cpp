@@ -15,6 +15,8 @@ OrderParamTracker::OrderParamTracker(
 {}
 
 bool OrderParamTracker::push(Real time, Real value) {
+    if (window_size_ < 2) return false;
+
     buffer_.push_back({time, value});
 
     if (buffer_.size() > window_size_) {

@@ -41,6 +41,8 @@ std::vector<Index> compute_wealth_histogram(
     int n_bins,
     Real max_wealth
 ) {
+    if (n_bins <= 0 || max_wealth <= 0.0) return {};
+
     std::vector<Index> bins(n_bins, 0);
     const Real bin_width = max_wealth / n_bins;
     const Index n = particles.count();

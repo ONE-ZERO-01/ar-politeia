@@ -84,7 +84,6 @@ std::vector<PolityInfo> detect_polities(const ParticleData& particles) {
         constexpr int SAFETY_LIMIT = 300;
         while (depth < SAFETY_LIMIT) {
             if (!visited.insert(cur).second) break;
-            depth_cache[cur] = depth;
             Id sup_gid = particles.superior(cur);
             if (sup_gid < 0) break;
             Index sup_local = particles.gid_to_local(sup_gid);

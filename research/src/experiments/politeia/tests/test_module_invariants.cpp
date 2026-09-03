@@ -5,6 +5,9 @@
 #include "population/reproduction.hpp"
 #include "climate/climate_grid.hpp"
 #include "force/terrain_loader.hpp"
+#include "analysis/order_params.hpp"
+#include "analysis/phase_transition.hpp"
+#include "analysis/polity.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -73,6 +76,7 @@ void test_attempt_reproduction_counts_actual_births() {
         params.culture_mate_threshold = 10.0;
         params.mutation_strength = 0.0;
         std::mt19937_64 rng(1);
+        cells.build(particles.x_data(), particles.count());
         const auto born = politeia::attempt_reproduction(
             particles, cells, params, 100.0, rng);
         require(born == 1 && particles.count() == 3,
@@ -91,6 +95,7 @@ void test_attempt_reproduction_counts_actual_births() {
         params.culture_mate_threshold = 10.0;
         params.mutation_strength = 0.0;
         std::mt19937_64 rng(1);
+        cells.build(particles.x_data(), particles.count());
         const auto born = politeia::attempt_reproduction(
             particles, cells, params, 100.0, rng);
         require(born == 0 && particles.count() == 2,
@@ -132,6 +137,27 @@ void test_one_cell_environment_grids_are_finite() {
             "one-row terrain extrema should be finite");
 }
 
+void test_analysis_guards_and_polity_depth() {
+    politeia::ParticleData particles(0, 2);
+    require(politeia::compute_wealth_histogram(particles, 0, 1.0).empty(),
+            "zero-bin wealth histogram should be empty");
+
+    politeia::OrderParamTracker tracker("guard", 0, 0.0, 0.0);
+    require(!tracker.push(0.0, 0.0),
+            "zero-window phase tracker should not trigger");
+
+    politeia::ParticleData chain(3, 2);
+    const auto root = chain.add_particle({0.0, 0.0}, {0.0, 0.0}, 1.0, 1.0, 20.0);
+    const auto mid = chain.add_particle({0.0, 0.0}, {0.0, 0.0}, 1.0, 1.0, 20.0);
+    const auto leaf = chain.add_particle({0.0, 0.0}, {0.0, 0.0}, 1.0, 1.0, 20.0);
+    chain.superior(mid) = chain.global_id(root);
+    chain.superior(leaf) = chain.global_id(mid);
+
+    const auto polities = politeia::detect_polities(chain);
+    require(polities.size() == 1, "chain should form one polity");
+    require(polities[0].depth == 2, "three-particle chain should have depth two");
+}
+
 } // namespace
 
 int main() {
@@ -140,6 +166,7 @@ int main() {
     test_attempt_reproduction_counts_actual_births();
     test_process_succession_distributes_estate_completely();
     test_one_cell_environment_grids_are_finite();
+    test_analysis_guards_and_polity_depth();
     std::cout << "module invariant tests passed\n";
     return 0;
 }
