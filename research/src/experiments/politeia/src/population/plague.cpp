@@ -45,6 +45,8 @@ Index PlagueManager::update(
     std::mt19937_64& rng
 ) {
     const Index n = particles.count();
+    if (n == 0 || n_pathogens_ <= 0) return 0;
+
     std::uniform_real_distribution<Real> uniform(0.0, 1.0);
     Index plague_deaths = 0;
 

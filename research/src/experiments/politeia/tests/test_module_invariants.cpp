@@ -3,6 +3,8 @@
 #include "interaction/culture_dynamics.hpp"
 #include "interaction/loyalty.hpp"
 #include "population/reproduction.hpp"
+#include "population/plague.hpp"
+#include "population/carrying_capacity.hpp"
 #include "climate/climate_grid.hpp"
 #include "force/terrain_loader.hpp"
 #include "analysis/order_params.hpp"
@@ -158,6 +160,20 @@ void test_analysis_guards_and_polity_depth() {
     require(polities[0].depth == 2, "three-particle chain should have depth two");
 }
 
+void test_population_guards() {
+    politeia::ParticleData empty(0, 2);
+    politeia::CellList cells;
+    cells.init(0.0, 1.0, 0.0, 1.0, 1.0);
+    const auto density = politeia::compute_local_density(empty, cells, 0.0);
+    require(density.empty(), "empty population density should be empty");
+
+    politeia::PlagueManager manager;
+    manager.init(0, 0);
+    std::mt19937_64 rng(1);
+    require(manager.update(empty, cells, politeia::PlagueParams{}, 0.0, 0.1, rng) == 0,
+            "empty population plague update should be zero");
+}
+
 } // namespace
 
 int main() {
@@ -167,6 +183,7 @@ int main() {
     test_process_succession_distributes_estate_completely();
     test_one_cell_environment_grids_are_finite();
     test_analysis_guards_and_polity_depth();
+    test_population_guards();
     std::cout << "module invariant tests passed\n";
     return 0;
 }

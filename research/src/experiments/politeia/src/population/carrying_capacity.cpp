@@ -15,6 +15,9 @@ std::vector<Real> compute_local_density(
 ) {
     const Index n = particles.count();
     const Real* __restrict__ x = particles.x_data();
+    if (n == 0 || density_radius <= 0.0) {
+        return std::vector<Real>(n, 0.0);
+    }
     const Real cutoff_sq = density_radius * density_radius;
     const Real area = M_PI * cutoff_sq;
 
