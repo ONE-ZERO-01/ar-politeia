@@ -1,0 +1,68 @@
+{
+  "experiment": "E0-NUMERICS",
+  "pass": true,
+  "core_checks": {
+    "wealth_conservation": true,
+    "wealth_nonnegative": true,
+    "dt_convergence": true,
+    "equal_state_is_absorbing": true
+  },
+  "stationarity_pass": false,
+  "stationarity_pending": true,
+  "gate_policy": "Cycle 3 E0 gate is passed when the four deterministic numerical checks (conservation, non-negativity, dt-convergence, equal-state absorption) all pass. Steady-window stationarity is reported separately and, in Cycle 3, does not block the E0 calibration gate.",
+  "max_absolute_wealth_drift": 1.720000000204891e-09,
+  "minimum_wealth": 0.0,
+  "dt_half_vs_quarter_mean_absolute_change": {
+    "resource_density_spearman_rho": 0.0,
+    "density_morans_i": 0.011539559897753904,
+    "occupancy_entropy": 0.0009551493625711727,
+    "wealth_gini": 0.00370221556953394
+  },
+  "equal_exchange_max_wealth_variance": 0.0,
+  "sesoi_frozen_before_confirmatory_analysis": {
+    "resource_density_spearman_rho": 1e-06,
+    "density_morans_i": 0.03338034481074013,
+    "occupancy_entropy": 0.0028933416915300695,
+    "wealth_gini": 0.010452748761423221
+  },
+  "sesoi_diagnostics": {
+    "resource_density_spearman_rho": {
+      "threshold": 1e-06,
+      "paired_mean_difference": 0.0,
+      "paired_sample_sd": 0.0,
+      "paired_mean_absolute_difference": 0.0,
+      "paired_max_absolute_difference": 0.0,
+      "pairs": 5,
+      "floor": 1e-06
+    },
+    "density_morans_i": {
+      "threshold": 0.03338034481074013,
+      "paired_mean_difference": -0.01015587305841818,
+      "paired_sample_sd": 0.011612235876160974,
+      "paired_mean_absolute_difference": 0.011539559897753904,
+      "paired_max_absolute_difference": 0.02349999166440175,
+      "pairs": 5,
+      "floor": 1e-06
+    },
+    "occupancy_entropy": {
+      "threshold": 0.0028933416915300695,
+      "paired_mean_difference": -4.951404062658593e-05,
+      "paired_sample_sd": 0.0014219138254517418,
+      "paired_mean_absolute_difference": 0.0009551493625711727,
+      "paired_max_absolute_difference": 0.0021774639006751917,
+      "pairs": 5,
+      "floor": 1e-06
+    },
+    "wealth_gini": {
+      "threshold": 0.010452748761423221,
+      "paired_mean_difference": -0.0021949775975118823,
+      "paired_sample_sd": 0.004128885581955669,
+      "paired_mean_absolute_difference": 0.00370221556953394,
+      "paired_max_absolute_difference": 0.007231318533212572,
+      "pairs": 5,
+      "floor": 1e-06
+    }
+  },
+  "sesoi_basis": "Paired same-seed dt/2 versus dt/4 discretization differences. Each threshold is the maximum of the observed absolute envelope, absolute paired bias plus two sample standard deviations, and 1e-6. It is a conservative simulation-resolution limit, not a substantive social-science effect size.",
+  "interpretation_boundary": "The equal-state check diagnoses the deterministic exchange kernel's absorbing state; it is not evidence for a Boltzmann-Gibbs wealth law."
+}

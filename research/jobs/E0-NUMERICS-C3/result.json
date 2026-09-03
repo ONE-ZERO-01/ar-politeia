@@ -1,0 +1,25 @@
+{
+  "experiment": "E0-NUMERICS",
+  "status": "completed",
+  "pass": true,
+  "runs_completed": 25,
+  "runs_executed_this_invocation": 0,
+  "runs_reused_from_completion_markers": 0,
+  "elapsed_seconds_executed_this_invocation": 0.0,
+  "config_sha256": "4021b04d5187d5fefa83826816b6d0d30d2d37a0cd5b0f4d14d29ff97866d83a",
+  "omp_threads": 1,
+  "parameter_lock_sha256": null,
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/E0-NUMERICS-C3/workspace/matched_input_audit.json",
+    "research/jobs/E0-NUMERICS-C3/workspace/numerical_calibration.json",
+    "research/jobs/E0-NUMERICS-C3/workspace/replicate_metrics.csv",
+    "research/jobs/E0-NUMERICS-C3/workspace/result.json",
+    "research/jobs/E0-NUMERICS-C3/workspace/run.log",
+    "research/jobs/E0-NUMERICS-C3/workspace/run_e0.log",
+    "research/jobs/E0-NUMERICS-C3/workspace/run_specs.json",
+    "research/jobs/E0-NUMERICS-C3/workspace/stationarity_report.json"
+  ],
+  "tracked_calibration_result": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json",
+  "tracked_calibration_sha256": "cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e"
+}

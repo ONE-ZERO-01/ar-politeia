@@ -1,0 +1,24 @@
+{
+  "experiment": "B0-DYNAMICS-PILOT",
+  "status": "completed",
+  "pass": true,
+  "runs_completed": 3,
+  "runs_executed_this_invocation": 0,
+  "runs_reused_from_completion_markers": 0,
+  "elapsed_seconds_executed_this_invocation": 0.0,
+  "config_sha256": "36feca8a4eb8e2a173dffb70dd599e28e01db7369557ffcc4b151759756b2b27",
+  "omp_threads": 1,
+  "parameter_lock_sha256": null,
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/b0_experiment.log",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/matched_input_audit.json",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/pilot_health.json",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/replicate_metrics.csv",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/result.json",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/run.log",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/run_b0.log",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/run_specs.json",
+    "research/jobs/B0-DYNAMICS-PILOT-C3/workspace/stationarity_report.json"
+  ]
+}
