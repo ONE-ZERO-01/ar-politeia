@@ -199,7 +199,10 @@ def write_esri_ascii(
         handle.write(f"yllcorner {yllcorner:.17g}\n")
         handle.write(f"cellsize {cellsize:.17g}\n")
         handle.write("NODATA_value -9999\n")
-        np.savetxt(handle, elevation, fmt="%.17g")
+        # ESRI ASCII 第一行是最北（最大 y），而 numpy 数组第 0 行是最南（最小 y）。
+        # 翻转行序使第一行对应最北，与 C++ TerrainGrid::load_ascii 的
+        # “第一行是最北”约定一致，避免 elevation 场在 y 方向镜像。
+        np.savetxt(handle, np.flipud(elevation), fmt="%.17g")
     return sha256_file(path)
 
 
@@ -211,8 +214,15 @@ def write_initial_conditions(
     bounds: Tuple[float, float, float, float],
     mean_wealth: float = 5.0,
     wealth_log_sigma: float = 0.01,
+    epsilon_log_sigma: float = 0.0,
 ) -> str:
-    """Write paired initial conditions with a non-degenerate wealth perturbation."""
+    """Write paired initial conditions with a non-degenerate wealth perturbation.
+
+    ``epsilon_log_sigma`` controls ability heterogeneity. With ``0.0`` every
+    particle gets ``eps = 1`` (uniform ability, the Cycle 1/2 setting); with a
+    positive value each particle draws ``eps ~ lognormal(mean=1, sigma=value)``
+    from an independent stream so the x/y/wealth sequence is unchanged.
+    """
     if count < 1:
         raise ValueError("count must be positive")
     xmin, xmax, ymin, ymax = bounds
@@ -220,6 +230,8 @@ def write_initial_conditions(
         raise ValueError("invalid bounds")
     if mean_wealth <= 0.0 or wealth_log_sigma < 0.0:
         raise ValueError("invalid wealth parameters")
+    if epsilon_log_sigma < 0.0:
+        raise ValueError("epsilon_log_sigma must be non-negative")
 
     rng = np.random.default_rng(seed)
     x = rng.uniform(xmin, xmax, size=count)
@@ -227,13 +239,29 @@ def write_initial_conditions(
     wealth = rng.lognormal(mean=0.0, sigma=wealth_log_sigma, size=count)
     wealth *= mean_wealth / float(wealth.mean())
 
+    if epsilon_log_sigma <= 0.0:
+        epsilon = np.ones(count, dtype=np.float64)
+    else:
+        rng_eps = np.random.default_rng(seed + 1_000_007)
+        epsilon = rng_eps.lognormal(
+            mean=-0.5 * epsilon_log_sigma * epsilon_log_sigma,
+            sigma=epsilon_log_sigma,
+            size=count,
+        )
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["x", "y", "w", "eps", "age"])
-        for values in zip(x, y, wealth):
+        for values in zip(x, y, wealth, epsilon):
             writer.writerow(
-                [f"{values[0]:.17g}", f"{values[1]:.17g}", f"{values[2]:.17g}", "1", "20"]
+                [
+                    f"{values[0]:.17g}",
+                    f"{values[1]:.17g}",
+                    f"{values[2]:.17g}",
+                    f"{values[3]:.17g}",
+                    "20",
+                ]
             )
     return sha256_file(path)
 

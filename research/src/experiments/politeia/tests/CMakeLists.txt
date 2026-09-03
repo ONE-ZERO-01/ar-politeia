@@ -11,3 +11,10 @@ add_test(NAME exchange_kernel COMMAND test_exchange_kernel)
 set_tests_properties(exchange_kernel PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_executable(test_active_path test_active_path.cpp)
+target_link_libraries(test_active_path PRIVATE politeia_core)
+add_test(NAME active_path COMMAND test_active_path)
+set_tests_properties(active_path PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)

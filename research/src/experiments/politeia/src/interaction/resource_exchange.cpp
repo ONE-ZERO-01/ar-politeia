@@ -5,11 +5,12 @@
 ///   交换规则必须是标签对称的：交换 i↔j 后结果只变符号。
 ///   不平等不是规则偏袒产生的，而是从状态差异中自发涌现的。
 ///
-/// 交换公式（Cycle 3，候选 C，乘性再分配）：
+/// 交换公式（Cycle 3，候选 C，连续时间均分回复再分配）：
 ///   A_i = w_i × ε_i / (w_i + w_ref)     （饱和能力，A 严格单调增）
 ///   D_ij = (A_i − A_j) / (A_i + A_j)
-///   share = w_i/(w_i+w_j) + η_d·D_ij + η_n·|D_ij|·s_ij   （clamp 到 [0,1]）
-///   w_i' = share·(w_i+w_j),  w_j' = (1−share)·(w_i+w_j)
+///   share = w_i/(w_i+w_j)
+///   share' = share + dt·[k·(1/2−share) + η_d·D_ij] + √dt·η_n·|D_ij|·s_ij
+///   w_i' = share'·(w_i+w_j),  w_j' = (1−share')·(w_i+w_j)
 ///
 /// 物理类比：引力 F=Gm1m2/r² 也是完全对称的，但大质量体依然吸引更多物质。
 /// 同理，交换规则对称，但能力强者自然获益更多。
@@ -67,6 +68,7 @@ Real exchange_resources(
     ParticleData& particles,
     const CellList& cells,
     const ExchangeParams& params,
+    Real dt,
     InteractionNetwork* network,
     const Real* terrain_potential_at_particle,
     const Real* river_proximity_at_particle,
@@ -75,6 +77,8 @@ Real exchange_resources(
     const Real cutoff_sq = params.cutoff * params.cutoff;
     const Real eta = params.exchange_rate;
     const Real eta_n = params.noise_strength;
+    const Real k = params.reversion_rate;
+    const Real sqrt_dt = std::sqrt(dt);
     const bool barrier = params.terrain_barrier_enabled && terrain_potential_at_particle != nullptr;
     const Real inv_barrier_scale = barrier ? (1.0 / params.terrain_barrier_scale) : 0.0;
     const bool river_bonus = params.river_exchange_enabled && river_proximity_at_particle != nullptr;
@@ -122,25 +126,31 @@ Real exchange_resources(
                 static_cast<std::uint64_t>(j),
                 step);
 
-            Real perturbation = eta * D + eta_n * absD * s;
+            // Continuous-time mean-reverting reallocation (candidate C,
+            // dt-convergent): drift is O(dt), fluctuation is O(sqrt(dt)).
+            // share' = share + dt·[k·(1/2 − share) + η_d·D] + sqrt(dt)·η_n·|D|·s
+            const Real share0 = wi / total;
+            Real drift = k * (0.5 - share0) + eta * D;
+            Real noise = eta_n * absD * s;
 
             if (barrier) {
                 Real delta_h = std::abs(terrain_potential_at_particle[i]
                                       - terrain_potential_at_particle[j]);
-                perturbation *= std::exp(-delta_h * inv_barrier_scale);
+                const Real atten = std::exp(-delta_h * inv_barrier_scale);
+                drift *= atten;
+                noise *= atten;
             }
             if (river_bonus) {
                 const Real prox = std::min(
                     std::max(0.0, river_proximity_at_particle[i]),
                     std::max(0.0, river_proximity_at_particle[j])
                 );
-                perturbation *= 1.0 + params.river_exchange_strength * prox;
+                const Real boost = 1.0 + params.river_exchange_strength * prox;
+                drift *= boost;
+                noise *= boost;
             }
 
-            // Baseline share = 1/2 (equal split) supplies the mean-reverting
-            // drift 0.5·(w_j − w_i) that counteracts the ability-difference
-            // drift η_d·D — this is what yields a non-trivial steady state.
-            Real share = 0.5 + perturbation;
+            Real share = share0 + dt * drift + sqrt_dt * noise;
             if (share < 0.0) share = 0.0;
             if (share > 1.0) share = 1.0;
 

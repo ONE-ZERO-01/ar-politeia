@@ -85,6 +85,12 @@ def test_write_esri_ascii_and_initial_conditions(tmp_path):
     assert lines[:2] == ["ncols 2", "nrows 2"]
     assert len(grid_digest) == 64
 
+    # ESRI ASCII 第一数据行是最北（最大 y），而 resource 第 0 行是最南。
+    # elevation = max - resource = [[4, 3], [2, 0]]，所以翻转后第一数据行
+    # 应为 [2, 0]（resource 最北行）。这保证 C++ load_ascii 不会在 y 方向镜像。
+    assert lines[6].split() == ["2", "0"]
+    assert lines[7].split() == ["4", "3"]
+
     ic_path = tmp_path / "initial.csv"
     ic_digest = landscape_study.write_initial_conditions(
         ic_path, 100, 321, bounds=(0.0, 10.0, 0.0, 10.0)

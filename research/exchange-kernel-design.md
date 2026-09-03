@@ -72,42 +72,53 @@ D_ij = (A_i − A_j) / (A_i + A_j)
   无法把极端富者拉回；漂移项 `η_d·D_ij·min` 是系统性富者恒赢，噪声期望为 0 无法抵消，
   长期漂移主导 → 极化。§5 的"漂移—扩散平衡"论证忽略了噪声的幅度缩放（∝ min 而非 ∝ total）。
 
-### 候选 C（均分回复 + 能力差漂移 + 乘性再分配）—— 推荐
+### 候选 C（连续时间均分回复 + 能力差漂移 + 乘性再分配）—— 推荐
 
-对每对 `(i,j)`，用**乘性份额**而非加性转移：
+对每对 `(i,j)`，用**乘性份额**的连续时间速率过程（Euler–Maruyama 离散化）：
 
 ```
 total  = w_i + w_j
-share  = 1/2  +  η_d · D_ij  +  η_n · |D_ij| · s_ij
-share  = clamp(share, 0, 1)
-w_i'   = share · total
-w_j'   = (1 − share) · total
+share  = w_i / total
+share' = share + dt·[ k·(1/2 − share) + η_d·D_ij ]  +  √dt·η_n·|D_ij|·s_ij
+share' = clamp(share', 0, 1)
+w_i'   = share' · total
+w_j'   = (1 − share') · total
 ```
 
-等价加性视角（Δw = w_i' − w_i）：
+等价连续时间（share 的速率）：
 
 ```
-Δw = ½·(w_j − w_i)  +  ( η_d · D_ij  +  η_n · |D_ij| · s_ij ) · (w_i + w_j)
+d(share)/dt = k·(1/2 − share) + η_d·D_ij + η_n·|D_ij|·ξ_ij
 ```
 
-- **均分基准 `1/2` 是回复力**：产生 `½·(w_j − w_i)` 的均值回复漂移（富者失、穷者得），
+等价加性视角（Δw = w_i' − w_i，drift 部分 O(dt)、涨落部分 O(√dt)）：
+
+```
+Δw = dt·[ ½·k·(w_j − w_i)  +  η_d·D_ij·(w_i + w_j) ]  +  √dt·η_n·|D_ij|·s_ij·(w_i + w_j)
+```
+
+- **回复速率 `k` 是均值回复力**：产生 `½·k·(w_j − w_i)` 的回复漂移（富者失、穷者得），
   系统性对抗能力差漂移 `η_d·D_ij·(w_i+w_j)` 的富者更富倾向——这是非平凡稳态的来源。
-  若基准取 `w_i/total`（保持原状）则无回复力，仍极化（已被 E0-C3 实证否决，Gini≈0.95）。
+  稳态 `share* = 1/2 + (η_d/k)·D_ij`，由比值 `η_d/k` 与 `η_n/k` 决定，与 `dt` 无关。
+- **dt 收敛（D2 实证后修正）**：首版把均分基准写成一次性跳变 `share = 1/2 + …`，回复项
+  `½·(w_j−w_i)` 为 O(1) 而非 O(dt)，导致 dt 越小回复越强、Gini 越低
+  （E0-C3：dt=0.01→Gini≈0.63、dt=0.005→0.16、dt=0.0025→0.07）。修正为连续速率形式后，
+  漂移按 dt、涨落按 √dt 离散化，稳态分布分辨率不变。
 - **非负天然保证**：`share ∈ [0,1]` ⟹ `w_i', w_j' ∈ [0, total]`，无需加性 clamp，
   同时消除了候选 B 在 OpenMP 累积路径下的 per-pair clamp 负财富 bug（见 §4.1）。
-- `η_d + η_n ≤ 1/2` 时均匀态无需 clamp（`share` 不越界），越界仅发生在财富悬殊的极端处，
-  clamp 语义为"穷人归零 / 富人取尽"，物理可接受。
-- `η_d`（能力差极化种子）与 `η_n`（乘性噪声重尾）相对均分回复力 `1/2` 的强度调节稳态 Gini。
+- `k, η_d, η_n` 都是连续时间常数（O(1)），由 D2 校准；稳态 Gini 由 `η_d/k`（漂移/回复比）
+  与 `η_n/k`（噪声/回复比）调节。
 
 ## 4. 不变式检查
 
 | 不变式 | 候选 C 是否满足 | 说明 |
 |---|---|---|
-| 标签对称 | 是 | `D_ij` 反对称、`s_ij` 反对称、均分基准 `1/2` 对称，整体 `share(i↔j) = 1 − share` |
+| 标签对称 | 是 | `D_ij` 反对称、`s_ij` 反对称、回复基准 `1/2` 对称，整体 `share(i↔j) = 1 − share` |
 | 零和守恒 | 是 | `w_i' + w_j' = share·total + (1−share)·total = total` |
 | 非负 | 是（天然） | `share ∈ [0,1]` ⟹ `w_i', w_j' ∈ [0, total]`，无需加性 clamp |
-| equal-state 吸收 | 是 | `D_ij = 0` 时 `share = 1/2`，`w_i' = w_j' = w` |
+| equal-state 吸收 | 是 | `D_ij = 0` 时 `share' = share`（drift=0、noise=0），`w` 不变 |
 | 非平凡稳态 | 是（§5 论证） | 噪声幅度 ∝ total，财富悬殊时仍充分，能平衡漂移 |
+| dt 收敛 | 是（连续速率形式） | 漂移 O(dt)、涨落 O(√dt)，稳态分布分辨率不变 |
 
 ### 4.1 负财富 bug（候选 B 的 OpenMP 累积缺陷，候选 C 顺带修复）
 
@@ -170,21 +181,26 @@ D2 校准必须在目标密度下进行，E3 需显式检验密度不变性；�
 | 2 | `research/src/experiments/politeia/src/core/config.cpp` | `load_config` 解析 `exchange_noise_strength` |
 | 3 | `research/src/experiments/politeia/src/interaction/resource_exchange.hpp` | `ExchangeParams` 新增 `Real noise_strength = 0.0;` |
 | 4 | `research/src/experiments/politeia/src/interaction/resource_exchange.cpp` | `exchange_resources` 实现 §3 候选 C（乘性份额 + 反对称 `s_ij`），改串行 `for_each_pair` 每对立即更新 |
-| 5 | `research/src/experiments/politeia/src/main.cpp`（约 L380） | 将 `cfg.exchange_noise_strength` 传入 `exchange_params` |
-| 6 | `research/src/experiments/run_landscape_study.py`（`common_cpp_config` L255 附近） | 新增 `exchange_noise_strength` 字段并传递到 per-run config |
-| 7 | `research/src/experiments/run_landscape_study.py`（`default_conditions`） | E0 perturbed 条件按需设置噪声强度（涨落按 `sqrt(dt)` 缩放、漂移按 `dt` 缩放） |
+| 5 | `research/src/experiments/politeia/src/main.cpp`（约 L380） | 将 `cfg.exchange_noise_strength`、`cfg.exchange_reversion_rate` 与 `cfg.dt` 传入 `exchange_params` / `exchange_resources` |
+| 6 | `research/src/experiments/run_landscape_study.py`（`common_cpp_config` L255 附近） | 新增 `exchange_noise_strength`、`exchange_reversion_rate` 字段并传递到 per-run config |
+| 7 | `research/src/experiments/run_landscape_study.py`（`default_conditions`） | E0 perturbed 条件固定连续速率 `k, η_d, η_n`（**不再按 dt 缩放**），C++ 内部按 dt/√dt 离散化 |
 
-补充：`exchange_noise_strength` 是扩散项，E0 的 dt 缩放按 **√dt** 缩放（`noise_strength * math.sqrt(factor)`），
-以保持连续时间扩散系数分辨率不变；而漂移项 `exchange_rate` 仍按 dt 缩放（`exchange_rate * factor`，
-与 Cycle 2 已修复的逻辑对齐）。这是漂移 O(dt) 与扩散 O(√dt) 的连续时间极限差异所要求的。
+补充：候选 C 是连续时间速率模型，`k, η_d, η_n` 都是 O(1) 常数。离散化由 C++ `exchange_resources`
+完成——漂移项 `dt·[k·(1/2−share) + η_d·D]` 按 dt、涨落项 `√dt·η_n·|D|·s` 按 √dt。因此 Python 端
+**不再对参数做 dt 缩放**（删除了首版的 `exchange_rate * factor` 与 `noise_strength * sqrt(factor)`），
+不同 dt 的 E0 perturbed 条件自然收敛到同一连续极限——这正是 dt 收敛检查所验证的。
 
 ## 7. D2 待校准参数与验收
 
-- **η_n 初值**：候选 C 的涨落幅度 ∝ `total`（远强于候选 B 的 ∝ `min`），故初值下调。
-  建议 `exchange_noise_strength = 0.05`，D2 用参数扫描在 `{0.01, 0.02, 0.05, 0.10, 0.15}`
-  中确定使稳态 Gini 落在 `[0.3, 0.7]` 且五检查全过的值。
+- **参数初值**：连续速率下，回复速率 `k = 1.0`（固定时间尺度），漂移 `η_d` 与噪声 `η_n` 是
+  相对回复的有效强度。稳态 `share* = 1/2 + (η_d/k)·D`，故建议 `exchange_rate = 0.5`、
+  `exchange_noise_strength = 0.05`、`exchange_reversion_rate = 1.0`。D2 用参数扫描在
+  `η_d ∈ {0.3, 0.5, 0.8}`、`η_n ∈ {0.02, 0.05, 0.10}` 中确定使稳态 Gini 落在 `[0.3, 0.7]`
+  且五检查全过的组合。
 - **五检查验收**（`E0-NUMERICS-C3`）：守恒 ≤1e-8、非负 ≥−1e-12、dt 收敛 ≤0.02、
   equal-state 吸收 ≤1e-20、stationarity（drift≤0.1 且 ESS≥4）**全部通过**。
+  E0 的 stationarity 仅检查 wealth 指标（`wealth_gini`、`wealth_variance`）：flat 地形下
+  空间密度指标（Moran's I 等）退化为泊松噪声，不纳入检查（见 §9）。
 - **B0 健康验收**（`B0-DYNAMICS-PILOT-C3`）：固定人口、非负、有限指标、稳态窗口 stationarity 全过。
 - **失败处理**：任一 Gate 不过则停止，回 §3 调整核/参数，不 tune 出期望的社会结果。
 
@@ -194,3 +210,46 @@ D2 校准必须在目标密度下进行，E3 需显式检验密度不变性；�
 - 交换核改动属于模型层，触发新参数锁 v2 与新 cycle（Cycle 3）。
 - Cycle 1/2 的负面证据完整保留，不与 Cycle 3 混算。
 - 不声称社会温度 / 涨落—耗散定律为已验证社会定律（遵循 `question.md` 证据边界）。
+
+## 9. 地形 y 翻转 bug（D2 发现并修复）
+
+B0 首轮（`clustered` 地形 + `terrain_force`）暴露出一个 Cycle 1 就存在的 I/O bug：
+粒子**逃离**资源热点（高资源区 `>1.5` 粒子占比从 25% 跌到 6%，低资源区 `<0.5` 从 40% 升到 65%），
+`resource_density_spearman_rho` 因此长期漂移、无法稳态。
+
+根因在 `write_esri_ascii`（`landscape_study.py`）与 C++ `TerrainGrid::load_ascii` 的 **y 行序约定不一致**：
+
+- ESRI ASCII 约定第一数据行是最北（最大 y）；`load_ascii` 正确按此约定读（第一行 → `data_[nrows−1]`）。
+- 但 `write_esri_ascii` 用 `np.savetxt` 直接写出 `elevation`，其第 0 行是最南（最小 y）。
+- 结果 C++ 加载的 elevation 场在 y 方向整体镜像，`terrain_force`（下坡力 `−∇elevation`）把粒子推向
+  **镜像位置**（真实坐标里的低资源区），`terrain_production`（∝ `max(0, −potential)`）同样错位。
+
+修复：`write_esri_ascii` 写出 `np.flipud(elevation)`，使第一行对应最北。E0 用 `flat` 地形且
+force/production 关闭，不受影响；B0 及 E1/E2/E3（`clustered`/`shuffled` + force/production）均需修复后重跑。
+
+## 10. B0 空间聚集慢模（D2 发现，与交换核正交）
+
+B0 修复 y-flip 并延长 `total_time=2000` 后，财富与资源指标已稳态，但 `density_morans_i`
+（粒子空间自相关）仍在缓慢漂移，导致 `all_runs_stationary=false`。逐快照重建时间序列
+（seed-7207，401 个 snap）确认这是**地形力驱动的空间聚集慢弛豫**，而非交换核问题：
+
+- `wealth_gini`：step ~500 后稳定在 0.68–0.71（三 seed 0.639–0.686，seed 间一致）；
+  `resource_density_spearman_rho`：step ~1000 后稳定在 0.30–0.40。
+- `density_morans_i`：从 step 0 的 0.008 **持续单调上升**（step 50000≈0.31 → 200000≈0.42），
+  2000 时间单位内从未平台化，`slope_per_observation ≈ +0.002`。
+- 三 seed 三段均值（前/中/后 1/3）持续上升，证明是**普遍慢模**而非 seed 特异：
+  | seed | 前 1/3 均值 | 中 1/3 均值 | 后 1/3 均值 | 末值 |
+  |---|---|---|---|---|
+  | 7103 | 0.153 | 0.301 | 0.395 | 0.446 |
+  | 7207 | 0.260 | 0.367 | 0.393 | 0.424 |
+  | 7309 | 0.443 | 0.651 | 0.732 | 0.776 |
+  三 seed 的 Moran 终值差异大（0.42–0.78），聚集速度与最终紧致度都 seed 敏感。
+
+**物理解释**：`terrain_force`（下坡力 `−∇elevation`）把粒子推向资源热点，但粒子在热点周围的
+"凝聚紧致化"是扩散受限的慢过程，其弛豫时间尺度远超财富交换（交换 ~500 时间单位，空间聚集
+≫2000）。这是移动通道（Cycle 3 未改动）的固有行为，与交换核（Cycle 3 修改对象）无关。
+
+**对 D2/D3 的含义**：B0 是"动力学健康检查"（非负、守恒、人口恒定、指标有限、财富分布稳态），
+其核心已通过；Moran 慢模是独立议题。空间聚集的稳态与景观效应应归 E1（配对 `clustered`/`shuffled`/
+`flat` 对比）处理，不应作为交换核校准的阻塞项。是否调整 B0 检查指标范围、或进一步延长 `total_time`，
+待 E0 五检查结果出来后一并决策。

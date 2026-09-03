@@ -7,8 +7,9 @@
 namespace politeia {
 
 struct ExchangeParams {
-    Real exchange_rate = 0.003; // η_d: ability-difference drift strength (candidate C)
-    Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation amplitude (candidate C)
+    Real exchange_rate = 0.003; // η_d: ability-difference drift rate (candidate C, continuous-time)
+    Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation intensity (continuous-time)
+    Real reversion_rate = 1.0;  // k: mean-reversion rate of share toward 1/2 (continuous-time)
     Real cutoff = 2.5;         // 交互距离（与人际交互力的社交视野半径一致）
     bool terrain_barrier_enabled = false;
     Real terrain_barrier_scale = 5.0;  // h0: larger = weaker barrier effect
@@ -21,20 +22,27 @@ struct ExchangeParams {
 
 /// Perform symmetric resource exchange between neighboring particles.
 ///
-/// Rule (Cycle 3, §3 candidate C — mean-reverting multiplicative reallocation):
+/// Rule (Cycle 3, §3 candidate C — continuous-time mean-reverting reallocation):
 ///   A_i = w_i × f(ε_i),  A_j = w_j × f(ε_j)
 ///   D_ij = (A_i − A_j) / (A_i + A_j)
 ///   total = w_i + w_j
-///   share = 1/2 + η_d·D_ij + η_n·|D_ij|·s_ij   (clamped to [0,1])
-///   w_i' = share·total,  w_j' = (1 − share)·total
+///   share = w_i / total
+///   d(share)/dt = k·(1/2 − share) + η_d·D_ij + η_n·|D_ij|·ξ_ij
+///   share' = share + dt·[k·(1/2 − share) + η_d·D_ij]
+///                     + sqrt(dt)·η_n·|D_ij|·s_ij        (clamped to [0,1])
+///   w_i' = share'·total,  w_j' = (1 − share')·total
 ///
 /// s_ij ∈ {+1,−1} is a deterministic antisymmetric factor (s_ji = −s_ij),
 /// so the rule stays symmetric under label exchange i↔j, exactly zero-sum, and
-/// non-negative by construction (share ∈ [0,1]). The equal-split baseline 1/2
-/// supplies the mean-reverting drift ½·(w_j − w_i) that counteracts the
-/// ability-difference drift η_d·D, yielding a non-trivial stationary wealth
-/// distribution; the equal state (w_i=w_j, ε_i=ε_j) remains absorbing
-/// (D_ij = 0 ⇒ share = 1/2).
+/// non-negative by construction (share ∈ [0,1]). The mean-reversion term
+/// k·(1/2 − share) supplies the restoring drift ½·k·(w_j − w_i) that
+/// counteracts the ability-difference drift η_d·D, yielding a non-trivial
+/// stationary wealth distribution; the equal state (w_i=w_j, ε_i=ε_j) remains
+/// absorbing (D_ij = 0 ⇒ share unchanged).
+///
+/// All rates k, η_d, η_n are continuous-time constants (O(1)); the discrete
+/// Euler–Maruyama step above scales drift by dt and fluctuation by sqrt(dt),
+/// so the stationary distribution is resolution-invariant (dt-convergent).
 ///
 /// `step` seeds the per-pair fluctuation sign, making it time-dependent while
 /// remaining reproducible (deterministic hash, no shared RNG state).
@@ -50,6 +58,7 @@ class InteractionNetwork;
     ParticleData& particles,
     const CellList& cells,
     const ExchangeParams& params,
+    Real dt,
     class InteractionNetwork* network = nullptr,
     const Real* terrain_potential_at_particle = nullptr,
     const Real* river_proximity_at_particle = nullptr,

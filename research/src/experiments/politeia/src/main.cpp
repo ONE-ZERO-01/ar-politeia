@@ -387,6 +387,7 @@ int main(int argc, char* argv[]) {
     exchange_params.river_exchange_strength = cfg.river_exchange_strength;
     exchange_params.ability_saturation_w = cfg.ability_saturation_w;
     exchange_params.noise_strength = cfg.exchange_noise_strength;
+    exchange_params.reversion_rate = cfg.exchange_reversion_rate;
 
     // --- Reproduction parameters ---
     politeia::ReproductionParams repro_params;
@@ -669,7 +670,7 @@ int main(int argc, char* argv[]) {
         constexpr politeia::Index NETWORK_RECORD_WINDOW = 20;
         bool need_network = cfg.loyalty_enabled
                          && (step % cfg.compact_interval >= cfg.compact_interval - NETWORK_RECORD_WINDOW);
-        (void)politeia::exchange_resources(particles, cells, exchange_params,
+        (void)politeia::exchange_resources(particles, cells, exchange_params, cfg.dt,
             need_network ? &network : nullptr,
             terrain_at_particle.empty() ? nullptr : terrain_at_particle.data(),
             river_proximity_at_particle.empty() ? nullptr : river_proximity_at_particle.data(),
