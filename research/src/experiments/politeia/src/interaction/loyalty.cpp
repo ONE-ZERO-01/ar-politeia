@@ -296,15 +296,11 @@ Index attempt_conquest(
     const Real cutoff_sq = interaction_range * interaction_range;
     std::uniform_real_distribution<Real> uniform(0.0, 1.0);
     Index conquests = 0;
-    
-    // DEBUG: count root nodes and neighbors
-    Index n_roots = 0, n_pairs = 0, n_power_ok = 0, n_deter = 0, n_reg = 0;
 
     for (Index i = 0; i < n; ++i) {
         if (particles.status(i) != ParticleStatus::Alive) continue;
         if (particles.superior(i) != -1) continue;
         if (power[i] < 1e-10) continue;
-        ++n_roots;
 
         cells.for_neighbors_of(i, particles.x_data(), n, cutoff_sq,
             [&](Index j, Real dx, Real dy, Real r2) {
@@ -314,7 +310,6 @@ Index attempt_conquest(
                 if (would_create_cycle(particles, j, i)) return;
                 if (!attachment_within_depth_limit(
                         particles, i, max_hierarchy_depth)) return;
-                ++n_pairs;
 
                 // Deterrence: overwhelming power causes automatic submission
                 if (cparams.deterrence_enabled &&
@@ -322,15 +317,12 @@ Index attempt_conquest(
                     particles.superior(j) = particles.global_id(i);
                     particles.loyalty(j) = cparams.initial_loyalty * 0.5;
                     ++conquests;
-                    ++n_deter;
                     return;
                 }
 
                 if (power[i] > power[j] * cparams.power_ratio) {
-                    ++n_power_ok;
                     Real p_conquer = cparams.base_prob * (power[i] / (power[i] + power[j]));
                     if (uniform(rng) < p_conquer) {
-                        ++n_reg;
                         // War cost: attacker and defender pay wealth
                         if (cparams.war_cost_enabled) {
                             Real cost_i = particles.wealth(i) * cparams.war_cost_attacker;
@@ -366,10 +358,6 @@ Index attempt_conquest(
             }
         );
     }
-
-    // DEBUG: print stats
-    fprintf(stderr, "[conquest] n=%d roots=%d pairs=%d power_ok=%d deter=%d reg=%d total=%d\n",
-            (int)n, (int)n_roots, (int)n_pairs, (int)n_power_ok, (int)n_deter, (int)n_reg, (int)conquests);
     
     return conquests;
 }
@@ -478,13 +466,18 @@ Index process_succession(
 
         Real estate = std::max(0.0, particles.wealth(dead_idx));
         if (estate > 0 && !subordinates.empty()) {
-            Real heir_share = estate * 0.5;
-            Real rest_share = estate * 0.5 / static_cast<Real>(subordinates.size() - 1 + 1);
+            if (subordinates.size() == 1) {
+                particles.wealth(heir) += estate;
+            } else {
+                Real heir_share = estate * 0.5;
+                Real rest_share = estate * 0.5
+                    / static_cast<Real>(subordinates.size() - 1);
 
-            particles.wealth(heir) += heir_share;
-            for (Index s : subordinates) {
-                if (s != heir) {
-                    particles.wealth(s) += rest_share;
+                particles.wealth(heir) += heir_share;
+                for (Index s : subordinates) {
+                    if (s != heir) {
+                        particles.wealth(s) += rest_share;
+                    }
                 }
             }
             particles.wealth(dead_idx) = 0.0;

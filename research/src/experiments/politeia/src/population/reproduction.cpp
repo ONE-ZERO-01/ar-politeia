@@ -13,8 +13,10 @@ Real fertility(Real age, const ReproductionParams& params) {
 
     // Beta-like bell curve: peaks at peak_fertility_age
     const Real span = params.menopause_age - params.puberty_age;
+    if (span <= 1e-15) return 0.0;
     const Real t = (age - params.puberty_age) / span;  // normalized to [0, 1]
     const Real peak_t = (params.peak_fertility_age - params.puberty_age) / span;
+    if (peak_t <= 0.0 || peak_t >= 1.0) return 0.0;
 
     // Shape: t^a * (1-t)^b where peak is at a/(a+b) = peak_t
     const Real alpha = params.fertility_alpha;
@@ -83,6 +85,7 @@ Index attempt_reproduction(
     std::normal_distribution<Real> mutation(0.0, params.mutation_strength);
 
     std::vector<BirthRecord> births;
+    Index born = 0;
 
     cells.for_each_pair(x, n, cutoff_sq,
         [&](Index i, Index j, Real dx, Real dy, Real r2) {
@@ -184,10 +187,11 @@ Index attempt_reproduction(
             } else {
                 inherit_hierarchy(particles, child_idx, b.mother, b.father);
             }
+            ++born;
         }
     }
 
-    return static_cast<Index>(births.size());
+    return born;
 }
 
 } // namespace politeia

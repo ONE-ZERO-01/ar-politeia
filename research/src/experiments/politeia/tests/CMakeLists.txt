@@ -18,3 +18,10 @@ add_test(NAME active_path COMMAND test_active_path)
 set_tests_properties(active_path PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_executable(test_module_invariants test_module_invariants.cpp)
+target_link_libraries(test_module_invariants PRIVATE politeia_core)
+add_test(NAME module_invariants COMMAND test_module_invariants)
+set_tests_properties(module_invariants PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)

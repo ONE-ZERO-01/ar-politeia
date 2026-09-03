@@ -43,6 +43,9 @@ std::string trim_ws(const std::string& s) {
 // --- Interpolation ---
 
 Real ClimateGrid::interp(const std::vector<Real>& field, Real x, Real y) const noexcept {
+    if (field.empty() || nrows_ < 1 || ncols_ < 1) return 0.0;
+    if (nrows_ == 1 || ncols_ == 1) return field.front();
+
     Real fx = (x - xmin_) / cellsize_;
     Real fy = (y - ymin_) / cellsize_;
 

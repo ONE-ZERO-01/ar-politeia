@@ -198,6 +198,8 @@ std::vector<Real> compute_culture_correlation(
     int n_bins,
     Real max_r
 ) {
+    if (n_bins <= 0 || max_r <= 0.0) return {};
+
     std::vector<Real> corr(n_bins, 0.0);
     std::vector<Index> counts(n_bins, 0);
 

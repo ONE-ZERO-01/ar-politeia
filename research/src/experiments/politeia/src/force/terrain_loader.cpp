@@ -113,11 +113,12 @@ void TerrainGrid::generate_synthetic(int nrows, int ncols,
     const Real cy = 0.5 * (ymin + ymax);
     const Real rx = 0.25 * (xmax - xmin);
     const Real ry = 0.25 * (ymax - ymin);
+    const Real row_step = (nrows > 1) ? (ymax - ymin) / (nrows - 1) : 0.0;
 
     for (int r = 0; r < nrows; ++r) {
         for (int c = 0; c < ncols; ++c) {
             Real x = xmin + c * cellsize_;
-            Real y = ymin + r * ((ymax - ymin) / (nrows - 1));
+            Real y = ymin + r * row_step;
             Real dx = (x - cx) / rx;
             Real dy = (y - cy) / ry;
             Real r2 = dx * dx + dy * dy;
