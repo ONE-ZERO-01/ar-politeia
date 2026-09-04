@@ -1,0 +1,19 @@
+{
+  "experiment": "B0-DYNAMICS-PILOT",
+  "pass": true,
+  "checks": {
+    "all_runs_stationary": true,
+    "wealth_nonnegative": true,
+    "population_constant": true,
+    "metrics_finite": true
+  },
+  "stationarity_metrics": [
+    "resource_density_spearman_rho",
+    "occupancy_entropy",
+    "wealth_gini",
+    "wealth_variance"
+  ],
+  "runs": 3,
+  "evidence_role": "runtime and outcome-blind dynamics health only",
+  "prohibited_use": "This pilot has no shuffled comparison and cannot support C2-C4 or estimate a landscape effect."
+}
