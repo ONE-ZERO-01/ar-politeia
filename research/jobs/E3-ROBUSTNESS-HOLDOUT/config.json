@@ -64,6 +64,6 @@
   "terrain_force_scale": 1.0,
   "terrain_production_scale": 1.0,
   "mean_wealth": 5.0,
-  "omp_threads": 8,
+  "omp_threads": 1,
   "per_run_timeout_seconds": 1800
 }
