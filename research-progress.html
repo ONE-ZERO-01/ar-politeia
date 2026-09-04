@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AR-Politeia · 研究进展与路线图</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --ink: #1a1d29;
+    --ink-2: #4b5066;
+    --ink-3: #8a8fa6;
+    --line: #e7e9f2;
+    --brand: #5b5bd6;
+    --brand-2: #7c6cf0;
+    --brand-soft: #eeedfc;
+    --ok: #0e9f6e;
+    --ok-soft: #e6f7f0;
+    --bad: #e11d48;
+    --bad-soft: #fdeef2;
+    --warn: #d97706;
+    --warn-soft: #fdf3e3;
+    --wait: #64748b;
+    --wait-soft: #eef1f6;
+    --info: #2563eb;
+    --info-soft: #e8f0fe;
+    --shadow: 0 1px 2px rgba(20,24,40,.05), 0 8px 24px rgba(20,24,40,.06);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ===== Top nav ===== */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,.85);
+    backdrop-filter: saturate(180%) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    max-width: 1120px; margin: 0 auto;
+    display: flex; align-items: center; gap: 22px;
+    padding: 12px 24px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .nav-brand {
+    font-weight: 700; font-size: 15px; letter-spacing: -.2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-brand .dot {
+    width: 10px; height: 10px; border-radius: 3px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  }
+  .nav-links { display: flex; gap: 4px; margin-left: auto; }
+  .nav-links a {
+    color: var(--ink-2); font-size: 13.5px; font-weight: 500;
+    padding: 6px 12px; border-radius: 999px; transition: all .15s;
+  }
+  .nav-links a:hover { background: var(--brand-soft); color: var(--brand); text-decoration: none; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  /* ===== Hero ===== */
+  .hero {
+    background: linear-gradient(135deg, #3b3aa8 0%, #5b5bd6 55%, #7c6cf0 100%);
+    color: #fff; border-radius: 22px; padding: 40px 40px 34px;
+    box-shadow: 0 20px 50px rgba(91,91,214,.28);
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -80px; top: -80px;
+    width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.16), transparent 70%);
+  }
+  .hero .kicker {
+    font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase;
+    opacity: .85; font-weight: 600;
+  }
+  .hero h1 { font-size: 32px; line-height: 1.2; margin: 10px 0 8px; font-weight: 800; letter-spacing: -.5px; }
+  .hero .sub { font-size: 15px; opacity: .92; max-width: 720px; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .tag {
+    font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 999px;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22);
+  }
+  .hero-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 26px; }
+  .stat {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 14px; padding: 12px 18px; min-width: 130px;
+  }
+  .stat .k { font-size: 12px; opacity: .8; }
+  .stat .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
+
+  /* ===== Section scaffolding ===== */
+  section { margin-top: 46px; }
+  .sec-head { margin-bottom: 18px; }
+  .sec-title {
+    font-size: 21px; font-weight: 800; letter-spacing: -.3px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sec-title .idx {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--brand-soft); color: var(--brand);
+    font-size: 14px; font-weight: 800; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .sec-sub { color: var(--ink-3); font-size: 13.5px; margin-top: 4px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 24px;
+  }
+
+  /* ===== Question ===== */
+  .question-box {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--brand); border-radius: var(--radius);
+    padding: 22px 26px; box-shadow: var(--shadow);
+  }
+  .question-box .q { font-size: 17.5px; font-weight: 700; line-height: 1.55; color: var(--ink); }
+  .question-box .meta { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: 12px; font-weight: 600; color: var(--ink-2);
+    background: var(--brand-soft); padding: 4px 11px; border-radius: 999px;
+  }
+
+  .hypo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 16px; }
+  @media (max-width: 760px) { .hypo-grid { grid-template-columns: 1fr; } }
+  .hypo {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .hypo .h { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .hypo .h span { margin-right: 8px; }
+  .hypo p { color: var(--ink-2); font-size: 13.5px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 6px; vertical-align: 1px;
+  }
+  .badge.h0 { background: var(--wait-soft); color: var(--wait); }
+  .badge.h1 { background: var(--bad-soft); color: var(--bad); }
+  .badge.h2 { background: var(--ok-soft); color: var(--ok); }
+  .badge.h3 { background: var(--info-soft); color: var(--info); }
+
+  /* ===== Pipeline / architecture ===== */
+  .pipeline {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch;
+  }
+  .stage {
+    flex: 1 1 0; min-width: 112px; text-align: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 14px 8px; box-shadow: var(--shadow); position: relative;
+  }
+  .stage .num { font-size: 11px; color: var(--ink-3); font-weight: 700; letter-spacing: .05em; }
+  .stage .name { font-size: 12.5px; font-weight: 700; margin-top: 5px; line-height: 1.25; }
+  .stage .state { font-size: 11px; font-weight: 600; margin-top: 8px; }
+  .stage.done { border-color: var(--ok); }
+  .stage.done .state { color: var(--ok); }
+  .stage.active { border-color: var(--brand); background: var(--brand-soft); }
+  .stage.active .state { color: var(--brand); }
+  .stage.pending .state { color: var(--wait); }
+
+  .gates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  @media (max-width: 760px) { .gates { grid-template-columns: repeat(2, 1fr); } }
+  .gate {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .gate .g { font-weight: 700; font-size: 13.5px; }
+  .gate .d { color: var(--ink-3); font-size: 12px; margin-top: 4px; }
+
+  /* ===== Timeline ===== */
+  .timeline { position: relative; margin-left: 4px; }
+  .t-item { position: relative; padding: 0 0 34px 34px; }
+  .t-item::before {
+    content: ""; position: absolute; left: 11px; top: 22px; bottom: -4px;
+    width: 2px; background: var(--line);
+  }
+  .t-item:last-child::before { display: none; }
+  .t-dot {
+    position: absolute; left: 0; top: 2px; width: 24px; height: 24px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #fff;
+  }
+  .t-dot.c1 { background: var(--bad); }
+  .t-dot.c2 { background: var(--warn); }
+  .t-dot.c3 { background: var(--brand); }
+  .t-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 20px 22px;
+  }
+  .t-card .t-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .t-card .t-title { font-size: 16px; font-weight: 800; letter-spacing: -.2px; }
+  .t-card .t-date { font-size: 12px; color: var(--ink-3); margin-left: auto; font-weight: 600; }
+  .t-card .t-verdict {
+    font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  }
+  .t-card .t-body { margin-top: 14px; }
+  .t-card .t-note { color: var(--ink-2); font-size: 13.5px; }
+
+  ul.fact { list-style: none; margin-top: 12px; display: grid; gap: 8px; }
+  ul.fact li {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13.5px; color: var(--ink-2);
+  }
+  ul.fact li .ic { flex: none; width: 20px; text-align: center; font-weight: 800; }
+
+  .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .st.ok { background: var(--ok-soft); color: var(--ok); }
+  .st.bad { background: var(--bad-soft); color: var(--bad); }
+  .st.warn { background: var(--warn-soft); color: var(--warn); }
+  .st.wait { background: var(--wait-soft); color: var(--wait); }
+  .st.info { background: var(--info-soft); color: var(--info); }
+
+  /* ===== Claims ===== */
+  .claims { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .claims { grid-template-columns: 1fr; } }
+  .claim {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 18px 20px;
+  }
+  .claim .c-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .claim .c-id { font-weight: 800; font-size: 14px; }
+  .claim .c-type { font-size: 11px; font-weight: 700; color: var(--ink-3); }
+  .claim .c-text { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; }
+  .claim .c-foot { margin-top: 12px; font-size: 12px; color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; }
+  .claim.contradicted { border-top: 3px solid var(--bad); }
+  .claim.inconclusive { border-top: 3px solid var(--warn); }
+  .claim.deferred { border-top: 3px solid var(--wait); }
+  .claim.active { border-top: 3px solid var(--brand); }
+
+  /* ===== Table ===== */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 700; background: #fafbfe; }
+  td .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+  /* ===== Roadmap ===== */
+  .road { display: grid; gap: 12px; }
+  .road-step {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 20px; box-shadow: var(--shadow);
+  }
+  .road-step .rn {
+    flex: none; width: 34px; height: 34px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff; background: var(--wait);
+  }
+  .road-step.done .rn { background: var(--ok); }
+  .road-step.active .rn { background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  .road-step.next .rn { background: var(--wait); }
+  .road-step .r-body { flex: 1; }
+  .road-step .r-title { font-weight: 700; font-size: 14.5px; }
+  .road-step .r-desc { color: var(--ink-2); font-size: 13px; margin-top: 3px; }
+  .road-step .r-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .phase-label {
+    font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); margin: 18px 0 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .phase-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  .note-list { display: grid; gap: 10px; }
+  .note {
+    display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+  .note .ic { flex: none; font-weight: 800; }
+
+  footer {
+    margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    color: var(--ink-3); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between;
+  }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .lg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-brand"><span class="dot"></span>AR-Politeia · 研究看板</div>
+    <div class="nav-links">
+      <a href="#question">研究问题</a>
+      <a href="#pipeline">框架</a>
+      <a href="#timeline">历程</a>
+      <a href="#claims">主张状态</a>
+      <a href="#roadmap">路线图</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="kicker">AutoResearcher · 多 Agent 研究 DAG · 项目编号 ar-politeia</div>
+    <h1>异质资源景观与社会经济结构</h1>
+    <div class="sub">Heterogeneous Resource Landscapes and Socioeconomic Structure —— 一个可恢复、由确定性 Gate 兜底的自研科研智能体框架，当前运行到第 3 个研究循环。</div>
+    <div class="tags">
+      <span class="tag">7 阶段流水线</span>
+      <span class="tag">3 个确定性 Gate</span>
+      <span class="tag">一次一方案</span>
+      <span class="tag">max_cycles = 5</span>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="k">当前循环</div><div class="v">Cycle 3</div></div>
+      <div class="stat"><div class="k">当前阶段</div><div class="v">D2 校准</div></div>
+      <div class="stat"><div class="k">核心主张</div><div class="v">C1–C4</div></div>
+      <div class="stat"><div class="k">算力</div><div class="v">A100 · umi</div></div>
+    </div>
+  </div>
+
+  <!-- ============ QUESTION ============ -->
+  <section id="question">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">1</span>核心研究问题</div>
+      <div class="sec-sub">Cycle 1 冻结的、贯穿全程的单一可证伪假说（不因循环更替而改变）</div>
+    </div>
+
+    <div class="question-box">
+      <div class="q">在总资源量、资源边际分布、可达面积、人口数和财富初值均匹配时，资源景观的<b>空间自相关性</b>是否会改变<b>稳态人口聚集</b>和<b>财富结构</b>？</div>
+      <div class="meta">
+        <span class="chip">主指标：稳态窗口 资源—人口密度 Spearman ρ</span>
+        <span class="chip">共主指标：密度 Moran's I · 占据熵</span>
+        <span class="chip">次要指标：财富 Gini · 尾部 · 总财富漂移 · 平衡时间 · ESS</span>
+      </div>
+    </div>
+
+    <div class="hypo-grid">
+      <div class="hypo">
+        <div class="h"><span class="badge h0">H0</span>空间组织无效</div>
+        <p>匹配资源边际分布与总量后，空间自相关不会产生超过数值与随机波动的差异。</p>
+      </div>
+      <div class="hypo">
+        <div class="h"><span class="badge h1">H1</span>空间组织有效</div>
+        <p>高自相关的聚集景观相对同直方图打乱对照，改变人口—资源关联、聚集尺度与财富分布。</p>
+      </div>
+      <div class="hypo">
+        <div class="h"><span class="badge h2">H2</span>作用通道可分解</div>
+        <p>效应可分解为「移动通道 × 生产通道」两条预注册通道，2×2 因子消融估计主效应与交互。</p>
+      </div>
+      <div class="hypo">
+        <div class="h"><span class="badge h3">H3</span>效应非单一尺度</div>
+        <p>关键效应在人口规模、网格分辨率与未参与调参的保留景观上方向一致。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section id="pipeline">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">2</span>研究框架</div>
+      <div class="sec-sub">七个 Stage + 三个确定性 Gate：Agent 做科学判断，Gate 做结构验证，人类只在边界介入</div>
+    </div>
+
+    <div class="pipeline">
+      <div class="stage done"><div class="num">STAGE 1</div><div class="name">PLAN</div><div class="state">已完成</div></div>
+      <div class="stage active"><div class="num">STAGE 2</div><div class="name">EXPERIMENT</div><div class="state">进行中 · 校准</div></div>
+      <div class="stage pending"><div class="num">STAGE 3</div><div class="name">ANALYZE</div><div class="state">待进入</div></div>
+      <div class="stage pending"><div class="num">STAGE 4</div><div class="name">WRITE·综合长文</div><div class="state">待进入</div></div>
+      <div class="stage pending"><div class="num">STAGE 5</div><div class="name">WRITE·期刊</div><div class="state">待进入</div></div>
+      <div class="stage pending"><div class="num">STAGE 6</div><div class="name">REVIEW</div><div class="state">待进入</div></div>
+      <div class="stage pending"><div class="num">STAGE 7</div><div class="name">DECIDE</div><div class="state">待进入</div></div>
+    </div>
+
+    <div class="gates">
+      <div class="gate"><div class="g">preflight</div><div class="d">提交前 · 复现性与证据边界检查</div></div>
+      <div class="gate"><div class="g">jobctl</div><div class="d">幂等提交 / 状态 / 崩溃恢复</div></div>
+      <div class="gate"><div class="g">audit</div><div class="d">投稿前 · 证据链 + SHA + NaN/Inf</div></div>
+      <div class="gate"><div class="g">evidence_check</div><div class="d">每周期 · 证据路径存在性</div></div>
+    </div>
+  </section>
+
+  <!-- ============ TIMELINE ============ -->
+  <section id="timeline">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">3</span>研究历程</div>
+      <div class="sec-sub">三个循环的推进：从「数值校准失败」定位到「交换核模型层根因」的重设计</div>
+    </div>
+
+    <div class="legend" style="margin-bottom:18px;">
+      <span><i class="lg-dot" style="background:var(--ok)"></i>通过</span>
+      <span><i class="lg-dot" style="background:var(--bad)"></i>失败 / 证伪</span>
+      <span><i class="lg-dot" style="background:var(--warn)"></i>未定 / 阻塞</span>
+      <span><i class="lg-dot" style="background:var(--brand)"></i>进行中</span>
+      <span><i class="lg-dot" style="background:var(--wait)"></i>待执行 / 推迟</span>
+    </div>
+
+    <div class="timeline">
+
+      <!-- Cycle 1 -->
+      <div class="t-item">
+        <div class="t-dot c1">1</div>
+        <div class="t-card">
+          <div class="t-head">
+            <div class="t-title">Cycle 1 · 首次确认性实验</div>
+            <span class="st bad">策略：replan</span>
+            <div class="t-date">2026-08-20</div>
+          </div>
+          <div class="t-body">
+            <p class="t-note">完整跑通 PLAN → EXPERIMENT → ANALYZE → WRITE → REVIEW。数值校准层暴露问题，确认性实验（E1–E3）被上游阻塞而未产生证据。</p>
+            <ul class="fact">
+              <li><span class="ic" style="color:var(--ok)">✓</span><span><b>E0-NUMERICS</b>：财富守恒（漂移 2.5e-9）与非负（min 5.2e-41）通过；但 <b>dt 收敛失败</b>（wealth_gini dt/2-vs-dt/4 变化 0.266 &gt; 0.02）且 <b>非稳态</b>。</span></li>
+              <li><span class="ic" style="color:var(--bad)">✗</span><span><b>B0-DYNAMICS-PILOT</b>：3 个种子全部 stationarity 失败。</span></li>
+              <li><span class="ic" style="color:var(--warn)">▸</span><span><b>E1 / E2 / E3</b>：exit code 1，未产生数值证据，因参数锁未定 + E0 校准失败被硬阻断。</span></li>
+              <li><span class="ic" style="color:var(--bad)">✗</span><span><b>C1-NUM</b> 被证伪；<b>C2–C4</b> 判为 inconclusive（证据缺失不得转化为正向结论）。</span></li>
+              <li><span class="ic" style="color:var(--bad)">✗</span><span>六路期刊审稿（Nature / PRL × 专业·广泛·技术）全部负面或大修，P0 项要求先修正数值实验。</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cycle 2 -->
+      <div class="t-item">
+        <div class="t-dot c2">2</div>
+        <div class="t-card">
+          <div class="t-head">
+            <div class="t-title">Cycle 2 · 数值校准重规划</div>
+            <span class="st warn">已设计 · 未执行</span>
+            <div class="t-date">2026-08-21</div>
+          </div>
+          <div class="t-body">
+            <p class="t-note">把范围收缩到纯数值校准：修正 dt 缩放的交换核敏感性，重跑 B0 健康与 E0 校准，暂缓 E1–E3。</p>
+            <ul class="fact">
+              <li><span class="ic" style="color:var(--info)">→</span><span>代码改动：E0 扰动条件按同一 dt 因子缩放 <span class="mono">exchange_rate</span>，使连续时间财富混合分辨率不变。</span></li>
+              <li><span class="ic" style="color:var(--wait)">◌</span><span><b>B0-DYNAMICS-PILOT-C2</b> / <b>E0-NUMERICS-C2</b> 已设计、preflight 就绪，但未执行（等待代码 commit 绑定 + 显式 CPU 批准）。</span></li>
+              <li><span class="ic" style="color:var(--warn)">▸</span><span>修复 dt 缩放后 dt 收敛可通过，但 <span class="mono">total_time=500</span> 内仍无稳态窗口 —— 指向更深层根因，催生 Cycle 3。</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cycle 3 -->
+      <div class="t-item">
+        <div class="t-dot c3">3</div>
+        <div class="t-card">
+          <div class="t-head">
+            <div class="t-title">Cycle 3 · 交换核稳态重设计（D0 → D1 → D2）</div>
+            <span class="st info">进行中</span>
+            <div class="t-date">当前</div>
+          </div>
+          <div class="t-body">
+            <p class="t-note">模型层根因定位：旧交换核是<b>无耗散的「富者更富」过程，无非平凡稳态，必然向极化态（Gini → 1）演化</b>。这是数值问题背后的物理本质。</p>
+            <ul class="fact">
+              <li><span class="ic" style="color:var(--ok)">✓</span><span><b>D0 理论诊断</b>：用 Lyapunov 论证极化必然性；候选 A（CC 再分配）因破坏 equal-state 吸收被否决。</span></li>
+              <li><span class="ic" style="color:var(--bad)">✗</span><span><b>候选 B</b>（能力差漂移 + 反对称涨落 ∝ min）被 D2 实证否决：稳态 Gini ≈ 0.92 仍极化，并暴露 OpenMP 累积负财富 bug。</span></li>
+              <li><span class="ic" style="color:var(--ok)">✓</span><span><b>候选 C（推荐）</b>：连续时间均分回复 + 能力差漂移 + 乘性再分配（转移量 ∝ 总财富 w_i+w_j），天然非负、零和、equal-state 吸收、dt 收敛，且具备非平凡稳态。</span></li>
+              <li><span class="ic" style="color:var(--ok)">✓</span><span><b>D1 实现完成</b>：<span class="mono">resource_exchange.cpp</span> 已落地候选 C（串行 for_each_pair + 确定性反对称 s_ij），顺带修复地形 y 翻转 bug。</span></li>
+              <li><span class="ic" style="color:var(--wait)">◌</span><span><b>D2 校准待跑</b>：<b>E0-NUMERICS-C3</b>（5 种子 × 5 条件，total_time=1500）与 <b>B0-DYNAMICS-PILOT-C3</b>（3 种子，total_time=2000）配置已建，待 umi 执行。</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ CLAIMS ============ -->
+  <section id="claims">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">4</span>核心主张状态</div>
+      <div class="sec-sub">C1 为数值正确性（前置），C2–C4 为景观机制与稳健性（受 C1 阻塞）</div>
+    </div>
+    <div class="claims">
+      <div class="claim active">
+        <div class="c-head"><span class="c-id">C1-NUM</span><span class="c-type">calibration · P0</span><span class="st info">重设计进行中</span></div>
+        <div class="c-text">修正后的交换核在非退化小扰动初值下保持财富守恒与非负、主要观测量对时间步收敛，并在预注册稳态窗口内通过漂移与有效样本诊断。</div>
+        <div class="c-foot"><span>Cycle 1：证伪（dt 收敛 + 稳态失败）</span><span>Cycle 3：候选 C 已实现，D2 待校准</span></div>
+      </div>
+      <div class="claim deferred">
+        <div class="c-head"><span class="c-id">C2-LANDSCAPE</span><span class="c-type">core · P0</span><span class="st wait">推迟</span></div>
+        <div class="c-text">资源总量、像素直方图与可达面积匹配后，聚集景观相对打乱景观产生超过数值噪声界限的人口空间结构差异。</div>
+        <div class="c-foot"><span>阻塞于 C1-NUM 通过 + 参数锁定稿</span></div>
+      </div>
+      <div class="claim deferred">
+        <div class="c-head"><span class="c-id">C3-CHANNELS</span><span class="c-type">mechanism · P0</span><span class="st wait">推迟</span></div>
+        <div class="c-text">景观效应可通过「移动通道 × 生产通道」2×2 因子消融分解为可量化的主效应与交互效应。</div>
+        <div class="c-foot"><span>阻塞于 C1-NUM 通过 + 参数锁定稿</span></div>
+      </div>
+      <div class="claim deferred">
+        <div class="c-head"><span class="c-id">C4-ROBUSTNESS</span><span class="c-type">robustness · P1</span><span class="st wait">推迟</span></div>
+        <div class="c-text">核心效应在预注册的人口规模、网格分辨率与未参与参数选择的保留景观上保持方向一致。</div>
+        <div class="c-foot"><span>阻塞于 C1-NUM 通过 + E1/E2 效应可估</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-weight:700; font-size:14px; margin-bottom:12px;">实验矩阵</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>实验</th><th>循环</th><th>目的</th><th>结果</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">B0-DYNAMICS-PILOT</td><td>C1</td><td>动力学健康试点（无对照）</td><td><span class="st bad">稳态失败 ×3</span></td></tr>
+            <tr><td class="mono">E0-NUMERICS</td><td>C1</td><td>守恒 / 非负 / dt 收敛 / 稳态</td><td><span class="st bad">dt 收敛 + 稳态失败</span></td></tr>
+            <tr><td class="mono">E1-MATCHED-LANDSCAPES</td><td>C1</td><td>聚集 vs 打乱景观（C2）</td><td><span class="st wait">阻塞 · 未产生证据</span></td></tr>
+            <tr><td class="mono">E2-CHANNEL-ABLATION</td><td>C1</td><td>移动 × 生产 2×2 消融（C3）</td><td><span class="st wait">阻塞 · 未产生证据</span></td></tr>
+            <tr><td class="mono">E3-ROBUSTNESS-HOLDOUT</td><td>C1</td><td>规模 / 分辨率 / 保留景观（C4）</td><td><span class="st wait">阻塞 · 未产生证据</span></td></tr>
+            <tr><td class="mono">B0-DYNAMICS-PILOT-C2</td><td>C2</td><td>dt 缩放修复后健康试点</td><td><span class="st warn">已设计 · 未执行</span></td></tr>
+            <tr><td class="mono">E0-NUMERICS-C2</td><td>C2</td><td>dt 缩放修复后数值校准</td><td><span class="st warn">已设计 · 未执行</span></td></tr>
+            <tr><td class="mono">B0-DYNAMICS-PILOT-C3</td><td>C3</td><td>候选 C 核 · 健康试点</td><td><span class="st info">已配置 · 待执行</span></td></tr>
+            <tr><td class="mono">E0-NUMERICS-C3</td><td>C3</td><td>候选 C 核 · 五检查校准 + 冻结 SESOI</td><td><span class="st info">已配置 · 待执行</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section id="roadmap">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">5</span>未来路线图</div>
+      <div class="sec-sub">从「校准新交换核」到「投稿决策」的完整后续路径，含依赖与验收门槛</div>
+    </div>
+
+    <div class="two-col">
+      <div class="road">
+
+        <div class="phase-label">阶段 A · D2 数值校准（当前）</div>
+
+        <div class="road-step active">
+          <div class="rn">1</div>
+          <div class="r-body">
+            <div class="r-title">在 umi 上运行 D2 校准实验</div>
+            <div class="r-desc">执行 B0-DYNAMICS-PILOT-C3（3 种子）与 E0-NUMERICS-C3（5 种子 × 5 条件），候选 C 核参数初值：<span class="mono">exchange_rate=0.5</span>、<span class="mono">noise=0.05</span>、<span class="mono">reversion=1.0</span>。</div>
+            <div class="r-tags"><span class="st info">需 CPU 预算批准</span><span class="st info">需 commit 绑定</span></div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">2</div>
+          <div class="r-body">
+            <div class="r-title">参数扫描定位稳态 Gini ∈ [0.3, 0.7]</div>
+            <div class="r-desc">在 <span class="mono">η_d ∈ {0.3, 0.5, 0.8}</span> × <span class="mono">η_n ∈ {0.02, 0.05, 0.10}</span> 中确定满足五检查的组合，只用稳定性/健康诊断，禁止为期望社会结果调参。</div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">3</div>
+          <div class="r-body">
+            <div class="r-title">五检查验收（E0 校准 Gate）</div>
+            <div class="r-desc">守恒 ≤1e-8 · 非负 ≥−1e-12 · dt 收敛 ≤0.02 · equal-state 吸收 ≤1e-20 · stationarity（drift ≤0.1 且 ESS ≥4）全部通过，并冻结配对离散化 SESOI。</div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">4</div>
+          <div class="r-body">
+            <div class="r-title">B0 健康验收 + 定参锁 v2</div>
+            <div class="r-desc">固定人口、非负、有限指标、稳态窗口全过；最终确定参数锁并绑定其 SHA-256 到 E1–E3 配置，显式核密度不变性（邻居数解耦风险）。</div>
+          </div>
+        </div>
+
+        <div class="phase-label">阶段 B · 确认性实验（受 C1 解锁）</div>
+
+        <div class="road-step next">
+          <div class="rn">5</div>
+          <div class="r-body">
+            <div class="r-title">E1-MATCHED-LANDSCAPES（C2 核心）</div>
+            <div class="r-desc">配对种子匹配景观对比：聚集 vs 打乱，估计主效应 Spearman ρ / Moran's I / 占据熵及其 95% 区间。</div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">6</div>
+          <div class="r-body">
+            <div class="r-title">E2-CHANNEL-ABLATION（C3 机制）</div>
+            <div class="r-desc">移动 × 生产 2×2 因子消融，分解主效应与交互效应；无法归因时只报告组合效应。</div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">7</div>
+          <div class="r-body">
+            <div class="r-title">E3-ROBUSTNESS-HOLDOUT（C4 稳健）</div>
+            <div class="r-desc">在预注册人口规模、网格分辨率与保留景观家族上检验方向一致性。</div>
+          </div>
+        </div>
+
+        <div class="phase-label">阶段 C · 分析与写作</div>
+
+        <div class="road-step next">
+          <div class="rn">8</div>
+          <div class="r-body">
+            <div class="r-title">ANALYZE → findings.json</div>
+            <div class="r-desc">用预注册的漂移与自相关诊断判稳态窗口；判定 supported / contradicted / inconclusive，不因接近阈值而延长运行。</div>
+          </div>
+        </div>
+
+        <div class="road-step next">
+          <div class="rn">9</div>
+          <div class="r-body">
+            <div class="r-title">两阶段写作 → 审稿 → 决策</div>
+            <div class="r-desc">WRITE-COMPREHENSIVE 完整长文（权威记录）→ WRITE-JOURNAL 凝练 Nature / PRL 版本 → 六路 REVIEW → STRATEGY → DECIDE → 人类投稿决策。</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div>
+        <div class="phase-label" style="margin-top:0;">关键风险与纪律</div>
+        <div class="note-list">
+          <div class="note"><span class="ic" style="color:var(--warn)">▲</span><span><b>邻居数解耦风险</b>：涨落/漂移都是 per-pair 的，E3 改变人口/分辨率会改变邻居数，可能导致稳态 Gini 随密度漂移；D2 须在目标密度校准，E3 显式检验密度不变性。</span></div>
+          <div class="note"><span class="ic" style="color:var(--bad)">✗</span><span><b>证据隔离</b>：Cycle 1/2 负面证据完整保留，不与 Cycle 3 确认性证据混算；不得用 E1–E3 结果反哺参数锁修订。</span></div>
+          <div class="note"><span class="ic" style="color:var(--info)">→</span><span><b>定参纪律</b>：定参只用 runtime / 数值稳定性 / outcome-blind 健康诊断；任何 E1 执行后的改动即触发新参数锁与新 cycle。</span></div>
+          <div class="note"><span class="ic" style="color:var(--info)">→</span><span><b>运行铁律</b>：数值实验只在 umi 上跑；orchestrator 只在 zeus 上跑；跨设备同步一律走 git。</span></div>
+          <div class="note"><span class="ic" style="color:var(--ok)">✓</span><span><b>已顺带修复</b>：候选 B 的 OpenMP 累积负财富 bug、地形 y 行序镜像 bug（write_esri_ascii flipud）。</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>AR-Politeia 研究看板 · 由 AutoResearcher 框架产物生成</div>
+    <div class="legend">
+      <span>数据源：research/plan.json · findings.json · strategy.json · exchange-kernel-design.md</span>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+  // 平滑滚动 + 导航高亮（轻量增强，无外部依赖）
+  const links = document.querySelectorAll('.nav-links a');
+  links.forEach(a => a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    const el = document.querySelector(id);
+    if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }));
+</script>
+
+</body>
+</html>

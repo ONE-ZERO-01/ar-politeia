@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Politeia 数值模拟器 · 功能全景</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --ink: #1a1d29;
+    --ink-2: #4b5066;
+    --ink-3: #8a8fa6;
+    --line: #e7e9f2;
+    --brand: #5b5bd6;
+    --brand-2: #7c6cf0;
+    --brand-soft: #eeedfc;
+    --ok: #0e9f6e;
+    --ok-soft: #e6f7f0;
+    --bad: #e11d48;
+    --bad-soft: #fdeef2;
+    --warn: #d97706;
+    --warn-soft: #fdf3e3;
+    --wait: #64748b;
+    --wait-soft: #eef1f6;
+    --info: #2563eb;
+    --info-soft: #e8f0fe;
+    --shadow: 0 1px 2px rgba(20,24,40,.05), 0 8px 24px rgba(20,24,40,.06);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,.85);
+    backdrop-filter: saturate(180%) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    max-width: 1180px; margin: 0 auto;
+    display: flex; align-items: center; gap: 20px;
+    padding: 12px 24px; overflow-x: auto; white-space: nowrap;
+  }
+  .nav-brand { font-weight: 700; font-size: 15px; letter-spacing: -.2px; display: flex; align-items: center; gap: 8px; }
+  .nav-brand .dot { width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
+  .nav-links { display: flex; gap: 4px; margin-left: auto; }
+  .nav-links a { color: var(--ink-2); font-size: 13.5px; font-weight: 500; padding: 6px 12px; border-radius: 999px; transition: all .15s; }
+  .nav-links a:hover { background: var(--brand-soft); color: var(--brand); text-decoration: none; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  .hero {
+    background: linear-gradient(135deg, #3b3aa8 0%, #5b5bd6 55%, #7c6cf0 100%);
+    color: #fff; border-radius: 22px; padding: 40px 40px 34px;
+    box-shadow: 0 20px 50px rgba(91,91,214,.28); position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -80px; top: -80px; width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.16), transparent 70%);
+  }
+  .hero .kicker { font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 600; }
+  .hero h1 { font-size: 30px; line-height: 1.2; margin: 10px 0 8px; font-weight: 800; letter-spacing: -.5px; }
+  .hero .sub { font-size: 15px; opacity: .92; max-width: 760px; }
+  .hero-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 26px; }
+  .stat { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 12px 18px; min-width: 128px; }
+  .stat .k { font-size: 12px; opacity: .8; }
+  .stat .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
+
+  section { margin-top: 46px; }
+  .sec-head { margin-bottom: 18px; }
+  .sec-title { font-size: 21px; font-weight: 800; letter-spacing: -.3px; display: flex; align-items: center; gap: 10px; }
+  .sec-title .idx { width: 28px; height: 28px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); font-size: 14px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .sec-sub { color: var(--ink-3); font-size: 13.5px; margin-top: 4px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+
+  .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .st.active { background: var(--brand-soft); color: var(--brand); }
+  .st.partial { background: var(--warn-soft); color: var(--warn); }
+  .st.pending { background: var(--wait-soft); color: var(--wait); }
+
+  /* equation */
+  .eq-box { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: var(--radius); padding: 22px 26px; box-shadow: var(--shadow); }
+  .eq { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; font-size: 19px; font-weight: 600; text-align: center; padding: 8px 0 16px; letter-spacing: .5px; }
+  .term-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .term-table th, .term-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .term-table th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 700; background: #fafbfe; }
+  .term-table .sym { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--brand); font-weight: 700; white-space: nowrap; }
+
+  .statevec { margin-top: 18px; padding: 16px 18px; background: var(--brand-soft); border-radius: var(--radius-sm); }
+  .statevec .code { font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 700; color: var(--brand); text-align: center; }
+  .statevec .dims { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  .dim { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 12.5px; color: var(--ink-2); }
+  .dim b { color: var(--ink); }
+
+  /* architecture layers */
+  .layers { display: grid; gap: 10px; }
+  .layer { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: stretch; }
+  @media (max-width: 720px) { .layer { grid-template-columns: 1fr; } }
+  .layer-tag {
+    background: var(--brand-soft); border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; flex-direction: column; justify-content: center; border: 1px solid transparent;
+  }
+  .layer-tag .lt-name { font-weight: 800; font-size: 13.5px; color: var(--brand); }
+  .layer-tag .lt-dir { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .layer-tag .lt-role { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; line-height: 1.4; }
+  .layer-mods { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .chip { display: inline-flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 11px; background: #fff; min-width: 120px; }
+  .chip .c-name { font-size: 12.5px; font-weight: 700; }
+  .chip .c-file { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--ink-3); }
+  .chip .c-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; vertical-align: 1px; }
+  .c-dot.active { background: var(--brand); }
+  .c-dot.partial { background: var(--warn); }
+  .c-dot.pending { background: var(--wait); }
+
+  .flow-note { margin-top: 14px; font-size: 13px; color: var(--ink-2); text-align: center; }
+  .flow-note .arrow { color: var(--brand); font-weight: 700; }
+
+  /* main loop pipeline */
+  .pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 900px) { .pipeline { grid-template-columns: repeat(2, 1fr); } }
+  .pstep { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 14px 12px; box-shadow: var(--shadow); position: relative; }
+  .pstep .p-num { font-size: 11px; color: var(--ink-3); font-weight: 800; letter-spacing: .05em; }
+  .pstep .p-name { font-size: 13px; font-weight: 800; margin-top: 4px; }
+  .pstep .p-mod { font-size: 11px; color: var(--brand); font-family: ui-monospace, Menlo, monospace; margin-top: 6px; }
+  .pstep .p-desc { font-size: 11.5px; color: var(--ink-2); margin-top: 6px; line-height: 1.45; }
+  .pstep.hot { border-color: var(--brand); background: var(--brand-soft); }
+
+  /* module cards */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .lg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+  .fbtn { font-size: 12.5px; font-weight: 600; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: all .15s; }
+  .fbtn:hover { border-color: var(--brand); color: var(--brand); }
+  .fbtn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+  .mod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 1000px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .mod-grid { grid-template-columns: 1fr; } }
+  .mod { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .mod.hidden { display: none; }
+  .mod .m-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mod .m-name { font-weight: 800; font-size: 14px; }
+  .mod .m-file { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink-3); }
+  .mod .m-group { font-size: 10.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .mod .m-desc { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+  .mod .m-foot { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+  .badge.impl { background: var(--ok-soft); color: var(--ok); }
+
+  /* switch matrix */
+  .switch-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 700; background: #fafbfe; }
+  td .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .on { color: var(--ok); font-weight: 700; }
+  .off { color: var(--wait); font-weight: 700; }
+
+  .note-list { display: grid; gap: 10px; }
+  .note { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .note .ic { flex: none; font-weight: 800; }
+
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  .gauge-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 720px) { .gauge-row { grid-template-columns: 1fr; } }
+  .gauge { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+  .gauge .g-num { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+  .gauge .g-label { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+  .gauge .g-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 8px; line-height: 1.4; }
+  .gauge.g-active .g-num { color: var(--brand); }
+  .gauge.g-partial .g-num { color: var(--warn); }
+  .gauge.g-pending .g-num { color: var(--wait); }
+
+  footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-brand"><span class="dot"></span>Politeia 模拟器 · 功能全景</div>
+    <div class="nav-links">
+      <a href="#model">核心模型</a>
+      <a href="#arch">模块架构</a>
+      <a href="#loop">主循环</a>
+      <a href="#modules">模块详解</a>
+      <a href="#switches">模块开关</a>
+      <a href="#status">验证状态</a>
+      <a href="#focus">开发焦点</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="kicker">C++20 · Langevin 跳跃扩散 · 资源景观模拟器</div>
+    <h1>Politeia 数值模拟器</h1>
+    <div class="sub">一个把每个个体建模为「粒子」、在真实地形势能面上演化的文明演化模拟器。由确定性力、耗散、随机噪声与 Poisson 跳跃驱动，从对称微观规则自发涌现宏观社会结构。</div>
+    <div class="hero-stats">
+      <div class="stat"><div class="k">源码模块</div><div class="v">28 个 .cpp</div></div>
+      <div class="stat"><div class="k">功能分组</div><div class="v">10 组</div></div>
+      <div class="stat"><div class="k">单元测试</div><div class="v">2 个可执行</div></div>
+      <div class="stat"><div class="k">当前阶段</div><div class="v">Cycle 3 · 校准</div></div>
+      <div class="stat"><div class="k">核心卡点</div><div class="v">交换核稳态</div></div>
+    </div>
+  </div>
+
+  <!-- ============ CORE MODEL ============ -->
+  <section id="model">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">1</span>核心物理模型</div>
+      <div class="sec-sub">一条 Langevin 方程 + 一个五自由度个体状态向量，是所有机制的出发点</div>
+    </div>
+
+    <div class="eq-box">
+      <div class="eq">m · q̈ = −∇V(q) − γ·q̇ + ξ(t) + J(t)</div>
+      <div class="table-wrap">
+        <table class="term-table">
+          <thead><tr><th>项</th><th>物理含义</th><th>社会类比</th></tr></thead>
+          <tbody>
+            <tr><td class="sym">−∇V</td><td>确定性力</td><td>地形 + 人际吸引/排斥</td></tr>
+            <tr><td class="sym">−γ·q̇</td><td>耗散</td><td>制度衰败、知识流失</td></tr>
+            <tr><td class="sym">ξ(t)</td><td>高斯白噪声</td><td>日常随机事件</td></tr>
+            <tr><td class="sym">J(t)</td><td>Poisson 跳跃</td><td>技术突破、瘟疫</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="statevec">
+        <div class="code">Z_i(t) = ( x_i , p_i , w_i , c⃗_i , ε_i )</div>
+        <div class="dims">
+          <div class="dim"><b>x</b> 地理坐标 · 2D</div>
+          <div class="dim"><b>p</b> 动量 · 2D</div>
+          <div class="dim"><b>w</b> 财富 / 资源 · 标量</div>
+          <div class="dim"><b>c⃗</b> 文化向量（知识 + 身份）· d 维</div>
+          <div class="dim"><b>ε</b> 能量利用能力（技术）· 标量</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section id="arch">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">2</span>模块架构</div>
+      <div class="sec-sub">10 个功能分组 + 主驱动。圆点表示验证状态：蓝 = 修复中，橙 = 部分验证，灰 = 未验证</div>
+    </div>
+
+    <div class="layers">
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">主驱动</div><div class="lt-dir">src/main.cpp</div><div class="lt-role">初始化 + 10 步时间循环 + SFC 分解 + Berendsen 温控</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">main<span class="c-dot partial"></span></span><span class="c-file">main.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">分析层</div><div class="lt-dir">src/analysis/</div><div class="lt-role">序参量、层级、政体、相变、性能监控</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">order_params<span class="c-dot partial"></span></span><span class="c-file">order_params.cpp</span></div>
+          <div class="chip"><span class="c-name">network_analysis<span class="c-dot pending"></span></span><span class="c-file">network_analysis.cpp</span></div>
+          <div class="chip"><span class="c-name">polity<span class="c-dot pending"></span></span><span class="c-file">polity.cpp</span></div>
+          <div class="chip"><span class="c-name">phase_transition<span class="c-dot pending"></span></span><span class="c-file">phase_transition.cpp</span></div>
+          <div class="chip"><span class="c-name">perf_monitor<span class="c-dot partial"></span></span><span class="c-file">perf_monitor.cpp</span></div>
+          <div class="chip"><span class="c-name">async_analyzer<span class="c-dot partial"></span></span><span class="c-file">async_analyzer.hpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">交互层</div><div class="lt-dir">src/interaction/</div><div class="lt-role">交换、文化、技术、忠诚度</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">resource_exchange<span class="c-dot active"></span></span><span class="c-file">resource_exchange.cpp</span></div>
+          <div class="chip"><span class="c-name">culture_dynamics<span class="c-dot pending"></span></span><span class="c-file">culture_dynamics.cpp</span></div>
+          <div class="chip"><span class="c-name">tech_spread<span class="c-dot pending"></span></span><span class="c-file">tech_spread.cpp</span></div>
+          <div class="chip"><span class="c-name">loyalty<span class="c-dot pending"></span></span><span class="c-file">loyalty.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">人口层</div><div class="lt-dir">src/population/</div><div class="lt-role">繁殖、死亡、瘟疫、承载力</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">reproduction<span class="c-dot pending"></span></span><span class="c-file">reproduction.cpp</span></div>
+          <div class="chip"><span class="c-name">mortality<span class="c-dot pending"></span></span><span class="c-file">mortality.cpp</span></div>
+          <div class="chip"><span class="c-name">plague<span class="c-dot pending"></span></span><span class="c-file">plague.cpp</span></div>
+          <div class="chip"><span class="c-name">carrying_capacity<span class="c-dot partial"></span></span><span class="c-file">carrying_capacity.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">积分器</div><div class="lt-dir">src/integrator/</div><div class="lt-role">Langevin 时间演化</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">langevin_integrator<span class="c-dot partial"></span></span><span class="c-file">langevin_integrator.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">力场层</div><div class="lt-dir">src/force/</div><div class="lt-role">社会力 + 地形力 + 地形加载</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">social_force<span class="c-dot partial"></span></span><span class="c-file">social_force.cpp</span></div>
+          <div class="chip"><span class="c-name">terrain_force<span class="c-dot partial"></span></span><span class="c-file">terrain_force.cpp</span></div>
+          <div class="chip"><span class="c-name">terrain_loader<span class="c-dot partial"></span></span><span class="c-file">terrain_loader.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">环境场</div><div class="lt-dir">src/climate/ · src/river/</div><div class="lt-role">气候栅格 + 河流 proximity 场</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">climate_grid<span class="c-dot pending"></span></span><span class="c-file">climate_grid.cpp</span></div>
+          <div class="chip"><span class="c-name">river_field<span class="c-dot pending"></span></span><span class="c-file">river_field.cpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">空间分解</div><div class="lt-dir">src/domain/</div><div class="lt-role">邻居搜索 + MPI 区域分解</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">cell_list<span class="c-dot partial"></span></span><span class="c-file">cell_list.cpp</span></div>
+          <div class="chip"><span class="c-name">sfc_decomposition<span class="c-dot partial"></span></span><span class="c-file">sfc_decomposition.cpp</span></div>
+          <div class="chip"><span class="c-name">decomposition<span class="c-dot partial"></span></span><span class="c-file">decomposition.cpp</span></div>
+          <div class="chip"><span class="c-name">morton<span class="c-dot partial"></span></span><span class="c-file">morton.hpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">数据层</div><div class="lt-dir">src/core/</div><div class="lt-role">SoA 容器 + 配置 + 类型 + 常量</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">particle_data<span class="c-dot partial"></span></span><span class="c-file">particle_data.cpp</span></div>
+          <div class="chip"><span class="c-name">config<span class="c-dot partial"></span></span><span class="c-file">config.cpp</span></div>
+          <div class="chip"><span class="c-name">types<span class="c-dot partial"></span></span><span class="c-file">types.hpp</span></div>
+          <div class="chip"><span class="c-name">constants<span class="c-dot partial"></span></span><span class="c-file">constants.hpp</span></div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="layer-tag"><div class="lt-name">I/O 层</div><div class="lt-dir">src/io/</div><div class="lt-role">快照、初始条件、checkpoint</div></div>
+        <div class="layer-mods">
+          <div class="chip"><span class="c-name">csv_writer<span class="c-dot partial"></span></span><span class="c-file">csv_writer.cpp</span></div>
+          <div class="chip"><span class="c-name">ic_loader<span class="c-dot partial"></span></span><span class="c-file">ic_loader.cpp</span></div>
+          <div class="chip"><span class="c-name">checkpoint<span class="c-dot partial"></span></span><span class="c-file">checkpoint.cpp</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-note">
+      数据流：<span class="arrow">环境场 → 力场 → 积分器 → 交互/人口 → 分析 → I/O</span>，空间分解与数据层贯穿全程。
+    </div>
+  </section>
+
+  <!-- ============ MAIN LOOP ============ -->
+  <section id="loop">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">3</span>主时间循环</div>
+      <div class="sec-sub">每个时间步依次执行的 10 个阶段（main.cpp 内层循环），紫色边框为当前开发焦点</div>
+    </div>
+
+    <div class="pipeline">
+      <div class="pstep"><div class="p-num">STEP 1</div><div class="p-name">动力学</div><div class="p-mod">integrator.step</div><div class="p-desc">Langevin 位置/动量更新 + 河流弱引导力 + 气候摩擦 + Berendsen 温控</div></div>
+      <div class="pstep hot"><div class="p-num">STEP 2</div><div class="p-name">资源交换</div><div class="p-mod">exchange_resources</div><div class="p-desc">对称资源交换（候选 C，连续时间均分回复再分配）—— 当前修复中</div></div>
+      <div class="pstep"><div class="p-num">STEP 3</div><div class="p-name">文化</div><div class="p-mod">evolve_culture</div><div class="p-desc">文化向量同化 / 排斥演化</div></div>
+      <div class="pstep"><div class="p-num">STEP 4</div><div class="p-name">技术</div><div class="p-mod">evolve_technology</div><div class="p-desc">技术漂移 + 接触传播 + Poisson 跳跃</div></div>
+      <div class="pstep"><div class="p-num">STEP 5</div><div class="p-name">资源产出</div><div class="p-mod">apply_resource_dynamics</div><div class="p-desc">消费 + 地形产出 + 气候/密度调制 + 财富衰减</div></div>
+      <div class="pstep"><div class="p-num">STEP 6</div><div class="p-name">人口</div><div class="p-mod">reproduction · mortality · plague</div><div class="p-desc">年龄推进 + 四重死亡 + 瘟疫 SIR + 繁殖</div></div>
+      <div class="pstep"><div class="p-num">STEP 6b</div><div class="p-name">层级</div><div class="p-mod">loyalty · conquest</div><div class="p-desc">忠诚演化 + 叛乱/投靠 + 税收 + 征服 + 继承</div></div>
+      <div class="pstep"><div class="p-num">STEP 7</div><div class="p-name">迁移</div><div class="p-mod">migrate_particles</div><div class="p-desc">MPI 粒子跨 rank 迁移 + 全局 ID 重建</div></div>
+      <div class="pstep"><div class="p-num">STEP 8</div><div class="p-name">重平衡</div><div class="p-mod">compact · rebalance</div><div class="p-desc">死亡压缩 + SFC 负载重分配（效率 &lt; 50% 自动触发）</div></div>
+      <div class="pstep"><div class="p-num">STEP 9</div><div class="p-name">分析输出</div><div class="p-mod">gini · snapshot</div><div class="p-desc">Gini + 快照 + 能量 + 人口统计 + 异步重分析</div></div>
+      <div class="pstep"><div class="p-num">STEP 10</div><div class="p-name">Checkpoint</div><div class="p-mod">write_checkpoint</div><div class="p-desc">进程数无关二进制 checkpoint</div></div>
+    </div>
+  </section>
+
+  <!-- ============ MODULES ============ -->
+  <section id="modules">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">4</span>模块详解</div>
+      <div class="sec-sub">点击筛选按验证状态过滤；每个模块标有「实现」与「验证」两维状态</div>
+      <div class="legend" style="margin-top:14px;">
+        <span><i class="lg-dot" style="background:var(--brand)"></i>修复中</span>
+        <span><i class="lg-dot" style="background:var(--warn)"></i>部分验证（旧方案证据 / 被间接使用）</span>
+        <span><i class="lg-dot" style="background:var(--wait)"></i>未验证</span>
+        <span><i class="lg-dot" style="background:var(--ok)"></i>已实现（源码完整）</span>
+      </div>
+      <div class="filter-bar">
+        <button class="fbtn on" data-filter="all">全部</button>
+        <button class="fbtn" data-filter="active">修复中</button>
+        <button class="fbtn" data-filter="partial">部分验证</button>
+        <button class="fbtn" data-filter="pending">未验证</button>
+      </div>
+    </div>
+
+    <div class="mod-grid" id="modGrid">
+
+      <div class="mod" data-status="active">
+        <div class="m-head"><span class="m-group">interaction</span><span class="m-name">resource_exchange</span><span class="m-file">resource_exchange.cpp</span></div>
+        <div class="m-desc">对称资源交换（候选 C：连续时间均分回复 + 能力差漂移 + 乘性再分配），资源产出/消费、生存阈值。当前模型层 bug 的修复对象。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st active">修复中 · Cycle 3</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">interaction</span><span class="m-name">culture_dynamics</span><span class="m-file">culture_dynamics.cpp</span></div>
+        <div class="m-desc">文化向量同化与排斥：距离近吸引、距离远排斥，文化序参量演化。Cycle 1 最小模型中关闭。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">interaction</span><span class="m-name">tech_spread</span><span class="m-file">tech_spread.cpp</span></div>
+        <div class="m-desc">技术 ε 演化：漂移 + 接触传播 + Poisson 跳跃（技术突破 / 财富跳跃）。未系统验证。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">interaction</span><span class="m-name">loyalty</span><span class="m-file">loyalty.cpp</span></div>
+        <div class="m-desc">忠诚度/层级系统：依附形成、忠诚演化、叛乱/投靠、税收、有效权力、征服与世袭继承。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">population</span><span class="m-name">reproduction</span><span class="m-file">reproduction.cpp</span></div>
+        <div class="m-desc">繁殖模型：五条件交配检查、性别与婚配制度、妊娠/冷却期、遗传与变异、后代层级继承。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">population</span><span class="m-name">mortality</span><span class="m-file">mortality.cpp</span></div>
+        <div class="m-desc">四重死亡机制：衰老（Gompertz）+ 饥饿 + 意外 + 瘟疫，寿命-财富/技术耦合派生量。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">population</span><span class="m-name">plague</span><span class="m-file">plague.cpp</span></div>
+        <div class="m-desc">瘟疫模块：免疫向量 + SIR 传播 + 密度触发 + 差异化打击，跨群体传播。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">population</span><span class="m-name">carrying_capacity</span><span class="m-file">carrying_capacity.cpp</span></div>
+        <div class="m-desc">密度承载力：局部密度估计 + 承载力 K(x)，马尔萨斯反馈抑制生育与产出。旧方案验证过，当前方案未重验。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">integrator</span><span class="m-name">langevin_integrator</span><span class="m-file">langevin_integrator.cpp</span></div>
+        <div class="m-desc">BBK Langevin 积分器（涨落-耗散），Velocity-Verlet 确定性模式，线程私有 RNG。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">force</span><span class="m-name">social_force</span><span class="m-file">social_force.cpp</span></div>
+        <div class="m-desc">LJ 社会力：短程吸引 + 超短程排斥，力封顶。热力学自洽性未根除（KE/NkT 偶超标）。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">force</span><span class="m-name">terrain_force</span><span class="m-file">terrain_force.cpp</span></div>
+        <div class="m-desc">地形梯度力 + 地形势：Gaussian 势阱与 grid 栅格两种，批量力计算。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">force</span><span class="m-name">terrain_loader</span><span class="m-file">terrain_loader.cpp</span></div>
+        <div class="m-desc">TerrainGrid：ASCII/二进制 DEM 加载、双线性插值、中心差分梯度、合成地形生成。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">climate</span><span class="m-name">climate_grid</span><span class="m-file">climate_grid.cpp</span></div>
+        <div class="m-desc">气候栅格：温度/降水，程序化/文件加载，静态/漂移/季节三种时变，耦合产出/死亡/瘟疫/摩擦。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">river</span><span class="m-name">river_field</span><span class="m-file">river_field.cpp</span></div>
+        <div class="m-desc">河流 proximity 场：程序化/文件加载，耦合产出、承载力、交换、技术、瘟疫与弱引导力。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">domain</span><span class="m-name">cell_list</span><span class="m-file">cell_list.cpp</span></div>
+        <div class="m-desc">Cell List 短程邻居搜索（热点路径），OpenMP 友好的单粒子遍历模板。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">domain</span><span class="m-name">sfc_decomposition</span><span class="m-file">sfc_decomposition.cpp</span></div>
+        <div class="m-desc">Morton Z-curve SFC 空间分解，粒子按 key 排序 + 动态负载重平衡，scaling 到 4 进程。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">domain</span><span class="m-name">decomposition · morton</span><span class="m-file">decomposition.cpp · morton.hpp</span></div>
+        <div class="m-desc">Cartesian 2D 分解（旧）+ Morton key 编解码（bit interleave）。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">core</span><span class="m-name">particle_data</span><span class="m-file">particle_data.cpp</span></div>
+        <div class="m-desc">SoA 粒子容器：x/p/w/cv/eps/age/sex/imm/superior/loyalty，粒子增删、压缩、superior 指针修复。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">core</span><span class="m-name">config · types · constants</span><span class="m-file">config.cpp · types.hpp · constants.hpp</span></div>
+        <div class="m-desc">SimConfig 全参数 + 模块开关，key=value 解析；类型别名与物理常量。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">analysis</span><span class="m-name">order_params</span><span class="m-file">order_params.cpp</span></div>
+        <div class="m-desc">序参量计算：Gini 系数、财富统计等。Gini 被景观实验间接使用。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">analysis</span><span class="m-name">network_analysis</span><span class="m-file">network_analysis.cpp</span></div>
+        <div class="m-desc">交互网络 + 支配图，层级检测的基础（推断式支配结构）。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">analysis</span><span class="m-name">polity</span><span class="m-file">polity.cpp</span></div>
+        <div class="m-desc">政体检测/分类：Union-Find 连通分量 → band/tribe/chiefdom/state/empire 分类。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="pending">
+        <div class="m-head"><span class="m-group">analysis</span><span class="m-name">phase_transition</span><span class="m-file">phase_transition.cpp</span></div>
+        <div class="m-desc">相变自动检测：滑动窗口变化率 + 方差。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st pending">未验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">analysis</span><span class="m-name">perf_monitor · async_analyzer</span><span class="m-file">perf_monitor.cpp · async_analyzer.hpp</span></div>
+        <div class="m-desc">9 阶段分段计时 + 负载均衡报告；异步重分析线程（政体/层级检测）。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">io</span><span class="m-name">csv_writer</span><span class="m-file">csv_writer.cpp</span></div>
+        <div class="m-desc">CSV/二进制快照、能量/时间序列、人口统计输出。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">io</span><span class="m-name">ic_loader</span><span class="m-file">ic_loader.cpp</span></div>
+        <div class="m-desc">CSV 初始条件加载（x,y 必填 + 可选 w/eps/age/sex/culture），历史场景种子。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+      <div class="mod" data-status="partial">
+        <div class="m-head"><span class="m-group">io</span><span class="m-name">checkpoint</span><span class="m-file">checkpoint.cpp</span></div>
+        <div class="m-desc">进程数无关 checkpoint/restart，Gather-to-Root 与 MPI-IO 双策略切换。</div>
+        <div class="m-foot"><span class="badge impl">已实现</span><span class="st partial">部分验证</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ SWITCHES ============ -->
+  <section id="switches">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">5</span>模块开关矩阵</div>
+      <div class="sec-sub">SimConfig 中的模块开关默认值。注意：默认全开，但 Cycle 1 实验配置（run_landscape_study.py 生成）会显式关闭上层模块，只保留最小模型</div>
+    </div>
+
+    <div class="card switch-wrap">
+      <table>
+        <thead><tr><th>开关</th><th>默认值</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">culture_enabled</td><td class="on">true</td><td>文化动力学</td></tr>
+          <tr><td class="mono">technology_enabled</td><td class="on">true</td><td>技术演化（漂移 + 传播 + 跳跃）</td></tr>
+          <tr><td class="mono">loyalty_enabled</td><td class="on">true</td><td>忠诚度 / 层级系统</td></tr>
+          <tr><td class="mono">conquest_enabled</td><td class="on">true</td><td>征服机制</td></tr>
+          <tr><td class="mono">plague_enabled</td><td class="on">true</td><td>瘟疫模块</td></tr>
+          <tr><td class="mono">carrying_capacity_enabled</td><td class="on">true</td><td>密度承载力限制</td></tr>
+          <tr><td class="mono">reproduction_enabled</td><td class="on">true</td><td>繁殖</td></tr>
+          <tr><td class="mono">mortality_enabled</td><td class="on">true</td><td>死亡机制</td></tr>
+          <tr><td class="mono">terrain_force_enabled / terrain_production_enabled</td><td class="on">true</td><td>地形力 / 地形产出</td></tr>
+          <tr><td class="mono">climate_enabled</td><td class="off">false</td><td>气候场（默认关闭）</td></tr>
+          <tr><td class="mono">river_enabled</td><td class="off">false</td><td>河流场（默认关闭）</td></tr>
+          <tr><td class="mono">gender_enabled</td><td class="off">false</td><td>性别与婚配制度</td></tr>
+          <tr><td class="mono">lifespan_wealth_enabled / lifespan_tech_enabled</td><td class="off">false</td><td>寿命-财富 / 寿命-技术耦合</td></tr>
+          <tr><td class="mono">war_cost / war_casualties / pillage / deterrence</td><td class="off">false</td><td>战争增强模块（成本/伤亡/掠夺/威慑）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ STATUS ============ -->
+  <section id="status">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">6</span>验证状态总览</div>
+      <div class="sec-sub">区分「已实现」与「已验证」——源码齐全不代表物理正确性已验证</div>
+    </div>
+
+    <div class="gauge-row">
+      <div class="gauge g-active"><div class="g-num">1</div><div class="g-label">修复中</div><div class="g-sub">交换核 resource_exchange，模型层 bug（富者更富 → 必然极化），候选 C 已实现待校准</div></div>
+      <div class="gauge g-partial"><div class="g-num">17</div><div class="g-label">部分验证</div><div class="g-sub">基础设施 / 力场 / 积分器 / I/O，仅有旧方案单元测试或 scaling 证据，或被景观实验间接使用</div></div>
+      <div class="gauge g-pending"><div class="g-num">9</div><div class="g-label">未验证</div><div class="g-sub">上层物理模块（文化/技术/忠诚/政体/瘟疫/气候/河流），当前研究方案下从未验证</div></div>
+    </div>
+
+    <div class="two-col" style="margin-top:18px;">
+      <div class="card">
+        <div style="font-weight:700; font-size:14px; margin-bottom:12px;">关键事实</div>
+        <ul class="note-list" style="list-style:none;">
+          <li class="note"><span class="ic" style="color:var(--bad)">✗</span><span>核心主张 C1-NUM（守恒 + 非负 + dt 收敛 + 稳态）在 Cycle 1 被证伪：<span class="mono">dt_convergence</span> 与 <span class="mono">stationarity</span> 失败。</span></li>
+          <li class="note"><span class="ic" style="color:var(--warn)">▸</span><span>确认性实验 E1 / E2 / E3 全部 exit code 1 被硬阻塞（参数锁未定 + E0 校准失败），<b>从未产生任何证据</b>。</span></li>
+          <li class="note"><span class="ic" style="color:var(--info)">→</span><span>根因已定位：旧交换核是无耗散「富者更富」过程，无非平凡稳态，必然极化（Gini → 1）。这是模型层问题，不是数值问题。</span></li>
+          <li class="note"><span class="ic" style="color:var(--warn)">▲</span><span>仓库中文档（<span class="mono">DEVELOPMENT_PLAN.md</span> 声称「31 阶段完成 / 110+ 测试」）是<b>旧方案历史记录</b>，已被 <span class="mono">hypothesis.md</span> 明确降级为「不是当前活动计划」。</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; font-size:14px; margin-bottom:12px;">当前真实进展</div>
+        <ul class="note-list" style="list-style:none;">
+          <li class="note"><span class="ic" style="color:var(--ok)">✓</span><span><b>D0 理论诊断</b>：Lyapunov 论证极化必然性；候选 A（CC 再分配）否决。</span></li>
+          <li class="note"><span class="ic" style="color:var(--bad)">✗</span><span><b>候选 B</b> 被实证否决（稳态 Gini ≈ 0.92 仍极化，暴露 OpenMP 负财富 bug）。</span></li>
+          <li class="note"><span class="ic" style="color:var(--ok)">✓</span><span><b>候选 C</b>：连续时间均分回复 + 能力差漂移 + 乘性再分配，天然非负 / 零和 / equal-state 吸收 / dt 收敛。</span></li>
+          <li class="note"><span class="ic" style="color:var(--ok)">✓</span><span><b>D1 实现完成</b>：<span class="mono">resource_exchange.cpp</span> 已落地候选 C（代码已改，未 commit），顺带修复地形 y 翻转 bug。</span></li>
+          <li class="note"><span class="ic" style="color:var(--wait)">◌</span><span><b>D2 校准待跑</b>：<span class="mono">E0-NUMERICS-C3</span> / <span class="mono">B0-DYNAMICS-PILOT-C3</span> 配置已建，尚未执行。</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOCUS ============ -->
+  <section id="focus">
+    <div class="sec-head">
+      <div class="sec-title"><span class="idx">7</span>当前开发焦点</div>
+      <div class="sec-sub">把模拟器「做完」的下一步，按依赖排序</div>
+    </div>
+
+    <div class="card">
+      <div class="road" style="display:grid; gap:12px;">
+        <div class="note" style="border-left:4px solid var(--brand);"><span class="ic" style="color:var(--brand);">1</span><span><b>收尾候选 C 代码并 commit</b>：<span class="mono">resource_exchange.cpp/hpp</span>、<span class="mono">config.hpp/cpp</span>、<span class="mono">main.cpp</span> 的连续时间 dt 收敛修复已改未提交，需编译 + 跑 <span class="mono">test_exchange_kernel</span> 确认。</span></div>
+        <div class="note" style="border-left:4px solid var(--brand);"><span class="ic" style="color:var(--brand);">2</span><span><b>在 umi 上跑 D2 校准</b>：执行 <span class="mono">E0-NUMERICS-C3</span>（五检查：守恒 ≤1e-8、非负 ≥−1e-12、dt 收敛 ≤0.02、equal-state 吸收 ≤1e-20、stationarity）与 <span class="mono">B0-DYNAMICS-PILOT-C3</span>（动力学健康）。</span></div>
+        <div class="note" style="border-left:4px solid var(--warn);"><span class="ic" style="color:var(--warn);">3</span><span><b>参数扫描</b>：在 η_d ∈ {0.3,0.5,0.8} × η_n ∈ {0.02,0.05,0.10} 中找稳态 Gini ∈ [0.3,0.7] 且五检查全过的组合，同时显式检验邻居数解耦（密度不变性）。</span></div>
+        <div class="note" style="border-left:4px solid var(--warn);"><span class="ic" style="color:var(--warn);">4</span><span><b>定参锁 v2</b>：绑定 SHA-256 到 E1–E3 配置，解锁确认性实验。</span></div>
+        <div class="note" style="border-left:4px solid var(--wait);"><span class="ic" style="color:var(--wait);">5</span><span><b>跑通 E1 / E2 / E3</b>：匹配景观对比（C2）、通道消融（C3）、稳健性 holdout（C4），得出 C1–C4 结论。</span></div>
+        <div class="note" style="border-left:4px solid var(--wait);"><span class="ic" style="color:var(--wait);">6</span><span><b>（可选，后续阶段）</b>：上层模块（人口/文化/技术/忠诚/政体/瘟疫/气候/河流）逐项物理正确性验证——这部分在 Cycle 1 最小模型里被关闭，尚未开始。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Politeia 模拟器功能看板 · 数据源：src/ 源码 + CMakeLists + config.hpp + main.cpp + research/jobs</div>
+    <div>实现状态 = 源码完整；验证状态 = 物理正确性是否被当前研究方案验收</div>
+  </footer>
+
+</main>
+
+<script>
+  // Smooth scroll + nav highlight
+  const links = document.querySelectorAll('.nav-links a');
+  links.forEach(a => a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    const el = document.querySelector(id);
+    if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }));
+
+  // Filter module cards by verification status
+  const fbtns = document.querySelectorAll('.fbtn');
+  const cards = document.querySelectorAll('#modGrid .mod');
+  fbtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      fbtns.forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const f = btn.getAttribute('data-filter');
+      cards.forEach(c => {
+        if (f === 'all' || c.getAttribute('data-status') === f) {
+          c.classList.remove('hidden');
+        } else {
+          c.classList.add('hidden');
+        }
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
