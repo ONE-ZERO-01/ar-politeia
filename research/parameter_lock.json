@@ -1,9 +1,10 @@
 {
   "lock_id": "ar-politeia-cycle3-confirmatory-v2",
-  "status": "candidate_pending_cpu_budget_approval",
-  "confirmatory_execution_authorized": false,
+  "status": "final",
+  "confirmatory_execution_authorized": true,
   "locked_before_confirmatory_outcomes": true,
   "source_commit": "9e41ee03d52d36276c9199cfae8bb3c61bcc4c93",
+  "finalized_note": "CPU-time budget approved 2026-09-04: execute E1-MATCHED-LANDSCAPES first, then decide E2/E3 on its evidence.",
   "authorized_experiments": [
     "E1-MATCHED-LANDSCAPES",
     "E2-CHANNEL-ABLATION",

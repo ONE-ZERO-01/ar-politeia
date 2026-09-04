@@ -21,7 +21,7 @@
     "research/jobs/E2-CHANNEL-ABLATION/workspace"
   ],
   "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
-  "config_sha256": "4e6b82ec2f8ffeff651425441a75403f0d12e95591a4af865692d65075ca1b51",
+  "config_sha256": "fb4067733f3714453659eb668d9a03af37a7539edd44c59aef731a810d803eb6",
   "commit_id": "43454568a7f56d1de3644d865d6b4e8d7ce558a6",
   "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
   "seeds": [
@@ -50,7 +50,7 @@
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
     "dependency_calibration": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
-    "parameter_lock": "da3921d9c534687217e6a140924da7f0dafb4abfce2dc9fc3234252b6f3cd627"
+    "parameter_lock": "b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269"
   },
   "artifacts": [
     "result.json",

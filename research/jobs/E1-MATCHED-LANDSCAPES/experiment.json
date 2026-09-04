@@ -21,7 +21,7 @@
     "research/jobs/E1-MATCHED-LANDSCAPES/workspace"
   ],
   "config": "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
-  "config_sha256": "c0e97392ff5a4fe0410795c256d98b09556a9c4b6e619c44e14cf6e3339a6be5",
+  "config_sha256": "488428b76a2fa0c9c7724df510b2c1dd0e0842059f4a88da170e521da04a25f2",
   "commit_id": "43454568a7f56d1de3644d865d6b4e8d7ce558a6",
   "env_snapshot": "research/jobs/E1-MATCHED-LANDSCAPES/env.txt",
   "seeds": [
@@ -50,7 +50,7 @@
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
     "dependency_calibration": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
-    "parameter_lock": "da3921d9c534687217e6a140924da7f0dafb4abfce2dc9fc3234252b6f3cd627"
+    "parameter_lock": "b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269"
   },
   "artifacts": [
     "result.json",
