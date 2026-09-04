@@ -925,23 +925,17 @@ def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
 
     E0 is a flat-terrain pure-exchange numerics test: spatial density metrics
     are degenerate noise there, so only the wealth distribution is checked.
-    B0 is a clustered-terrain health pilot where ``density_morans_i`` is a
-    slow terrain-aggregation mode; it is reported as a metric but excluded from
-    the B0 health gate and left for E1 matched-landscape analysis. Confirmatory
-    E1/E2/E3 experiments keep the full spatial/wealth stationarity set.
+    ``density_morans_i`` is a slow terrain-aggregation mode whose relaxation
+    time far exceeds the exchange kernel's (≫2000 time units, D2 §10), and it
+    is itself a confirmatory effect in E1 rather than a stationarity premise.
+    It is therefore reported as a metric but excluded from the steady-window
+    gate of every non-E0 experiment, and is left for E1 matched-landscape
+    analysis.
     """
     if experiment == "E0-NUMERICS":
         return ("wealth_gini", "wealth_variance")
-    if experiment == "B0-DYNAMICS-PILOT":
-        return (
-            "resource_density_spearman_rho",
-            "occupancy_entropy",
-            "wealth_gini",
-            "wealth_variance",
-        )
     return (
         "resource_density_spearman_rho",
-        "density_morans_i",
         "occupancy_entropy",
         "wealth_gini",
         "wealth_variance",

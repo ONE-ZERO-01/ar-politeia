@@ -18,8 +18,8 @@
     "research/jobs/E0-NUMERICS-C3/workspace"
   ],
   "config": "research/jobs/E0-NUMERICS-C3/config.json",
-  "config_sha256": "42d2eabbe511f333203af9af496b3c24f38e02cc92628cc446373bca7d5a3112",
-  "commit_id": "e722dc59d390078cb7a0af95d06c4ff667dfcb9b",
+  "config_sha256": "4021b04d5187d5fefa83826816b6d0d30d2d37a0cd5b0f4d14d29ff97866d83a",
+  "commit_id": "9e41ee03d52d36276c9199cfae8bb3c61bcc4c93",
   "env_snapshot": "research/jobs/E0-NUMERICS-C3/env.txt",
   "env_sha256": "fe5f8299afc13ba1a69f9f1aa4acec429a7dc51761e629d76e2de5c407416c91",
   "seeds": [1103, 2207, 3301, 4409, 5519],

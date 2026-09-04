@@ -17,14 +17,15 @@
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
   ],
   "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+  "config_sha256": "a75aa8c3b260cc45635305e48533eae924638bb3cb71c9dcd1fa33248e7669f8",
   "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
   "env_snapshot": "research/jobs/E3-ROBUSTNESS-HOLDOUT/env.txt",
   "seeds": [2203, 2309, 2411, 2503, 2609, 2707, 2801, 2903, 3001, 3109],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
-    "dependency_calibration": "After E0 passes, bind the SHA-256 of tracked research/jobs/E0-NUMERICS/numerical_calibration.json before execution",
-    "parameter_lock": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352"
+    "dependency_calibration": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
+    "parameter_lock": "da3921d9c534687217e6a140924da7f0dafb4abfce2dc9fc3234252b6f3cd627"
   },
   "artifacts": [
     "result.json",

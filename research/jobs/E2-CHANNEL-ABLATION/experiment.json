@@ -4,7 +4,7 @@
   "mode": "server",
   "priority": "P0",
   "claim_ids": ["C3-CHANNELS"],
-  "depends_on": ["E0-NUMERICS"],
+  "depends_on": ["E0-NUMERICS-C3"],
   "objective": "Estimate movement, production and interaction effects in the preregistered 2x2 channel design using E0-frozen SESOI values and Holm correction.",
   "command": [
     "python3",
@@ -17,14 +17,15 @@
     "research/jobs/E2-CHANNEL-ABLATION/workspace"
   ],
   "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
+  "config_sha256": "4e6b82ec2f8ffeff651425441a75403f0d12e95591a4af865692d65075ca1b51",
   "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
   "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
   "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
-    "dependency_calibration": "After E0 passes, bind the SHA-256 of tracked research/jobs/E0-NUMERICS/numerical_calibration.json before execution",
-    "parameter_lock": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352"
+    "dependency_calibration": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
+    "parameter_lock": "da3921d9c534687217e6a140924da7f0dafb4abfce2dc9fc3234252b6f3cd627"
   },
   "artifacts": [
     "result.json",
