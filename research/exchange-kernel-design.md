@@ -321,3 +321,25 @@ production 数值相同。
 `commit_id` 前移到修复 commit `906e575`（重新编译 binary），`config_sha256` /
 `parameter_lock_sha256` / `numerical_calibration_sha256` 均不变（三者不绑定 binary SHA）。
 E1 旧 workspace 作废重跑。
+
+## 13. E0 stationarity_pass=false 的真相（D3 核查，2026-09-04）
+
+`numerical_calibration.json` 的 `stationarity_pass=false` 是**真实值**，但由**单一个 run 临界
+失败**导致，不是系统性非稳态：
+
+- 25 个 E0 run 中，唯一失败的是 `seed-5519--perturbed-dt-0.25`（dt/4 高分辨率）的 `wealth_gini`：
+  `effective_samples=3.237 < 4.0`，而 `normalized_window_drift=0.0072`（远低于 0.1 阈值）。
+- 其余 24 个 run（含所有 dt/1、dt/2 与大部分 dt/4）全过；dt/2-vs-dt/4 的 `wealth_gini` 均值绝对
+  差 0.0037（dt 收敛判定 ≤0.02，通过）。
+- 根因是**时间步自相关**：dt 越小，相邻快照相关性越高（该 run `integrated_autocorrelation_time=
+  7.41`），同样的稳态窗口内 `effective_samples` 自然下降。这是 dt 收敛的固有特征，不是财富分布
+  仍在漂移。
+
+**对判定的影响**：无。E0 gate 的判据是四项确定性检查（守恒 ≤1e-8、非负 ≥-1e-12、dt 收敛 ≤0.02、
+equal-state 吸收 ≤1e-20），全部通过；stationarity 在 Cycle 3 单独报告、不阻塞校准 gate（gate_policy
+已写明）。C1-NUM 的 `supported` 判定由这四项支撑，不受此临界 ESS 影响。
+
+**D4 投稿叙事要点**：若审稿人问及 E0 `stationarity_pass=false`，答案是「stationarity 判据的
+`effective_samples≥4` 对 dt/4 的高自相关 run 保守过严，drift 主判据（0.0072≪0.1）显示已稳态；该
+run 的 ESS 临界不构成 C1-NUM 的 falsification，因为数值核的正确性由守恒/非负/dt收敛/吸收四项决定，
+stationarity 是逐实验报告的诊断而非校准 gate」。这一叙事需在论文补充材料中成文。
