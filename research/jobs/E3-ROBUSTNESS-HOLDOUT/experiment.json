@@ -24,7 +24,7 @@
   ],
   "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
   "config_sha256": "b2564d146da25b523bb7cb2f70d7c64a7cfd1ab9163d1e6b5a7cb030d0866507",
-  "commit_id": "64f579a4d90bc7379a4a81d02f912885c72f2b2e",
+  "commit_id": "ddd645d16be67d153b21cf7be5e402ad98e404dd",
   "env_snapshot": "research/jobs/E3-ROBUSTNESS-HOLDOUT/env.txt",
   "seeds": [
     2203,
