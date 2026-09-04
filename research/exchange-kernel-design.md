@@ -287,3 +287,37 @@ stationarity_pass ∧ matched_input_pass`（数据质量门）；`claim_supporte
 指标（rho/moran/entropy）的配对效应超冻结 SESOI 且经 Holm 校正。因此「数据质量通过但效应不显著」
 → `analysis_gate_pass=true` 而 `claim_supported=false`，作为对 C2 的 null/equivalence 证据保留，
 不算 job 失败（与 failure_policy 一致）。
+
+## 12. flat 地形生产通道退化 bug（D3 发现并修复，2026-09-04）
+
+**症状**：E1 启动后 `seed-101` 的 `flat` 条件 Gini 单调升到 0.9897，末快照总财富 `sum=3.8e-12`
+（2000 粒子几乎全 0）。这不是参数失配，而是灾难性财富坍缩。
+
+**根因链**（模型语义级 bug，非参数问题）：
+- Python `resource_to_elevation` 旧编码 `elevation = resource_max - resource`，丢失绝对零基准。
+- C++ `grid_terrain_potential = -scale * (h_max - elevation) = -scale * (resource - resource_min)`。
+- production = `base_production * terrain_production_scale * max(0, -potential) ∝ (resource - resource_min)`。
+- `flat` 是均匀场 `resource = mean = 1.0` 处处，故 `resource_min == resource_max`，production 恒为 0；
+  `wealth_decay_rate=0.02` 把财富纯衰减耗尽。clustered/shuffled 因 `resource_min=0` 恰好正确
+  （`resource - resource_min = resource`），所以只有 flat 对照坍缩。
+
+**修复**：`elevation` 编码改为 `-resource`（绝对丰度，真实零基准）；`grid_terrain_potential` 改为
+`scale * elevation = -scale * resource`，production = `scale * resource`（绝对量）。flat 的生产恢复为
+`base_production × 1.0`（处处均匀），总生产量与 clustered 匹配（两者 mean(resource)=1.0 相同）。
+
+**不变性（不受影响的通道）**：`force = -scale·∇elevation` 梯度在两种编码下相同（`∇(-resource) ==
+∇(max-resource)`）；`grid.potential = scale·(elevation - h_min)` 因 `h_min` 自动补偿结果不变。
+故 **E0/B0 结论不受影响**：E0 用 flat 且 force/production 关闭（纯交换核，无 elevation），其冻结
+SESOI 是 dt/2-vs-dt/4 分辨率界限，与 elevation 无关；B0 用 clustered（`resource_min=0`）新旧编码
+production 数值相同。
+
+**验证**：13 个 Python 测试 + 5 个 C++ 单元测试全过；端到端 smoke（flat/clustered 各 t=1000、
+`omp_threads=1`）确认 flat 财富从 10000 收敛到均衡 ~998（mean 0.5，与理论
+`base_production×mean(resource)/decay = 0.01×1.0/0.02 = 0.5` 吻合），clustered 收敛到 ~2500，均
+稳定非零、无坍缩。
+
+**provenance 与参数锁**：这是 outcome-blind 的实现 bug 修复（修复让实验按设计意图运行，非基于
+任何观察到的 E1 效应）。参数锁 v2 的**参数值完全不变**，故不触发新 lock version；E1/E2/E3 的
+`commit_id` 前移到修复 commit `906e575`（重新编译 binary），`config_sha256` /
+`parameter_lock_sha256` / `numerical_calibration_sha256` 均不变（三者不绑定 binary SHA）。
+E1 旧 workspace 作废重跑。
