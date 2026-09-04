@@ -13,7 +13,7 @@
       "E3-ROBUSTNESS-HOLDOUT": "not yet executed (awaiting E1/E2)"
     }
   },
-  "claims": [
+  "findings": [
     {
       "claim_id": "C1-NUM",
       "verdict": "supported",
