@@ -1,4 +1,4 @@
 external_data: none
-generated_inputs: runtime SHA-256 values recorded in workspace/matched_input_audit.json
-dependency_calibration: pending E0 result; bind SHA-256 from tracked research/jobs/E0-NUMERICS/numerical_calibration.json before execution
-parameter_lock: 0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352
+generated_inputs: SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution
+dependency_calibration: research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e
+parameter_lock: b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269
