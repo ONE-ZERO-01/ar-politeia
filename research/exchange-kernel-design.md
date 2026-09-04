@@ -253,3 +253,37 @@ B0 修复 y-flip 并延长 `total_time=2000` 后，财富与资源指标已稳�
 其核心已通过；Moran 慢模是独立议题。空间聚集的稳态与景观效应应归 E1（配对 `clustered`/`shuffled`/
 `flat` 对比）处理，不应作为交换核校准的阻塞项。是否调整 B0 检查指标范围、或进一步延长 `total_time`，
 待 E0 五检查结果出来后一并决策。
+
+## 11. D3 参数锁定稿与 E1 判定（2026-09-04）
+
+**D2 校准结论**：E0-NUMERICS-C3 四项确定性检查全过（守恒 ≤1.7e-9、非负 0.0、dt 收敛、equal-state
+吸收），stationarity 单独报告不阻塞 gate。参数扫描锁定 `exchange_rate=0.5`（η_d）、
+`exchange_noise_strength=0.05`（η_n）、`exchange_reversion_rate=1.0`（k）、
+`epsilon_log_sigma=0.5`、`wealth_decay_rate=0.02`、`total_time=2000`。冻结 SESOI（dt/2-vs-dt/4
+分辨率界限，非社会科学效应量）：`resource_density_spearman_rho=1e-6`、`density_morans_i=0.0334`、
+`occupancy_entropy=0.0029`、`wealth_gini=0.0105`。
+
+**参数锁 v2**：`lock_id=ar-politeia-cycle3-confirmatory-v2`，`status=final`（CPU 预算已批准，先跑
+E1 再据证据定 E2/E3）。锁定参数含交换四参数、`epsilon_log_sigma`、`wealth_decay_rate`、
+`total_time`、`steady_snapshots`、stationarity 阈值等 22 项；E1/E2/E3 的 `config.json` 与锁逐项一致，
+`parameter_lock_sha256`、`config_sha256`、`commit_id`、E0 校准 SHA 全链路绑定。
+
+**运维修正**：交换核为串行 `for_each_pair`，`omp_threads>1` 无加速反而拖慢约 9×（实测 OMP=1 约
+300 steps/s，OMP=8 约 33 steps/s）。E1/E2/E3 已统一 `omp_threads=1`，纪律固化进
+`rules/server-config.md`。
+
+**E1 四条件设计（内置参数稳健性对照）**：E1-MATCHED-LANDSCAPES 对每个 seed 生成 4 个条件——
+`clustered`（聚集地形）、`shuffled`（打乱地形）、`flat`（平地形）、`clustered-no-exchange`
+（聚集地形但交换关闭）。主配对比较是 `clustered−shuffled`；`flat` 与 `clustered-no-exchange`
+是诊断对照：
+- `flat`：平地形但保留生产/衰减，接近 E0 校准场景（但多生产/衰减通道），用于回答「交换核在 E1
+  的生产/衰减设定下是否仍产生有限 Gini（非极化、非退化）」。若 `flat` 的 Gini 落在合理区间，
+  则 `clustered` 的偏高 Gini 可归因于地形生产而非参数失配。
+- `clustered-no-exchange`：关闭交换，分离交换核对财富再分配的贡献。
+
+**E1 判定链路（已审计）**：run 级 `stationarity_pass` 基于 `stationary_metrics_for_experiment`
+（= rho/entropy/gini/variance，**不含 Moran**，Moran 已移出稳态 gate）；`analysis_gate_pass =
+stationarity_pass ∧ matched_input_pass`（数据质量门）；`claim_supported` 额外要求至少一个主空间
+指标（rho/moran/entropy）的配对效应超冻结 SESOI 且经 Holm 校正。因此「数据质量通过但效应不显著」
+→ `analysis_gate_pass=true` 而 `claim_supported=false`，作为对 C2 的 null/equivalence 证据保留，
+不算 job 失败（与 failure_policy 一致）。
