@@ -280,7 +280,8 @@
       "resource_exchange.cpp/hpp: candidate C continuous-time mean-reverting kernel, serial for_each_pair, deterministic antisymmetric s_ij (SplitMix64)",
       "config.hpp/cpp: exchange_reversion_rate (k) parameter",
       "landscape_study.py: write_esri_ascii np.flipud (terrain y-flip fix)",
-      "run_landscape_study.py: stationary_metrics_for_experiment excludes density_morans_i from non-E0 gates"
+      "run_landscape_study.py: stationary_metrics_for_experiment excludes density_morans_i from non-E0 gates",
+      "landscape_study.py resource_to_elevation + terrain_loader.cpp grid_terrain_potential: flat 生产通道退化修复——elevation 编码改为 -resource（绝对丰度，真实零基准），production = scale*resource，修复 flat 对照财富坍缩"
     ],
     "legacy_evidence_policy": "Cycle 1/2 negative results are preserved as history and are not pooled with Cycle 3 confirmatory evidence; imported politeia-ds results are exploratory provenance and bug history only."
   },
