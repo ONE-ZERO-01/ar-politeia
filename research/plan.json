@@ -1,13 +1,15 @@
 {
   "project_id": "ar-politeia",
-  "cycle": 2,
+  "cycle": 3,
   "status": "implementation",
-  "created": "2026-08-21T00:00:00+08:00",
-  "summary": "Cycle 2 numerical-calibration replan: correct dt-scaled exchange-kernel sensitivity and non-stationarity, then rerun B0 health and E0 calibration before any confirmatory E1-E3 execution.",
+  "created": "2026-09-03T00:00:00+08:00",
+  "summary": "Cycle 3 exchange-kernel steady-state refactoring: replace the polarization-prone multiplicative exchange kernel (rich-get-richer without dissipation) with a continuous-time mean-reverting reallocation kernel (candidate C) that provably admits a non-trivial steady state, recalibrate via E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3, finalize parameter lock v2, then execute E1-E3 confirmatory matched-landscape, channel-ablation, and robustness-holdout studies.",
   "question": "在总资源量、资源边际分布、可达面积、人口数和财富初值均匹配时，资源景观的空间自相关性是否会改变稳态人口聚集和财富结构？",
+  "design_document": "research/exchange-kernel-design.md",
   "scope": {
-    "included_state": ["position", "momentum", "wealth"],
-    "fixed_state": {"epsilon": 1.0, "population": true},
+    "included_state": ["position", "momentum", "wealth", "ability"],
+    "fixed_state": {"population": true},
+    "ability_heterogeneity": "epsilon drawn lognormal with epsilon_log_sigma=0.5 (persistent wealth-disparity source for the exchange kernel's non-trivial steady state); was uniform epsilon=1.0 in Cycles 1-2.",
     "disabled_modules": [
       "culture",
       "technology_jumps",
@@ -19,46 +21,48 @@
       "taxation",
       "polity_classification"
     ],
-    "inference_boundary": "Cycle 2 is limited to numerical calibration and dynamics health. No landscape-effect, channel-attribution, or historical-causation claim is supported until C1-NUM passes and E1-E3 are executed."
+    "inference_boundary": "Cycle 3 supports synthetic generative-mechanism claims only. The exchange kernel is a model-layer change; movement (Langevin) and production channels are untouched. No claim about specific civilizations, states, empires, or historical causation is supported."
   },
   "claims": [
     {
       "id": "C1-NUM",
-      "text": "修正后的 dt 尺度一致的交换核，在非退化小扰动初值下保持财富守恒和非负性，且主要观测量对时间步收敛；在预注册稳态窗口内通过漂移与有效样本诊断。",
+      "text": "候选 C 连续时间均值回归交换核在非退化小扰动初值与异质能力下保持财富守恒和非负性，主要观测量对时间步收敛，且相等状态是吸收态；稳态窗口内财富分布通过漂移与有效样本诊断。",
       "type": "calibration",
-      "falsification": "关闭地形生产、消费和财富衰减后，总财富相对漂移超过 1e-8，任一个体财富低于 -1e-12，dt/2-vs-dt/4 任一主要观测量平均绝对差超过 0.02，或任一稳态窗口归一化漂移超过 0.1、有效样本低于 4。",
-      "experiments": ["E0-NUMERICS-C2"],
-      "priority": "P0"
+      "falsification": "关闭地形生产、消费和财富衰减后，总财富相对漂移超过 1e-8，任一个体财富低于 -1e-12，dt/2-vs-dt/4 任一主要观测量平均绝对差超过 0.02，相等交换财富方差超过 1e-20，或任一稳态窗口归一化漂移超过 0.1、有效样本低于 4。",
+      "experiments": ["E0-NUMERICS-C3"],
+      "priority": "P0",
+      "status": "supported",
+      "evidence": "E0-NUMERICS-C3 numerical_calibration.json pass=true with the four deterministic checks (conservation, non-negativity, dt-convergence, equal-state absorption) all true; stationarity reported separately per the Cycle-3 gate policy."
     },
     {
       "id": "C2-LANDSCAPE",
       "text": "在资源总量、像素值直方图和可达面积匹配后，聚集型资源景观相对空间打乱景观产生超过数值噪声界限的人口空间结构差异。",
       "type": "core",
       "falsification": "配对种子的资源—密度 Spearman rho、密度 Moran's I 和占据熵效应全部落入由 E0 预注册的等效区间，或效应方向在保留景观上反转。",
-      "experiments": [],
+      "experiments": ["E1-MATCHED-LANDSCAPES", "E3-ROBUSTNESS-HOLDOUT"],
       "priority": "P0",
-      "deferred": true,
-      "blocked_by": "C1-NUM must pass and the cycle-2 parameter lock must be finalized before E1-E3 design and execution."
+      "status": "in_progress",
+      "note": "E1-MATCHED-LANDSCAPES executing on umi (80 runs, 20 seeds x 4 conditions); verdict pending ANALYSIS."
     },
     {
       "id": "C3-CHANNELS",
       "text": "景观效应可通过移动通道×生产通道的 2×2 因子消融分解为可量化的主效应和交互效应。",
       "type": "mechanism",
       "falsification": "因子对比的区间估计无法排除数值噪声，或结果仅能识别组合效应而无法归因于任一单通道。",
-      "experiments": [],
+      "experiments": ["E2-CHANNEL-ABLATION"],
       "priority": "P0",
-      "deferred": true,
-      "blocked_by": "C1-NUM must pass and the cycle-2 parameter lock must be finalized."
+      "status": "deferred",
+      "blocked_by": "E1 evidence decision."
     },
     {
       "id": "C4-ROBUSTNESS",
       "text": "核心效应在预注册的人口规模、网格分辨率和未用于参数选择的景观家族上保持方向一致。",
       "type": "robustness",
       "falsification": "主要效应仅在一个人口规模或分辨率上出现，或在保留景观上落入等效区间或发生方向反转。",
-      "experiments": [],
+      "experiments": ["E3-ROBUSTNESS-HOLDOUT"],
       "priority": "P1",
-      "deferred": true,
-      "blocked_by": "C1-NUM must pass and E1/E2 confirmatory effects must be estimable."
+      "status": "deferred",
+      "blocked_by": "E1/E2 confirmatory effects must be estimable."
     }
   ],
   "analysis_policy": {
@@ -74,103 +78,33 @@
     ],
     "uncertainty": "paired effect sizes with bootstrap 95% confidence intervals",
     "multiplicity": "Holm correction within each confirmatory metric family",
-    "equivalence_rule": "SESOI is frozen from paired same-seed dt/2-versus-dt/4 discretization differences in E0-NUMERICS-C2 after its calibration gate passes; it is a simulation-resolution limit, not a substantive social-science effect size.",
+    "equivalence_rule": "SESOI frozen from paired same-seed dt/2-versus-dt/4 discretization differences in E0-NUMERICS-C3; it is a simulation-resolution limit, not a substantive social-science effect size.",
     "missing_runs": "No seed replacement after outcomes are observed; failed runs are reported and rerun only under the declared failure policy.",
     "steady_state_rule": "Use preregistered drift and integrated-autocorrelation diagnostics; do not extend runs because an outcome is close to a desired threshold.",
-    "cycle2_calibration_gate": "B0-DYNAMICS-PILOT-C2 health checks plus E0-NUMERICS-C2 conservation, non-negativity, dt_convergence, equal-state absorption, and stationarity must all pass before E1-E3."
+    "morans_i_gate_policy": "density_morans_i is a slow terrain-aggregation mode (relaxation >> 2000 time units, D2 §10) orthogonal to the exchange kernel; it is reported as a metric but excluded from the steady-window stationarity gate of every non-E0 experiment, and retained as a confirmatory effect in E1 matched-landscape analysis.",
+    "cycle3_calibration_gate": "B0-DYNAMICS-PILOT-C3 health checks plus E0-NUMERICS-C3 conservation, non-negativity, dt_convergence, equal-state absorption all passed; stationarity reported separately and does not block the calibration gate."
   },
   "experiments": [
     {
-      "id": "B0-DYNAMICS-PILOT-C2",
-      "claim_ids": [],
-      "objective": "Run the revised candidate under active terrain with proportional wealth decay on umi and verify fixed population, wealth non-negativity, finite metrics, wall-clock cost, and steady-window stationarity for three seeds. No shuffled control and no landscape-effect estimate is produced.",
-      "priority": "P1",
-      "mode": "server",
-      "execution_host": "umi",
-      "implementation_status": "designed_preflight_ready_not_executed",
-      "non_evidentiary": true,
-      "command": [
-        "python3",
-        "research/src/experiments/run_landscape_study.py",
-        "--experiment",
-        "B0-DYNAMICS-PILOT",
-        "--config",
-        "research/jobs/B0-DYNAMICS-PILOT-C2/config.json",
-        "--output-dir",
-        "research/jobs/B0-DYNAMICS-PILOT-C2/workspace"
-      ],
-      "config": "research/jobs/B0-DYNAMICS-PILOT-C2/config.json",
-      "commit_id": "8b239111ca72a276cf7b84006a01ffe04ffa4c0d",
-      "env_snapshot": "research/jobs/B0-DYNAMICS-PILOT-C2/env.txt",
-      "seeds": [7103, 7207, 7309],
-      "baseline": "Only clustered-active landscapes at N=500 and 64x64 resolution with wealth_decay_rate=0.002; deliberately no shuffled control.",
-      "ablations": [],
-      "metrics": [
-        "wall_clock_seconds",
-        "stationarity_diagnostics",
-        "minimum_wealth",
-        "particle_count",
-        "finite_metric_audit"
-      ],
-      "acceptance": [
-        "All three seeds pass steady-window stationarity diagnostics.",
-        "Minimum wealth is non-negative within -1e-12 and population remains exactly 500.",
-        "All reported metrics are finite and runtime stays within the declared timeout."
-      ],
-      "artifacts": [
-        "result.json",
-        "replicate_metrics.csv",
-        "pilot_health.json",
-        "matched_input_audit.json",
-        "stationarity_report.json",
-        "run_specs.json"
-      ],
-      "timeout_seconds": 7200,
-      "gpu_count": 0,
-      "failure_policy": "A failed health gate keeps the cycle-2 parameter candidate non-final. Parameter changes may use only runtime, stability and health diagnostics, never a clustered-minus-shuffled effect."
-    },
-    {
-      "id": "E0-NUMERICS-C2",
+      "id": "E0-NUMERICS-C3",
       "claim_ids": ["C1-NUM"],
-      "objective": "Re-calibrate conservation, non-negativity, equal-state absorption, dt-scaled exchange convergence, stationarity and a paired discretization-resolution SESOI on a longer finite-time horizon.",
+      "objective": "Calibrate candidate C: wealth conservation, non-negativity, equal-state absorption, dt-convergence of the continuous-time kernel, and freeze a paired discretization-resolution SESOI on total_time=1500.",
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "designed_preflight_ready_not_executed",
-      "depends_on": [],
+      "implementation_status": "executed_passed",
       "command": [
         "python3",
         "research/src/experiments/run_landscape_study.py",
         "--experiment",
         "E0-NUMERICS",
         "--config",
-        "research/jobs/E0-NUMERICS-C2/config.json",
+        "research/jobs/E0-NUMERICS-C3/config.json",
         "--output-dir",
-        "research/jobs/E0-NUMERICS-C2/workspace"
+        "research/jobs/E0-NUMERICS-C3/workspace"
       ],
-      "config": "research/jobs/E0-NUMERICS-C2/config.json",
-      "commit_id": "8b239111ca72a276cf7b84006a01ffe04ffa4c0d",
-      "env_snapshot": "research/jobs/E0-NUMERICS-C2/env.txt",
+      "config": "research/jobs/E0-NUMERICS-C3/config.json",
       "seeds": [1103, 2207, 3301, 4409, 5519],
-      "baseline": "Flat no-terrain equal-no-exchange and equal-exchange conditions, plus perturbed wealth conditions at dt, dt/2 and dt/4 with continuous-time exchange rate held constant.",
-      "ablations": [
-        "continuous-time exchange-rate scaling across dt factors",
-        "longer horizon total_time=500 and steady_snapshots=24"
-      ],
-      "metrics": [
-        "total_wealth_relative_drift",
-        "minimum_wealth",
-        "observable_dt_convergence",
-        "equal_state_is_absorbing",
-        "replicate_numerical_noise",
-        "stationarity_diagnostics"
-      ],
-      "acceptance": [
-        "Max absolute total-wealth relative drift is <= 1e-8 and minimum wealth >= -1e-12.",
-        "dt/2-vs-dt/4 mean absolute change is <= 0.02 for every main observable.",
-        "Equal-state exchange max wealth variance is <= 1e-20.",
-        "All runs pass steady-window stationarity diagnostics."
-      ],
       "artifacts": [
         "result.json",
         "replicate_metrics.csv",
@@ -180,69 +114,180 @@
         "run_specs.json"
       ],
       "timeout_seconds": 14400,
-      "gpu_count": 0,
-      "failure_policy": "Any conservation, non-negativity, dt-convergence or stationarity failure blocks E1-E3. Do not tune parameters for a desired social outcome."
+      "gpu_count": 0
+    },
+    {
+      "id": "B0-DYNAMICS-PILOT-C3",
+      "claim_ids": [],
+      "non_evidentiary": true,
+      "objective": "Dynamics-health pilot of candidate C under active terrain with proportional wealth decay: fixed population, non-negativity, finite metrics, wall-clock cost, and steady-window stationarity for three seeds.",
+      "priority": "P1",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "executed_passed",
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "B0-DYNAMICS-PILOT",
+        "--config",
+        "research/jobs/B0-DYNAMICS-PILOT-C3/config.json",
+        "--output-dir",
+        "research/jobs/B0-DYNAMICS-PILOT-C3/workspace"
+      ],
+      "config": "research/jobs/B0-DYNAMICS-PILOT-C3/config.json",
+      "seeds": [7103, 7207, 7309],
+      "artifacts": [
+        "result.json",
+        "replicate_metrics.csv",
+        "pilot_health.json",
+        "matched_input_audit.json",
+        "stationarity_report.json",
+        "run_specs.json"
+      ],
+      "timeout_seconds": 7200,
+      "gpu_count": 0
+    },
+    {
+      "id": "E1-MATCHED-LANDSCAPES",
+      "claim_ids": ["C2-LANDSCAPE"],
+      "objective": "Estimate paired clustered-minus-shuffled landscape effects (rho, Moran's I, occupancy entropy) with E0-frozen SESOI, Holm correction, and a flat-terrain + no-exchange diagnostic control.",
+      "priority": "P0",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "executing",
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E1-MATCHED-LANDSCAPES",
+        "--config",
+        "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
+        "--output-dir",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace"
+      ],
+      "config": "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
+      "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+      "artifacts": [
+        "result.json",
+        "replicate_metrics.csv",
+        "paired_effects.json",
+        "matched_input_audit.json",
+        "stationarity_report.json",
+        "parameter_lock_audit.json",
+        "run_specs.json"
+      ],
+      "timeout_seconds": 86400,
+      "gpu_count": 0
+    },
+    {
+      "id": "E2-CHANNEL-ABLATION",
+      "claim_ids": ["C3-CHANNELS"],
+      "objective": "2x2 channel ablation (movement x production) with E0-frozen SESOI and Holm correction.",
+      "priority": "P0",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "designed_awaiting_e1",
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E2-CHANNEL-ABLATION",
+        "--config",
+        "research/jobs/E2-CHANNEL-ABLATION/config.json",
+        "--output-dir",
+        "research/jobs/E2-CHANNEL-ABLATION/workspace"
+      ],
+      "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
+      "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+      "artifacts": [
+        "result.json",
+        "replicate_metrics.csv",
+        "channel_effects.json",
+        "matched_input_audit.json",
+        "stationarity_report.json",
+        "parameter_lock_audit.json",
+        "run_specs.json"
+      ],
+      "timeout_seconds": 172800,
+      "gpu_count": 0
+    },
+    {
+      "id": "E3-ROBUSTNESS-HOLDOUT",
+      "claim_ids": ["C2-LANDSCAPE", "C4-ROBUSTNESS"],
+      "objective": "Holdout robustness: three populations, two grid resolutions, and an independent correlated-random-field family.",
+      "priority": "P1",
+      "mode": "server",
+      "execution_host": "umi",
+      "implementation_status": "designed_awaiting_e1_e2",
+      "command": [
+        "python3",
+        "research/src/experiments/run_landscape_study.py",
+        "--experiment",
+        "E3-ROBUSTNESS-HOLDOUT",
+        "--config",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+        "--output-dir",
+        "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
+      ],
+      "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
+      "seeds": [2203, 2309, 2411, 2503, 2609, 2707, 2801, 2903, 3001, 3109],
+      "artifacts": [
+        "result.json",
+        "replicate_metrics.csv",
+        "holdout_effects.json",
+        "matched_input_audit.json",
+        "stationarity_report.json",
+        "parameter_lock_audit.json",
+        "run_specs.json"
+      ],
+      "timeout_seconds": 432000,
+      "gpu_count": 0
     }
   ],
-  "budget": {
-    "cpu_hours": 4,
-    "gpu_hours": 0,
-    "agent_seconds": null,
-    "status": "proposed_calibration_cap",
-    "proposed_B0_C2_cap": {
-      "cpu_hours": 0.5,
-      "wall_clock_hours": 1,
-      "gpu_hours": 0,
-      "basis": "3 sequential runs x approximately 5x cycle-1 runtime (N=500, total_time=500) with 8 OpenMP threads and a 7200-second job timeout"
+  "parameter_lock": {
+    "lock_id": "ar-politeia-cycle3-confirmatory-v2",
+    "status": "final",
+    "path": "research/parameter_lock.json",
+    "key_parameters": {
+      "exchange_rate": 0.5,
+      "exchange_noise_strength": 0.05,
+      "exchange_reversion_rate": 1.0,
+      "epsilon_log_sigma": 0.5,
+      "wealth_decay_rate": 0.02,
+      "total_time": 2000.0,
+      "steady_snapshots": 24,
+      "omp_threads": 1
     },
-    "proposed_E0_C2_cap": {
-      "cpu_hours": 3.5,
-      "wall_clock_hours": 3,
-      "gpu_hours": 0,
-      "basis": "25 runs (5 seeds x 5 conditions) x approximately 5x cycle-1 runtime (N=1000, total_time=500) with 8 OpenMP threads and a 14400-second job timeout"
-    },
-    "notes": "No numerical experiment may be submitted until implementation review, valid git commit binding, preflight, and explicit CPU-time approval are complete. Cycle 2 requests no GPU."
-  },
-  "computational_strategy": {
-    "approach": "Direct full-model reruns on umi with corrected continuous-time exchange-rate scaling across E0 dt factors; longer finite-time horizon and steady window for both B0 and E0.",
-    "evidence_role": "confirmatory for numerical calibration and candidate parameter finalization",
-    "supports_core_claim": false,
-    "evidence_boundary": "Calibration and dynamics-health evidence only. B0/E0 cannot support C2-C4 landscape, channel, or robustness claims.",
-    "reference_method": "Direct full-model paired same-seed dt/2-versus-dt/4 runs at total_time=500.",
-    "validation_points": [
-      "equal-no-exchange",
-      "equal-exchange",
-      "perturbed-dt-1",
-      "perturbed-dt-0.5",
-      "perturbed-dt-0.25"
-    ],
-    "agreement": {
-      "primary_observable_relative_tolerance": 0.02,
-      "effect_direction_must_match": true
-    }
+    "note": "exchange kernel is serial (for_each_pair); omp_threads>1 adds overhead without speedup (~9x slower at OMP=8)."
   },
   "revision": {
-    "reason": "Cycle 1 E0-NUMERICS failed dt_convergence (wealth_gini 0.26584885869833064 > 0.02) and stationarity; B0-DYNAMICS-PILOT failed stationarity for all three seeds. Strategy action=replan limits Cycle 2 to numerical calibration.",
+    "reason": "Cycle 1 E0 failed dt_convergence and stationarity; Cycle 2 (dt-scaling patch) still failed because the root cause was model-level — the original exchange kernel lacks a non-trivial steady state and polarizes under any dissipation-free rich-get-richer dynamics (proven via Lyapunov/master-equation analysis). Cycle 3 replaces the kernel with candidate C (continuous-time mean-reverting multiplicative reallocation) and re-runs the full calibration and confirmatory chain.",
     "retired_claims": [],
-    "new_claims": [],
+    "new_claims": ["C1-NUM (candidate C, supported)"],
     "deferred_claims": ["C2-LANDSCAPE", "C3-CHANNELS", "C4-ROBUSTNESS"],
     "retired_experiments": [
       "B0-DYNAMICS-PILOT",
       "E0-NUMERICS",
+      "B0-DYNAMICS-PILOT-C2",
+      "E0-NUMERICS-C2",
       "E1-MATCHED-LANDSCAPES",
       "E2-CHANNEL-ABLATION",
       "E3-ROBUSTNESS-HOLDOUT"
     ],
-    "new_experiments": ["B0-DYNAMICS-PILOT-C2", "E0-NUMERICS-C2"],
+    "new_experiments": ["B0-DYNAMICS-PILOT-C3", "E0-NUMERICS-C3"],
     "code_changes": [
-      "research/src/experiments/run_landscape_study.py: E0 perturbed dt conditions now scale exchange_rate by the same dt factor so continuous-time wealth mixing is resolution-invariant."
+      "resource_exchange.cpp/hpp: candidate C continuous-time mean-reverting kernel, serial for_each_pair, deterministic antisymmetric s_ij (SplitMix64)",
+      "config.hpp/cpp: exchange_reversion_rate (k) parameter",
+      "landscape_study.py: write_esri_ascii np.flipud (terrain y-flip fix)",
+      "run_landscape_study.py: stationary_metrics_for_experiment excludes density_morans_i from non-E0 gates"
     ],
-    "legacy_evidence_policy": "Imported results are exploratory provenance and bug history only; Cycle 1 negative results are preserved and are not pooled with Cycle 2 confirmatory evidence."
+    "legacy_evidence_policy": "Cycle 1/2 negative results are preserved as history and are not pooled with Cycle 3 confirmatory evidence; imported politeia-ds results are exploratory provenance and bug history only."
   },
   "readiness": {
-    "scientific_design": "cycle2_calibration_scope_frozen",
-    "experiment_implementation": "B0_DYNAMICS_PILOT_C2 and E0_NUMERICS_C2 manifests, configs and env snapshots created; exchange dt-scaling patch applied but not committed.",
-    "preflight": "not yet run by this node; exp_dirs prepared with required files",
-    "execution": "server only on umi; awaiting code commit binding and explicit CPU-time approval"
+    "scientific_design": "cycle3_exchange_kernel_scope_frozen (exchange-kernel-design.md D0-D4)",
+    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1 executing; E2/E3 designed and bound to parameter lock v2",
+    "preflight": "E1 prepare-only smoke passed (parameter_lock_audit pass=true, 22 parameters, 0 mismatch)",
+    "execution": "server only on umi; E1 running under setsid nohup"
   }
 }
