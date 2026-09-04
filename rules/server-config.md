@@ -114,6 +114,19 @@ CUDA_VISIBLE_DEVICES=0,1 python train.py
 - 长任务用 `nohup` / `tmux` 避免 SSH 断开中断。
 - 磁盘：`/home` 共 51T（剩约 5T，90% 已用），大产物及时清理，勿长期堆积 plotfile。
 
+## OpenMP 线程数纪律（Cycle 3 起）
+
+- **交换核是串行实现**：Cycle 3 把交换核改为串行 `for_each_pair`（每对立即更新），以消除
+  OpenMP 累积路径下的负财富 bug（详见 `research/exchange-kernel-design.md` §4.1）。因此
+  `omp_threads`（即 `OMP_NUM_THREADS`）> 1 对交换阶段**无加速**，反而因线程池开销与高系统
+  负载下拖慢约 **9×**（实测 OMP=1 约 300 steps/s，OMP=8 约 33 steps/s，pop=2000）。
+- **纪律**：运行 `politeia` 数值实验时，`config.json` 的 `omp_threads` 默认设为 `1`，除非
+  该实验确实存在 OpenMP 并行热点（如 `mortality`/`plague` 的 `#pragma omp parallel for`，
+  仅当 `n > 256` 才启用）。E1/E2/E3 的 `config.json` 已统一设 `omp_threads=1`。
+- 判断依据：单 run 的 `run.log` 会打印各阶段耗时占比（`Phases: dynamics=… exchange=… io=…`）；
+  若 `io` 占比 > 90%，瓶颈在快照写盘而非计算，调线程数无益，应优先减少 `output_time_interval`
+  或快照体积。
+
 ## orchestrator 运行位置（强制）
 
 多 Agent DAG（`python -m autoresearcher.orchestration run orchestration/research-graph.json`）

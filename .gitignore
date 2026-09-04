@@ -23,6 +23,8 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+# macOS 双击快捷方式（含本机绝对路径，不进 git）
+*.command
 
 # Jobs / temporary
 research/jobs/*/workspace/
