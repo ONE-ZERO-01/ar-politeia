@@ -3,8 +3,12 @@
   "type": "command",
   "mode": "server",
   "priority": "P0",
-  "claim_ids": ["C3-CHANNELS"],
-  "depends_on": ["E0-NUMERICS-C3"],
+  "claim_ids": [
+    "C3-CHANNELS"
+  ],
+  "depends_on": [
+    "E0-NUMERICS-C3"
+  ],
   "objective": "Estimate movement, production and interaction effects in the preregistered 2x2 channel design using E0-frozen SESOI values and Holm correction.",
   "command": [
     "python3",
@@ -18,9 +22,30 @@
   ],
   "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
   "config_sha256": "4e6b82ec2f8ffeff651425441a75403f0d12e95591a4af865692d65075ca1b51",
-  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
+  "commit_id": "43454568a7f56d1de3644d865d6b4e8d7ce558a6",
   "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
-  "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+  "seeds": [
+    101,
+    211,
+    307,
+    401,
+    503,
+    601,
+    701,
+    809,
+    907,
+    1009,
+    1103,
+    1201,
+    1301,
+    1409,
+    1511,
+    1601,
+    1709,
+    1801,
+    1901,
+    2003
+  ],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",

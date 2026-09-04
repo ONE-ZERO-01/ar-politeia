@@ -3,8 +3,12 @@
   "type": "command",
   "mode": "server",
   "priority": "P0",
-  "claim_ids": ["C2-LANDSCAPE"],
-  "depends_on": ["E0-NUMERICS-C3"],
+  "claim_ids": [
+    "C2-LANDSCAPE"
+  ],
+  "depends_on": [
+    "E0-NUMERICS-C3"
+  ],
   "objective": "Estimate paired clustered-minus-shuffled landscape effects after E0 calibration, exact input matching, stationarity checks, Holm correction and frozen-SESOI evaluation.",
   "command": [
     "python3",
@@ -18,9 +22,30 @@
   ],
   "config": "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
   "config_sha256": "c0e97392ff5a4fe0410795c256d98b09556a9c4b6e619c44e14cf6e3339a6be5",
-  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
+  "commit_id": "43454568a7f56d1de3644d865d6b4e8d7ce558a6",
   "env_snapshot": "research/jobs/E1-MATCHED-LANDSCAPES/env.txt",
-  "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009, 1103, 1201, 1301, 1409, 1511, 1601, 1709, 1801, 1901, 2003],
+  "seeds": [
+    101,
+    211,
+    307,
+    401,
+    503,
+    601,
+    701,
+    809,
+    907,
+    1009,
+    1103,
+    1201,
+    1301,
+    1409,
+    1511,
+    1601,
+    1709,
+    1801,
+    1901,
+    2003
+  ],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",

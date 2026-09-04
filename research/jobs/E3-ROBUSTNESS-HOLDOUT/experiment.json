@@ -3,8 +3,14 @@
   "type": "command",
   "mode": "server",
   "priority": "P1",
-  "claim_ids": ["C2-LANDSCAPE", "C4-ROBUSTNESS"],
-  "depends_on": ["E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"],
+  "claim_ids": [
+    "C2-LANDSCAPE",
+    "C4-ROBUSTNESS"
+  ],
+  "depends_on": [
+    "E1-MATCHED-LANDSCAPES",
+    "E2-CHANNEL-ABLATION"
+  ],
   "objective": "Test the locked clustered-minus-shuffled effect across three populations, two grid resolutions and an independent correlated-random-field holdout family without treating repeated scales as independent seeds.",
   "command": [
     "python3",
@@ -18,9 +24,20 @@
   ],
   "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
   "config_sha256": "a75aa8c3b260cc45635305e48533eae924638bb3cb71c9dcd1fa33248e7669f8",
-  "commit_id": "029820d0161941b88cbf73580f0ccc557608a392",
+  "commit_id": "43454568a7f56d1de3644d865d6b4e8d7ce558a6",
   "env_snapshot": "research/jobs/E3-ROBUSTNESS-HOLDOUT/env.txt",
-  "seeds": [2203, 2309, 2411, 2503, 2609, 2707, 2801, 2903, 3001, 3109],
+  "seeds": [
+    2203,
+    2309,
+    2411,
+    2503,
+    2609,
+    2707,
+    2801,
+    2903,
+    3001,
+    3109
+  ],
   "data_checksums": {
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution",
