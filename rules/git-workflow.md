@@ -6,7 +6,7 @@
 
 | 远程名 | 地址 | 角色 | 频率 |
 |---|---|---|---|
-| `github` | `https://github.com/ONE-ZERO-01/ar-politeia.git` | **异地容灾 + 未来公开/协作**（当前私有） | 里程碑 |
+| `github` | `https://github.com/ONE-ZERO-01/ar-politeia.git` | **异地容灾 + open science 公开**（2026-09-04 起设为 public） | 里程碑 |
 | `umi` | `umi-wanwb:/home/wanwb/ONE/ar-politeia` | **日常自持远程**（内网，速度快、隐私自持） | 每次 commit |
 
 - 二者**不可互相替代**：`umi` 是内网单点、依赖跳板 `thu_wwb`，抗不住机房级故障，不是容灾；`github` 提供真异地备份。
