@@ -169,13 +169,22 @@ def audit_parameter_lock(
 def resource_to_elevation(resource: Array) -> Array:
     """Convert resource intensity to elevation used by the C++ potential loader.
 
-    The simulator defines grid potential as ``-(h_max - elevation)``.  With
-    ``elevation = resource_max - resource``, ``-potential`` therefore equals
-    ``resource - resource_min``.  Cycle 1 fields are generated with min zero.
+    Cycle 3 encodes elevation as ``-resource`` (the absolute negative of the
+    resource field). The C++ loader defines grid potential as
+    ``scale * elevation``, so ``-potential == scale * resource``: production is
+    proportional to the *absolute* resource abundance with a true zero baseline.
+
+    This replaces the Cycle-1/2 encoding ``elevation = resource_max - resource``
+    (potential ``-(h_max - elevation)`` == ``resource - resource_min``), which
+    collapsed to zero on a constant (flat) field — there ``resource_min ==
+    resource_max``, so production became zero and ``wealth_decay_rate`` drained
+    E1's flat control to zero wealth (Gini → 1). The force channel is unchanged:
+    both encodings have the same gradient (``-grad(resource)``).
     """
     resource = np.asarray(resource, dtype=np.float64)
-    shifted = resource - float(np.min(resource))
-    return float(np.max(shifted)) - shifted
+    elevation = -resource
+    elevation[elevation == 0.0] = 0.0  # normalize -0.0 so ASCII never prints "-0"
+    return elevation
 
 
 def write_esri_ascii(

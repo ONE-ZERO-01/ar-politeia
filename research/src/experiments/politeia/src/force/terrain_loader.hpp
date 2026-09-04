@@ -102,8 +102,10 @@ private:
 );
 
 /// 计算粒子处的地形势能（用于资源产出）。
-/// 负值表示好的位置（河谷），0 表示高地。
-/// @return V(x,y) = -scale * (h_max - h(x,y))，河谷处为负（最肥沃）
+/// 负值表示好的位置（高资源），0 表示无资源。
+/// @return V(x,y) = scale * h(x,y) = -scale * resource(x,y)，其中 elevation
+///         编码为 -resource（Cycle 3）；production 用 -V = scale * resource
+///         （绝对丰度，真实零基准）。
 [[nodiscard]] Real grid_terrain_potential(
     Real x, Real y,
     const TerrainGrid& grid,

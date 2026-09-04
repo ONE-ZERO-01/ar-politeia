@@ -401,8 +401,14 @@ Real grid_terrain_potential(
     Real scale
 ) {
     if (!grid.loaded()) return 0.0;
-    // 河谷（低高程）返回负值（肥沃），高地返回接近 0
-    return -scale * (grid.h_max() - grid.elevation(x, y));
+    // Cycle 3: elevation encodes -resource, so potential = scale * elevation
+    // = -scale * resource. Production uses -potential = scale * resource, i.e.
+    // the *absolute* resource abundance with a true zero baseline. The old form
+    // -scale * (h_max - elevation) == -scale * (resource - resource_min)
+    // collapsed to zero on a constant (flat) resource field (resource_min ==
+    // resource_max), so wealth_decay drained E1's flat control to zero wealth.
+    // 负值表示好的位置（高资源），0 表示无资源。
+    return scale * grid.elevation(x, y);
 }
 
 } // namespace politeia

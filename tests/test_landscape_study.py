@@ -54,8 +54,10 @@ def test_correlated_random_holdout_is_deterministic_and_matched():
 def test_resource_to_elevation_reconstructs_resource_contrast():
     resource = np.array([[0.0, 1.0], [2.0, 4.0]])
     elevation = landscape_study.resource_to_elevation(resource)
-    reconstructed = elevation.max() - elevation
+    # Cycle 3: elevation = -resource, so the absolute abundance is -elevation.
+    reconstructed = -elevation
     assert np.array_equal(reconstructed, resource)
+    assert np.array_equal(elevation, np.array([[0.0, -1.0], [-2.0, -4.0]]))
 
 
 def test_parameter_lock_audit_detects_missing_and_changed_values():
@@ -86,10 +88,11 @@ def test_write_esri_ascii_and_initial_conditions(tmp_path):
     assert len(grid_digest) == 64
 
     # ESRI ASCII 第一数据行是最北（最大 y），而 resource 第 0 行是最南。
-    # elevation = max - resource = [[4, 3], [2, 0]]，所以翻转后第一数据行
-    # 应为 [2, 0]（resource 最北行）。这保证 C++ load_ascii 不会在 y 方向镜像。
-    assert lines[6].split() == ["2", "0"]
-    assert lines[7].split() == ["4", "3"]
+    # elevation = -resource = [[0, -1], [-2, -4]]，所以翻转后第一数据行
+    # 应为 [-2, -4]（resource 最北行 [2, 4] 的负值）。这保证 C++ load_ascii
+    # 不会在 y 方向镜像，且绝对丰度（-elevation == resource）被保留。
+    assert lines[6].split() == ["-2", "-4"]
+    assert lines[7].split() == ["0", "-1"]
 
     ic_path = tmp_path / "initial.csv"
     ic_digest = landscape_study.write_initial_conditions(
