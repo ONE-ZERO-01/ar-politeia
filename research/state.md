@@ -28,9 +28,17 @@ cycle-output / plan / state 已同步 C2→supported。
 **D4 前需手动对齐的 Gate（不阻塞 E2/E3 决策）**：
 
 1. **jobctl reconcile 陈旧**：`.autoresearcher/jobs/E1-MATCHED-LANDSCAPES/handle.json`
-   指向已死 pid、config_sha256 旧值、worker result.json 仍是 exit_code=1。
-   E1 通过 nohup 手动运行（非 jobctl submit），reconcile 需刷新 handle 或归档重建。
-2. **audit 缺 manifest.json**：`audit.py` 读 `research/jobs/*/manifest.json`
-   （字段 exit_code/mode/artifacts[{path,sha256,size}]），当前无任何 manifest.json；
-   jobctl 写的是 result.json（artifacts 用 {path,valid}），结构不同，投稿前需转换/生成脚本。
+  指向已死 pid、config_sha256 旧值、worker result.json 仍是 exit_code=1。
+  E1 通过 nohup 手动运行（非 jobctl submit），reconcile 需刷新 handle 或归档重建。
+2. **audit 缺 manifest.json** — ✅ 已解决（`42a6d50`）：新增 foundation 工具
+   `gen_manifest.py`，从 result.json（status=completed && pass=true）生成
+   manifest.json（exit_code=0/mode=server/artifacts[{path,sha256,size}]）。
+   已为 E0-C3/B0-C3/E1 生成，退休 C1/C2 job（pass=false）与未运行 job（blocked）
+   自动跳过（走 claim evidence 路径）。本地 audit 确认 manifest 检查通过，仅剩
+   `claims file is missing`（D4 写 paper claims.json 时补齐）。
 3. **timeline 再生成**：已纳入 C2 supported。
+
+**E2-CHANNEL-ABLATION 运行中**（`1608ab9` 锁 v3 后启动）：160 runs，progress 见
+`research/jobs/E2-CHANNEL-ABLATION/workspace/`（completion.json 计数），预计 ~27h。
+完成后走 `channel_effects.json` 做 C3 通道机制判定（movement/production 主效应 +
+interaction 的 Holm 校正）。
