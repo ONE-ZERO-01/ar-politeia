@@ -9,8 +9,8 @@
       "E0-NUMERICS-C3": "completed: pass=true, numerical_calibration.json pass with all four deterministic checks (conservation, non-negativity, dt-convergence, equal-state absorption)",
       "B0-DYNAMICS-PILOT-C3": "completed: pass=true, pilot_health.json pass (non-negativity, fixed population, finite metrics, wealth/resource stationarity)",
       "E1-MATCHED-LANDSCAPES": "completed: pass=true, claim_supported=true (clustered-minus-shuffled paired effect 4 metrics Holm-significant above frozen SESOI)",
-      "E2-CHANNEL-ABLATION": "not yet executed (awaiting E2/E3 CPU budget decision after E1)",
-      "E3-ROBUSTNESS-HOLDOUT": "not yet executed (awaiting E1/E2)"
+      "E2-CHANNEL-ABLATION": "executing (160 runs under parameter lock v3; started 2026-09-06 after pair_decay fix)",
+      "E3-ROBUSTNESS-HOLDOUT": "not yet executed (awaiting E2 evidence decision)"
     }
   },
   "findings": [
@@ -50,8 +50,8 @@
       "claim_id": "C3-CHANNELS",
       "verdict": "inconclusive",
       "claim_text": "景观效应可通过移动通道×生产通道的 2×2 因子消融分解为可量化的主效应和交互效应。",
-      "interpretation": "E2-CHANNEL-ABLATION has not been executed; it is gated on the E1 evidence decision. No channel effect estimate exists.",
-      "blocked_reason": "awaiting E1 evidence decision.",
+      "interpretation": "E2-CHANNEL-ABLATION is executing (160 runs, movement x production 2x2 ablation under parameter lock v3 with the production-decay pairing policy). No channel effect estimate exists until it completes.",
+      "blocked_reason": "E2 executing (160 runs).",
       "evidence": [
         "research/jobs/E2-CHANNEL-ABLATION/result.json",
         "research/parameter_lock.json"
@@ -61,8 +61,8 @@
       "claim_id": "C4-ROBUSTNESS",
       "verdict": "inconclusive",
       "claim_text": "核心效应在预注册的人口规模、网格分辨率和未用于参数选择的景观家族上保持方向一致。",
-      "interpretation": "E3-ROBUSTNESS-HOLDOUT has not been executed; it is gated on E1/E2. No scale or held-out-landscape evidence exists.",
-      "blocked_reason": "awaiting E1/E2 evidence.",
+      "interpretation": "E3-ROBUSTNESS-HOLDOUT has not been executed; it is gated on the E2 evidence decision. No scale or held-out-landscape evidence exists.",
+      "blocked_reason": "awaiting E2 evidence decision.",
       "evidence": [
         "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
         "research/parameter_lock.json"

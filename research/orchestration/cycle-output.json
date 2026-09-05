@@ -54,11 +54,11 @@
     "research/parameter_lock.json"
   ],
   "unresolved_risks": [
-    "C2-LANDSCAPE is supported by E1 (clustered-minus-shuffled paired effect 4 metrics Holm-significant); C3-CHANNELS and C4-ROBUSTNESS remain inconclusive until E2/E3 execute.",
-    "E2-CHANNEL-ABLATION and E3-ROBUSTNESS-HOLDOUT have not been executed; awaiting a CPU budget decision after E1's positive result.",
+    "C2-LANDSCAPE is supported by E1 (clustered-minus-shuffled paired effect 4 metrics Holm-significant); C3-CHANNELS and C4-ROBUSTNESS remain inconclusive until E2/E3 complete.",
+    "E2-CHANNEL-ABLATION is executing (160 runs, lock v3); E3-ROBUSTNESS-HOLDOUT awaits the E2 evidence decision.",
     "density_morans_i is a slow terrain-aggregation mode (>>2000 time units) and is excluded from steady-window gates but retained as a confirmatory effect in E1; its slow relaxation must be reported transparently in the paper.",
     "clustered-no-exchange diagnostic control failed stationarity (3 true drift failures + 17 ESS slow-mixing); this is positive evidence for the exchange kernel as necessary for fast convergence, but the mechanism attribution requires E2's channel ablation.",
     "The exchange kernel is IO-bound (98% of runtime in snapshot writes); E2 (160 runs) and E3 (240 runs, populations up to 10000) may exceed the initial ~168h CPU estimate."
   ],
-  "recommended_next_action": "C2-LANDSCAPE is supported. Decide E2/E3 CPU budget: run E2-CHANNEL-ABLATION (mechanism) then E3-ROBUSTNESS-HOLDOUT (scale/holdout) to resolve C3/C4, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
+  "recommended_next_action": "Await E2-CHANNEL-ABLATION completion (~12-27h), then evaluate C3 channel attribution (movement/production main effects + interaction under Holm correction). If supported, decide the E3-ROBUSTNESS-HOLDOUT budget to resolve C4, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
 }

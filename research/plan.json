@@ -51,8 +51,8 @@
       "falsification": "因子对比的区间估计无法排除数值噪声，或结果仅能识别组合效应而无法归因于任一单通道。",
       "experiments": ["E2-CHANNEL-ABLATION"],
       "priority": "P0",
-      "status": "deferred",
-      "blocked_by": "E1 evidence decision."
+      "status": "executing",
+      "blocked_by": null
     },
     {
       "id": "C4-ROBUSTNESS",
@@ -62,7 +62,7 @@
       "experiments": ["E3-ROBUSTNESS-HOLDOUT"],
       "priority": "P1",
       "status": "deferred",
-      "blocked_by": "E1/E2 confirmatory effects must be estimable."
+      "blocked_by": "E2 evidence decision."
     }
   ],
   "analysis_policy": {
@@ -187,7 +187,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "designed_awaiting_e1",
+      "implementation_status": "executing",
       "command": [
         "python3",
         "research/src/experiments/run_landscape_study.py",
@@ -246,7 +246,7 @@
     }
   ],
   "parameter_lock": {
-    "lock_id": "ar-politeia-cycle3-confirmatory-v2",
+    "lock_id": "ar-politeia-cycle3-confirmatory-v3",
     "status": "final",
     "path": "research/parameter_lock.json",
     "key_parameters": {
@@ -287,8 +287,8 @@
   },
   "readiness": {
     "scientific_design": "cycle3_exchange_kernel_scope_frozen (exchange-kernel-design.md D0-D4)",
-    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1-MATCHED-LANDSCAPES executed and passed (C2 supported); E2/E3 designed and bound to parameter lock v2, awaiting CPU budget decision",
-    "preflight": "E1 prepare-only smoke passed (parameter_lock_audit pass=true, 22 parameters, 0 mismatch)",
-    "execution": "server only on umi; E1 completed 80/80 under setsid nohup"
+    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1-MATCHED-LANDSCAPES executed and passed (C2 supported); E2-CHANNEL-ABLATION executing under parameter lock v3 (160 runs); E3-ROBUSTNESS-HOLDOUT designed and bound to lock v3, awaiting E2 evidence decision",
+    "preflight": "E2 prepare-only smoke passed (parameter_lock_audit pass=true, 22 parameters, 0 mismatch, decay pairing verified); E1 preflight also passed",
+    "execution": "server only on umi; E1 completed 80/80 and E2 running under setsid nohup"
   }
 }
