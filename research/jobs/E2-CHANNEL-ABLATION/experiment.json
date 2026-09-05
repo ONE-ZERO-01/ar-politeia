@@ -22,7 +22,7 @@
   ],
   "config": "research/jobs/E2-CHANNEL-ABLATION/config.json",
   "config_sha256": "705f26453063bb57dac7954cad1c57945efe6746a2c3e55a9bd9fea12817ee59",
-  "commit_id": "906e57550cb454f6d48dbae98edde748ae4b65f8",
+  "commit_id": "1608ab9df8a85cbaf7a1f1a98a55216b52539162",
   "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION/env.txt",
   "seeds": [
     101,
