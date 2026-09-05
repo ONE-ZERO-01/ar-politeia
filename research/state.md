@@ -27,9 +27,10 @@ cycle-output / plan / state 已同步 C2→supported。
 
 **D4 前需手动对齐的 Gate（不阻塞 E2/E3 决策）**：
 
-1. **jobctl reconcile 陈旧**：`.autoresearcher/jobs/E1-MATCHED-LANDSCAPES/handle.json`
-  指向已死 pid、config_sha256 旧值、worker result.json 仍是 exit_code=1。
-  E1 通过 nohup 手动运行（非 jobctl submit），reconcile 需刷新 handle 或归档重建。
+1. **jobctl reconcile 陈旧** — ✅ 已解决：服务器 `.autoresearcher/jobs/` 下
+   7 个 Cycle 1/2 过时 jobctl 运行态记录（死 pid、旧 commit `029820d`、worker
+   exit_code=1）已清理。Cycle 3 实验全走 nohup 手动运行（非 jobctl submit），
+   不依赖 jobctl handle；清理后 `jobctl reconcile` 返回 `no_handle`，语义正确。
 2. **audit 缺 manifest.json** — ✅ 已解决（`42a6d50`）：新增 foundation 工具
    `gen_manifest.py`，从 result.json（status=completed && pass=true）生成
    manifest.json（exit_code=0/mode=server/artifacts[{path,sha256,size}]）。
