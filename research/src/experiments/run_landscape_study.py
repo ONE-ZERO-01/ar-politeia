@@ -1591,6 +1591,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=int(config.get("per_run_timeout_seconds", 3600)),
             omp_threads=int(config.get("omp_threads", 8)),
         )
+    else:
+        # --analyze-only 重分析：从已有的 summary result 保留上次执行统计
+        # （executed / reused / elapsed），避免重分析时丢失 execute provenance。
+        prior_summary = config.get("summary_result")
+        if prior_summary:
+            prior_path = project_path(str(prior_summary))
+            if prior_path.is_file():
+                prior = load_json(prior_path)
+                execution_summary["executed"] = int(
+                    prior.get("runs_executed_this_invocation", 0)
+                )
+                execution_summary["skipped_completed"] = int(
+                    prior.get("runs_reused_from_completion_markers", 0)
+                )
+                execution_summary["elapsed_seconds_executed"] = float(
+                    prior.get("elapsed_seconds_executed_this_invocation", 0.0)
+                )
 
     rows = analyze_runs(args.experiment, config, output_dir, run_specs)
     job_pass = True
