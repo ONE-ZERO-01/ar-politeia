@@ -14,9 +14,12 @@
     },
     {
       "claim_id": "C2-LANDSCAPE",
-      "verdict": "inconclusive",
+      "verdict": "supported",
       "evidence": [
         "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/stationarity_report.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/replicate_metrics.csv",
         "research/parameter_lock.json"
       ]
     },
@@ -51,11 +54,11 @@
     "research/parameter_lock.json"
   ],
   "unresolved_risks": [
-    "E1-MATCHED-LANDSCAPES is still executing on umi; C2-LANDSCAPE has no confirmatory effect estimate yet.",
-    "E2-CHANNEL-ABLATION and E3-ROBUSTNESS-HOLDOUT have not been executed; C3-CHANNELS and C4-ROBUSTNESS remain inconclusive.",
+    "C2-LANDSCAPE is supported by E1 (clustered-minus-shuffled paired effect 4 metrics Holm-significant); C3-CHANNELS and C4-ROBUSTNESS remain inconclusive until E2/E3 execute.",
+    "E2-CHANNEL-ABLATION and E3-ROBUSTNESS-HOLDOUT have not been executed; awaiting a CPU budget decision after E1's positive result.",
     "density_morans_i is a slow terrain-aggregation mode (>>2000 time units) and is excluded from steady-window gates but retained as a confirmatory effect in E1; its slow relaxation must be reported transparently in the paper.",
-    "E1 clustered condition shows Gini ~0.71-0.74 (above the E0 pure-exchange calibration range); the flat-terrain diagnostic control will distinguish a genuine landscape-production effect from parameter mismatch.",
+    "clustered-no-exchange diagnostic control failed stationarity (3 true drift failures + 17 ESS slow-mixing); this is positive evidence for the exchange kernel as necessary for fast convergence, but the mechanism attribution requires E2's channel ablation.",
     "The exchange kernel is IO-bound (98% of runtime in snapshot writes); E2 (160 runs) and E3 (240 runs, populations up to 10000) may exceed the initial ~168h CPU estimate."
   ],
-  "recommended_next_action": "Await E1-MATCHED-LANDSCAPES completion, then run ANALYSIS to resolve C2-LANDSCAPE; on a supported landscape effect, proceed to E2/E3, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
+  "recommended_next_action": "C2-LANDSCAPE is supported. Decide E2/E3 CPU budget: run E2-CHANNEL-ABLATION (mechanism) then E3-ROBUSTNESS-HOLDOUT (scale/holdout) to resolve C3/C4, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
 }

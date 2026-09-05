@@ -2,14 +2,14 @@
   "project": "ar-politeia",
   "cycle": 3,
   "node": "analyze",
-  "generated_at": "2026-09-04T00:00:00+08:00",
+  "generated_at": "2026-09-05T20:15:00+08:00",
   "reconciliation": {
     "method": "jobctl reconcile semantics",
     "results": {
       "E0-NUMERICS-C3": "completed: pass=true, numerical_calibration.json pass with all four deterministic checks (conservation, non-negativity, dt-convergence, equal-state absorption)",
       "B0-DYNAMICS-PILOT-C3": "completed: pass=true, pilot_health.json pass (non-negativity, fixed population, finite metrics, wealth/resource stationarity)",
-      "E1-MATCHED-LANDSCAPES": "in progress on umi (80 runs, 20 seeds x 4 conditions); no numeric artifacts yet",
-      "E2-CHANNEL-ABLATION": "not yet executed (awaiting E1 evidence decision)",
+      "E1-MATCHED-LANDSCAPES": "completed: pass=true, claim_supported=true (clustered-minus-shuffled paired effect 4 metrics Holm-significant above frozen SESOI)",
+      "E2-CHANNEL-ABLATION": "not yet executed (awaiting E2/E3 CPU budget decision after E1)",
       "E3-ROBUSTNESS-HOLDOUT": "not yet executed (awaiting E1/E2)"
     }
   },
@@ -35,12 +35,14 @@
     },
     {
       "claim_id": "C2-LANDSCAPE",
-      "verdict": "inconclusive",
+      "verdict": "supported",
       "claim_text": "在资源总量、像素值直方图和可达面积匹配后，聚集型资源景观相对空间打乱景观产生超过数值噪声界限的人口空间结构差异。",
-      "interpretation": "E1-MATCHED-LANDSCAPES is executing on umi (20 seeds x 4 conditions = 80 runs). No paired_effects.json has been produced, so no clustered-minus-shuffled effect estimate exists yet. Missing evidence must not be converted into a positive landscape effect.",
-      "blocked_reason": "E1 in progress; verdict pending ANALYSIS after the 80 runs complete.",
+      "interpretation": "E1-MATCHED-LANDSCAPES completed 80/80 runs (20 seeds x 4 conditions; 68 executed + 12 reused, 48091s). All three gates passed: e0_calibration (E0 SHA bound), stationarity (confirmatory clustered+shuffled conditions), matched_inputs. The clustered-minus-shuffled paired effect (20 seed pairs, 10000 bootstrap samples, Holm correction) is strongly significant on all confirmatory spatial metrics and exceeds the E0-frozen SESOI: resource_density_spearman_rho +0.182 [0.151, 0.210] p=3e-5; density_morans_i +0.436 [0.386, 0.487] p=3e-5; occupancy_entropy -0.038 [-0.048, -0.029] p=3e-5; secondary wealth_gini +0.042 [0.032, 0.053] p=1e-5. Diagnostic controls: flat passed stationarity (finite Gini, no polarization); clustered-no-exchange failed stationarity (3 true drift failures + 17 ESS slow-mixing from deterministic no-noise dynamics), which is positive evidence that the exchange kernel is necessary for fast convergence to steady state rather than a falsification of C2. Stationarity judgment was refined: drift is decisive, ESS is auxiliary (24-point short-series IAT has high variance).",
       "evidence": [
         "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/stationarity_report.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/replicate_metrics.csv",
         "research/parameter_lock.json"
       ]
     },

@@ -41,8 +41,8 @@
       "falsification": "配对种子的资源—密度 Spearman rho、密度 Moran's I 和占据熵效应全部落入由 E0 预注册的等效区间，或效应方向在保留景观上反转。",
       "experiments": ["E1-MATCHED-LANDSCAPES", "E3-ROBUSTNESS-HOLDOUT"],
       "priority": "P0",
-      "status": "in_progress",
-      "note": "E1-MATCHED-LANDSCAPES executing on umi (80 runs, 20 seeds x 4 conditions); verdict pending ANALYSIS."
+      "status": "supported",
+      "evidence": "E1-MATCHED-LANDSCAPES pass=true, claim_supported=true: clustered-minus-shuffled paired effect (20 pairs, bootstrap, Holm) significant on all confirmatory metrics — resource_density_spearman_rho +0.182 p=3e-5, density_morans_i +0.436 p=3e-5, occupancy_entropy -0.038 p=3e-5, secondary wealth_gini +0.042 p=1e-5; all exceed E0-frozen SESOI. Confirmatory conditions (clustered+shuffled) stationary."
     },
     {
       "id": "C3-CHANNELS",
@@ -155,7 +155,7 @@
       "priority": "P0",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "executing",
+      "implementation_status": "executed_passed",
       "command": [
         "python3",
         "research/src/experiments/run_landscape_study.py",
@@ -265,7 +265,7 @@
     "reason": "Cycle 1 E0 failed dt_convergence and stationarity; Cycle 2 (dt-scaling patch) still failed because the root cause was model-level — the original exchange kernel lacks a non-trivial steady state and polarizes under any dissipation-free rich-get-richer dynamics (proven via Lyapunov/master-equation analysis). Cycle 3 replaces the kernel with candidate C (continuous-time mean-reverting multiplicative reallocation) and re-runs the full calibration and confirmatory chain.",
     "retired_claims": [],
     "new_claims": ["C1-NUM (candidate C, supported)"],
-    "deferred_claims": ["C2-LANDSCAPE", "C3-CHANNELS", "C4-ROBUSTNESS"],
+    "deferred_claims": ["C3-CHANNELS", "C4-ROBUSTNESS"],
     "retired_experiments": [
       "B0-DYNAMICS-PILOT",
       "E0-NUMERICS",
@@ -287,8 +287,8 @@
   },
   "readiness": {
     "scientific_design": "cycle3_exchange_kernel_scope_frozen (exchange-kernel-design.md D0-D4)",
-    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1 executing; E2/E3 designed and bound to parameter lock v2",
+    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1-MATCHED-LANDSCAPES executed and passed (C2 supported); E2/E3 designed and bound to parameter lock v2, awaiting CPU budget decision",
     "preflight": "E1 prepare-only smoke passed (parameter_lock_audit pass=true, 22 parameters, 0 mismatch)",
-    "execution": "server only on umi; E1 running under setsid nohup"
+    "execution": "server only on umi; E1 completed 80/80 under setsid nohup"
   }
 }
