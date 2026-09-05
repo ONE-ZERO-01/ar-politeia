@@ -1,68 +1,22 @@
 {
   "experiment": "E1-MATCHED-LANDSCAPES",
-  "status": "blocked",
-  "pass": false,
-  "execution_host": "umi",
-  "submitted_via": "jobctl",
-  "jobctl_exit_code": 1,
-  "jobctl_reconcile": "failed",
-  "reason": "Confirmatory E1 execution was not authorized. The parameter lock is not final and the E0 numerical calibration dependency did not pass, so the committed runner aborted before preparing or executing any E1 run.",
-  "gates": {
-    "parameter_lock_final": false,
-    "parameter_lock_status": "candidate_pending_non_evidentiary_runtime_pilot_and_e0",
-    "e0_calibration_pass": false
-  },
-  "parameter_lock": {
-    "path": "research/parameter_lock.json",
-    "sha256": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352",
-    "confirmatory_execution_authorized": false
-  },
-  "e0_dependency": {
-    "result": "research/jobs/E0-NUMERICS/result.json",
-    "status": "completed",
-    "pass": false,
-    "runs_completed": 25,
-    "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
-    "calibration_checks": {
-      "wealth_conservation": true,
-      "wealth_nonnegative": true,
-      "dt_convergence": false,
-      "equal_state_is_absorbing": true,
-      "stationarity": false
-    }
-  },
-  "declared_command": [
-    "python3",
-    "research/src/experiments/run_landscape_study.py",
-    "--experiment",
-    "E1-MATCHED-LANDSCAPES",
-    "--config",
-    "research/jobs/E1-MATCHED-LANDSCAPES/config.json",
-    "--output-dir",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace"
-  ],
-  "declared_artifacts": [
-    "result.json",
-    "replicate_metrics.csv",
-    "paired_effects.json",
-    "matched_input_audit.json",
-    "stationarity_report.json",
-    "parameter_lock_audit.json",
-    "run_specs.json"
-  ],
-  "artifact_status": {
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/run_specs.json": "exists",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/matched_input_audit.json": "exists",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/parameter_lock_audit.json": "exists",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/replicate_metrics.csv": "missing",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/paired_effects.json": "missing",
-    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/stationarity_report.json": "missing"
-  },
-  "metrics": null,
-  "raw_metrics": null,
-  "deviation": "No E1 numerical runs were executed. This is a hard-blocked/inconclusive outcome caused by upstream dependency failure and the non-final candidate parameter lock, not a scientific null result.",
-  "jobctl_log": {
-    "stderr": "ERROR: E1-MATCHED-LANDSCAPES execution requires a final parameter lock; current status is 'candidate_pending_non_evidentiary_runtime_pilot_and_e0'",
-    "handle": ".autoresearcher/jobs/E1-MATCHED-LANDSCAPES/handle.json"
-  }
+  "status": "completed",
+  "pass": true,
+  "runs_completed": 80,
+  "runs_executed_this_invocation": 68,
+  "runs_reused_from_completion_markers": 12,
+  "elapsed_seconds_executed_this_invocation": 48091.918087659404,
+  "config_sha256": "9c54421eac368ec4e5d03721e72ffc943ef0b0f3e5813c80e7ba0847f65a0347",
+  "omp_threads": 1,
+  "parameter_lock_sha256": "b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269",
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim.",
+  "artifacts": [
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/matched_input_audit.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/paired_effects.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/parameter_lock_audit.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/replicate_metrics.csv",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/result.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/run_specs.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/workspace/stationarity_report.json"
+  ]
 }

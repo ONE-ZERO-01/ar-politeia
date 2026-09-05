@@ -1,0 +1,85 @@
+{
+  "experiment": "E1-MATCHED-LANDSCAPES",
+  "comparison": "clustered-minus-shuffled",
+  "analysis_gate_pass": true,
+  "claim_supported": true,
+  "gates": {
+    "e0_calibration": true,
+    "stationarity": true,
+    "matched_inputs": true
+  },
+  "diagnostic_controls": {
+    "flat_stationarity_pass": true,
+    "clustered_no_exchange_stationarity_pass": false,
+    "note": "flat 与 clustered-no-exchange 是诊断对照，不进入 clustered−shuffled 配对计算，其稳态独立报告、不阻塞主效应判定。clustered-no-exchange 20/20 稳态失败源于无交换的确定性慢混合（高自相关 ESS<4 + 地形聚集慢模态），作为「交换核为稳态必要条件」的证据记录，真正的通道消融机制判定由 E2 承担。"
+  },
+  "confirmatory_spatial_family": {
+    "resource_density_spearman_rho": {
+      "mean_difference": 0.18223638872647463,
+      "ci95_low": 0.15117420910390442,
+      "ci95_high": 0.210028216211211,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 20,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 1e-06,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true
+    },
+    "density_morans_i": {
+      "mean_difference": 0.4357077362513134,
+      "ci95_low": 0.3860867373457276,
+      "ci95_high": 0.48693306292759175,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 20,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 0.03338034481074013,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true
+    },
+    "occupancy_entropy": {
+      "mean_difference": -0.0375076074852558,
+      "ci95_low": -0.04776121046543532,
+      "ci95_high": -0.029147739787279938,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 20,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 0.0028933416915300695,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true
+    }
+  },
+  "secondary_wealth_family": {
+    "wealth_gini": {
+      "mean_difference": 0.04155398981439732,
+      "ci95_low": 0.03226153737277005,
+      "ci95_high": 0.05280202810004793,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 20,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 9.99990000099999e-06,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 1,
+      "sesoi": 0.010452748761423221,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true
+    }
+  },
+  "multiplicity": "Holm family-wise correction"
+}
