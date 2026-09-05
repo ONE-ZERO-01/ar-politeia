@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/E0-NUMERICS-C3/result.json",
+      "sha256": "5401846541e04dee9e9a069f83f0e4dd98fa5b543b92787571ddc9e0d8cc1992",
+      "size": 1187
+    },
+    {
+      "path": "jobs/E0-NUMERICS-C3/numerical_calibration.json",
+      "sha256": "cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
+      "size": 2928
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/B0-DYNAMICS-PILOT-C3/result.json",
+      "sha256": "ac5c0ae32235727b2311d27134a5d930a8124e369d24f5a33fd62912879a6c9b",
+      "size": 1110
+    },
+    {
+      "path": "jobs/B0-DYNAMICS-PILOT-C3/pilot_health.json",
+      "sha256": "8b00d75f9c71227d98e97b422e139e4373b9fc112c41ff05eba73d3c30657971",
+      "size": 536
+    }
+  ]
+}

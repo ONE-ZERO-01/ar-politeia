@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/E1-MATCHED-LANDSCAPES/result.json",
+      "sha256": "05c86424a20ed9783f4765ed4d96deeb73c8f4f0a7fb9888d3ee35440c4939aa",
+      "size": 1088
+    },
+    {
+      "path": "jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
+      "sha256": "fccd9d85243ad052c0f5dd42fe42d33e247fb0f75abb6a599cb9969e1ed3e125",
+      "size": 3066
+    }
+  ]
+}
