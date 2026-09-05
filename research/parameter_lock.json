@@ -1,12 +1,13 @@
 {
-  "lock_id": "ar-politeia-cycle3-confirmatory-v2",
+  "lock_id": "ar-politeia-cycle3-confirmatory-v3",
   "status": "final",
   "confirmatory_execution_authorized": true,
   "locked_before_confirmatory_outcomes": true,
-  "source_commit": "9e41ee03d52d36276c9199cfae8bb3c61bcc4c93",
-  "finalized_note": "CPU-time budget approved 2026-09-04: execute E1-MATCHED-LANDSCAPES first, then decide E2/E3 on its evidence.",
+  "source_commit": "78a15ac10a4b3c47621b378337826883f12297c2",
+  "amended_from": "ar-politeia-cycle3-confirmatory-v2",
+  "amendment_reason": "E2 2x2 ablation design-defect fix (outcome-blind, not driven by any observed E1-E3 effect): production and decay form a balanced source-sink pair. v2 locked only the global wealth_decay_rate=0.02 and did not account for terrain_production_enabled=false, where production=0 while decay still drains wealth to exponential collapse (the same mathematical root cause as the E1 flat-terrain bug). Fix: a cell with terrain_production_enabled=false gets wealth_decay_rate=0 (closing the source also closes its paired sink), so all four E2 cells are stationary and the 2x2 factorial analysis is unbiased. E1's four conditions are all production-enabled, so its parameters and the supported C2-LANDSCAPE verdict are unchanged.",
+  "finalized_note": "E1 passed (C2-LANDSCAPE supported). CPU budget approved 2026-09-05: execute E2-CHANNEL-ABLATION only, then decide E3 on its evidence.",
   "authorized_experiments": [
-    "E1-MATCHED-LANDSCAPES",
     "E2-CHANNEL-ABLATION",
     "E3-ROBUSTNESS-HOLDOUT"
   ],
@@ -34,9 +35,13 @@
     "terrain_production_scale": 1.0,
     "mean_wealth": 5.0
   },
+  "channel_pairing_policy": {
+    "wealth_decay_paired_with_production": true,
+    "description": "The production channel is a balanced source-sink pair: production (source) plus proportional wealth decay (sink). In E2's 2x2 ablation, a cell with terrain_production_enabled=false sets wealth_decay_rate=0 (closing the source also closes its paired sink) so wealth is conserved rather than exponentially drained to zero. With terrain_production_enabled=true, wealth_decay_rate keeps its locked value 0.02. This pairing applies to E2 only; E1 and E3 use production=true everywhere."
+  },
   "allowed_design_variations": {
     "E1-MATCHED-LANDSCAPES": ["seed", "landscape", "exchange_enabled"],
-    "E2-CHANNEL-ABLATION": ["seed", "landscape", "terrain_force_enabled", "terrain_production_enabled"],
+    "E2-CHANNEL-ABLATION": ["seed", "landscape", "terrain_force_enabled", "terrain_production_enabled", "wealth_decay_rate"],
     "E3-ROBUSTNESS-HOLDOUT": ["seed", "landscape_family", "population", "grid_shape"]
   },
   "finalization_requirements": [

@@ -5,7 +5,7 @@
   "numerical_calibration": "research/jobs/E0-NUMERICS-C3/numerical_calibration.json",
   "numerical_calibration_sha256": "cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e",
   "parameter_lock": "research/parameter_lock.json",
-  "parameter_lock_sha256": "b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269",
+  "parameter_lock_sha256": "034c3dd357f13d1192a887b31759dbd2b0d3f05ae50409823d00c371fa8dd36e",
   "seeds": [
     2203,
     2309,
@@ -65,5 +65,5 @@
   "terrain_production_scale": 1.0,
   "mean_wealth": 5.0,
   "omp_threads": 1,
-  "per_run_timeout_seconds": 1800
+  "per_run_timeout_seconds": 3600
 }

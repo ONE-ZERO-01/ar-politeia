@@ -1,4 +1,4 @@
 external_data: none
 generated_inputs: SHA-256 values are written by the committed generator to workspace/matched_input_audit.json before execution
 dependency_calibration: research/jobs/E0-NUMERICS-C3/numerical_calibration.json SHA-256 cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e
-parameter_lock: b18ef3f7dd6032b66059aaf6e4307e3c754b0d931f22ecab328d05865dfd1269
+parameter_lock: 034c3dd357f13d1192a887b31759dbd2b0d3f05ae50409823d00c371fa8dd36e
