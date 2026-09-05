@@ -133,6 +133,7 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
     noise_strength = float(config.get("exchange_noise_strength", 0.0))
     reversion_rate = float(config.get("exchange_reversion_rate", 1.0))
     epsilon_log_sigma = float(config.get("epsilon_log_sigma", 0.0))
+    wealth_decay_rate = float(config.get("wealth_decay_rate", 0.0))
     dt = float(config.get("dt", 0.01))
     if experiment == "E0-NUMERICS":
         return [
@@ -234,6 +235,11 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "exchange_noise_strength": noise_strength,
                 "wealth_log_sigma": 0.01,
                 "epsilon_log_sigma": epsilon_log_sigma,
+                # production↔decay 配对（参数锁 v3）：生产通道 = 生产(source) +
+                # 衰减(sink) 平衡对。关闭生产时同步关闭衰减，否则 production=0 而
+                # decay>0 会把财富指数衰减至坍缩（同 E1 flat bug 的数学根源），
+                # 使 2×2 因子分析失效。production=True 时 decay 保持锁定值。
+                "wealth_decay_rate": wealth_decay_rate if production else 0.0,
                 "dt": dt,
             }
             for landscape in ("clustered", "shuffled")
@@ -602,6 +608,12 @@ def prepare_inputs(
                     "terrain_production_enabled": bool(
                         condition["terrain_production_enabled"]
                     ),
+                    "wealth_decay_rate": float(
+                        condition.get(
+                            "wealth_decay_rate",
+                            config.get("wealth_decay_rate", 0.0),
+                        )
+                    ),
                     "exchange_rate": float(condition["exchange_rate"]),
                     "exchange_noise_strength": float(
                         condition.get("exchange_noise_strength", 0.0)
@@ -623,6 +635,12 @@ def prepare_inputs(
                     "terrain_force_enabled": bool(condition["terrain_force_enabled"]),
                     "terrain_production_enabled": bool(
                         condition["terrain_production_enabled"]
+                    ),
+                    "wealth_decay_rate": float(
+                        condition.get(
+                            "wealth_decay_rate",
+                            config.get("wealth_decay_rate", 0.0),
+                        )
                     ),
                     "exchange_rate": float(condition["exchange_rate"]),
                     "exchange_noise_strength": float(
