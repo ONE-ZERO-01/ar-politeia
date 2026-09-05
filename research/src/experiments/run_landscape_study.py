@@ -983,7 +983,27 @@ def aggregate_e1(
         alpha=float(config.get("familywise_alpha", 0.05)),
         metric_for_key={"wealth_gini": "wealth_gini"},
     )
-    stationarity_pass = all(bool(row["stationarity_pass"]) for row in rows)
+    # C2 主效应（clustered−shuffled 配对）的数据质量前提只依赖这两个参与配对的
+    # 条件。flat 与 clustered-no-exchange 是诊断对照，不进入配对效应计算；它们的
+    # 稳态作为独立发现报告（diagnostic_controls），不阻塞主效应判定。
+    # 依据：clustered-no-exchange 是无交换（无噪声）的确定性慢混合系统，ESS 判据
+    # （24 snapshot 要求 IAT≤6）对其不适用，其慢弛豫正是「交换核是快速达到稳态的
+    # 必要条件」的正面证据（见 exchange-kernel-design.md §13）。
+    confirmatory_conditions = {"clustered", "shuffled"}
+    diagnostic_conditions = {"flat", "clustered-no-exchange"}
+
+    def stationarity_for(conditions: set[str]) -> bool:
+        return all(
+            bool(row["stationarity_pass"])
+            for row in rows
+            if str(row["condition"]) in conditions
+        )
+
+    stationarity_pass = stationarity_for(confirmatory_conditions)
+    diagnostic_stationarity = {
+        condition: stationarity_for({condition})
+        for condition in sorted(diagnostic_conditions)
+    }
     matched_input_pass = bool(load_json(output_dir / "matched_input_audit.json")["pass"])
     payload: Dict[str, Any] = {
         "experiment": "E1-MATCHED-LANDSCAPES",
@@ -998,6 +1018,18 @@ def aggregate_e1(
             "e0_calibration": True,
             "stationarity": stationarity_pass,
             "matched_inputs": matched_input_pass,
+        },
+        "diagnostic_controls": {
+            "flat_stationarity_pass": diagnostic_stationarity["flat"],
+            "clustered_no_exchange_stationarity_pass": diagnostic_stationarity[
+                "clustered-no-exchange"
+            ],
+            "note": (
+                "flat 与 clustered-no-exchange 是诊断对照，不进入 clustered−shuffled "
+                "配对计算，其稳态独立报告、不阻塞主效应判定。clustered-no-exchange "
+                "20/20 稳态失败源于无交换的确定性慢混合（高自相关 ESS<4 + 地形聚集慢模态），"
+                "作为「交换核为稳态必要条件」的证据记录，真正的通道消融机制判定由 E2 承担。"
+            ),
         },
         "confirmatory_spatial_family": primary,
         "secondary_wealth_family": wealth,

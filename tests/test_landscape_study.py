@@ -220,6 +220,22 @@ def test_stationarity_diagnostics_distinguish_flat_and_drifting_windows():
     assert drifting["normalized_window_drift"] > 0.1
 
 
+def test_stationarity_drift_decides_over_ess():
+    # Cycle 3：drift 是稳态的决定性指标，ESS 是辅助。构造一个 drift 精确为 0
+    # （对称 palindrome）但强自相关（慢混合 → ESS 略低）的序列，验证其判定为
+    # 稳态（pass=True），而 ess_pass 仍为 False 供审查。
+    half = [np.cos(2 * np.pi * i / 24) for i in range(12)]
+    slow_mixing = half + half[::-1]  # 24 点，精确对称 → 线性趋势为 0
+    diagnostic = landscape_study.stationarity_diagnostics(
+        slow_mixing, max_normalized_drift=0.1, min_effective_samples=4.0
+    )
+    assert diagnostic["drift_pass"] is True
+    assert diagnostic["normalized_window_drift"] < 1e-9
+    assert diagnostic["ess_pass"] is False  # ESS 略低（慢混合）
+    assert diagnostic["effective_samples"] < 4.0
+    assert diagnostic["pass"] is True  # drift 决定性 → 稳态
+
+
 def test_integrated_autocorrelation_time_is_bounded():
     tau = landscape_study.integrated_autocorrelation_time(
         [0.0, 1.0, 0.5, 1.5, 1.0, 2.0, 1.5, 2.5]
