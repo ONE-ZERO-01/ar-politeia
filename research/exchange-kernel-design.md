@@ -379,3 +379,33 @@ SESOI 冻结值完全不变，参数锁 v2 不受影响。新增测试
 
 **provenance**：E1 结论提交 `99a1f03`（result.json + paired_effects.json 进 git）；`--analyze-only`
 新增保留上次执行统计（executed/reused/elapsed），修复重分析时 execute provenance 清零。
+
+## 15. 参数锁 v3：production↔decay 配对 + E2 启动（D3→E2，2026-09-06）
+
+**发现的 E2 设计缺陷（outcome-blind，非基于观察效应）**：E2-CHANNEL-ABLATION 是
+movement×production 的 2×2 消融（8 条件 × 20 seed = 160 runs）。其 `terrain_production_enabled=false`
+的两个 cell 在全局 `wealth_decay_rate=0.02`（锁 v2）下，`production=0` 而 `decay` 仍衰减，财富指数
+坍缩——与 E1 flat bug **同一数学根源**（source 关闭而 sink 未关）。这会使 2×2 因子分析失效
+（movement 主效应与 interaction 被坍缩 cell 污染）。
+
+**修复（pair_decay）**：生产通道是 source-sink 平衡对。`terrain_production_enabled=false` 的 cell
+同步设 `wealth_decay_rate=0`（关 source 即关配对 sink），使 E2 四 cell 全稳态、2×2 因子分析无偏。
+`terrain_production_enabled=true` 时 `wealth_decay_rate` 保持锁定值 0.02。
+
+**参数锁 v3**（`ar-politeia-cycle3-confirmatory-v3`，`amended_from=v2`）：
+- 新增 `channel_pairing_policy` 明确记录 production↔decay 配对语义。
+- `allowed_design_variations` E2 加 `wealth_decay_rate`。
+- `authorized_experiments` 移除 E1（已完成），保留 E2/E3。
+- 参数值**全部不变**（wealth_decay_rate 仍 0.02，prod=T 时）；这是设计语义澄清，非科学参数改动。
+
+**E1 结论不变**：E1 四条件全 prod=T，参数在 v3 下完全一致，C2-LANDSCAPE supported 保留。
+E1 的 config/experiment/result.json 固化的 v2 SHA 作为历史记录保留（记录"E1 执行时用的锁"）。
+
+**代码**：`default_conditions` E2 分支按 production 配对 decay；`prepare_inputs` 的 cpp_values 与
+run_specs 记录 per-condition `wealth_decay_rate`。新增测试
+`test_e2_default_conditions_pair_decay_with_production`。E3（prepare_e3_inputs）全 prod=T，不受影响，
+但其锁 SHA 同步重绑定 v3（provenance 一致性）+ timeout 3600。
+
+**E2 执行**：preflight `--prepare-only` 通过（锁 v3 校验 pass、22 参数 0 mismatch、160 runs、decay
+配对验证正确）；E2 于 2026-09-06 01:41 在 umi 启动（setsid nohup，负载 24），看门狗监控中。
+`per_run_timeout_seconds` 已统一 3600（E1 高负载超时教训）。
