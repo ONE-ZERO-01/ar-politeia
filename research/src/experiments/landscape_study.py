@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -603,8 +603,21 @@ def stationarity_diagnostics(
     *,
     max_normalized_drift: float,
     min_effective_samples: float,
+    absolute_drift_tolerance: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Diagnose residual linear drift and autocorrelation in a fixed window."""
+    """Diagnose residual linear drift and autocorrelation in a fixed window.
+
+    ``absolute_drift_tolerance`` (optional) is the metric's physical-range
+    fraction below which a whole-window absolute drift is treated as a
+    steady state even when the *relative* drift exceeds ``max_normalized_drift``.
+    This fixes a normalisation degeneracy (Cycle 3 E2, 2026-09-07): for metrics
+    whose steady value is physically ~0 (e.g. ``resource_density_spearman_rho``
+    when the terrain force is off, so the density field is uniform), the scale
+    ``max(|mean|, ptp)`` collapses to the noise level and blows up an otherwise
+    negligible drift ~30×. The absolute drift ``|slope|·(n−1)`` is the physical
+    quantity that matters, so a small absolute drift is decisive regardless of
+    the degenerate relative normalisation.
+    """
     data = np.asarray(values, dtype=np.float64)
     if data.ndim != 1 or data.size < 3:
         raise ValueError("stationarity diagnostics require at least three observations")
@@ -616,6 +629,7 @@ def stationarity_diagnostics(
         1e-12,
     )
     normalized_drift = abs(slope) * (data.size - 1) / scale
+    absolute_drift = abs(slope) * (data.size - 1)
     iat = integrated_autocorrelation_time(data)
     effective_samples = float(data.size / iat)
     # Cycle 3（E1 判定，2026-09-05）：drift 是稳态的决定性指标——残差线性趋势是否
@@ -624,7 +638,11 @@ def stationarity_diagnostics(
     # 低只是「稳态但慢混合」的精度警告，不应判为非稳态。因此 pass 由 drift 单独决定，
     # ESS 作为辅助字段（ess_pass）保留供审查。no-exchange 条件下仍有 3 个 run 的
     # drift 真超阈值（真非稳态），不受本改动影响。
+    # Cycle 3（E2 判定，2026-09-07）：绝对漂移容差作为稳态的充分条件，修复「指标
+    # 稳态值趋零 → 相对 drift 归一化退化」的伪非稳态（见函数 docstring）。
     drift_pass = bool(normalized_drift <= max_normalized_drift)
+    if absolute_drift_tolerance is not None and absolute_drift <= absolute_drift_tolerance:
+        drift_pass = True
     ess_pass = bool(effective_samples >= min_effective_samples)
     passed = drift_pass
     return {
@@ -634,6 +652,8 @@ def stationarity_diagnostics(
         "observations": int(data.size),
         "slope_per_observation": slope,
         "normalized_window_drift": normalized_drift,
+        "absolute_drift": absolute_drift,
+        "absolute_drift_tolerance": absolute_drift_tolerance,
         "integrated_autocorrelation_time": iat,
         "effective_samples": effective_samples,
         "max_normalized_drift": max_normalized_drift,

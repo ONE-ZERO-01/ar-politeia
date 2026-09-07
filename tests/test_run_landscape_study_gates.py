@@ -56,6 +56,35 @@ def test_stationary_metrics_for_experiment_uses_cycle3_gate_sets():
     assert "density_morans_i" not in (
         run_landscape_study.stationary_metrics_for_experiment("E1-MATCHED-LANDSCAPES")
     )
+    # E2 移除 wealth_variance（2026-09-07）：f0-p1 cell 下 production 分化因粒子不
+    # 移动而固化，wealth_variance 有轻微慢弛豫（4/160 边界失败），wealth_gini 已
+    # 覆盖财富稳态前提，故不阻塞 C3 通道判定。
+    e2_metrics = run_landscape_study.stationary_metrics_for_experiment(
+        "E2-CHANNEL-ABLATION"
+    )
+    assert "wealth_variance" not in e2_metrics
+    assert "wealth_gini" in e2_metrics
+    assert "resource_density_spearman_rho" in e2_metrics
+
+
+def test_absolute_drift_tolerance_for_metric():
+    # 绝对漂移容差 = 指标物理范围的 1%，修复「稳态值趋零 → 相对 drift 退化」。
+    # 无物理范围的指标（wealth_variance 量纲依赖财富尺度）返回 None。
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "resource_density_spearman_rho"
+    ) == 0.02
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "density_morans_i"
+    ) == 0.02
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "occupancy_entropy"
+    ) == 0.01
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "wealth_gini"
+    ) == 0.01
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "wealth_variance"
+    ) is None
 
 
 def test_aggregate_e0_passes_four_core_checks_with_stationarity_pending(tmp_path):

@@ -236,6 +236,39 @@ def test_stationarity_drift_decides_over_ess():
     assert diagnostic["pass"] is True  # drift 决定性 → 稳态
 
 
+def test_stationarity_absolute_drift_tolerance():
+    # Cycle 3（E2 判定，2026-09-07）：指标稳态值趋零时，scale = max(|mean|, ptp)
+    # 退化为噪声水平，把可忽略的绝对漂移放大成超阈值（相对 drift 归一化退化）。
+    # 绝对漂移容差作为稳态的充分条件：绝对漂移 < 物理范围 1% 即稳态。
+    values = np.linspace(-0.004, 0.004, 24)  # 稳态值≈0，绝对漂移 0.008
+    without = landscape_study.stationarity_diagnostics(
+        values, max_normalized_drift=0.1, min_effective_samples=4.0
+    )
+    assert without["normalized_window_drift"] > 0.1  # 相对 drift 被放大
+    assert without["drift_pass"] is False  # 无容差时误判为非稳态
+
+    with_tol = landscape_study.stationarity_diagnostics(
+        values,
+        max_normalized_drift=0.1,
+        min_effective_samples=4.0,
+        absolute_drift_tolerance=0.02,
+    )
+    assert with_tol["absolute_drift"] < 0.02  # 绝对漂移在容差内
+    assert with_tol["drift_pass"] is True  # 绝对漂移判据 → 稳态
+    assert with_tol["pass"] is True
+
+    # 真实非稳态（绝对漂移大）不被容差误伤
+    real_drift = np.linspace(0.0, 0.2, 24)  # rho 从 0 单调漂到 0.2
+    real = landscape_study.stationarity_diagnostics(
+        real_drift,
+        max_normalized_drift=0.1,
+        min_effective_samples=4.0,
+        absolute_drift_tolerance=0.02,
+    )
+    assert real["absolute_drift"] >= 0.02
+    assert real["drift_pass"] is False
+
+
 def test_integrated_autocorrelation_time_is_bounded():
     tau = landscape_study.integrated_autocorrelation_time(
         [0.0, 1.0, 0.5, 1.5, 1.0, 2.0, 1.5, 2.5]

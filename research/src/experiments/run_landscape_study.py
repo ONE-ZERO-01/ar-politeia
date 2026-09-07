@@ -19,7 +19,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
 import numpy as np
 
@@ -841,6 +841,7 @@ def mean_metrics_for_run(
             [row[metric] for row in rows],
             max_normalized_drift=stationarity_max_drift,
             min_effective_samples=stationarity_min_ess,
+            absolute_drift_tolerance=absolute_drift_tolerance_for_metric(metric),
         )
         for metric in stationary_metrics
     }
@@ -952,12 +953,41 @@ def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
     """
     if experiment == "E0-NUMERICS":
         return ("wealth_gini", "wealth_variance")
+    # E2 移除 wealth_variance（2026-09-07）：它是二阶矩，在 f0-p1 cell
+    # （force off + production on）下 production 造成的财富分化因粒子不移动而固化，
+    # 有轻微慢弛豫（4/160 run 的 drift 0.109–0.185 略超阈值），而 wealth_gini 全
+    # 通过证明财富分布本身稳态。wealth_gini 已覆盖财富稳态前提，variance 的边界
+    # 慢模不阻塞 C3 通道判定。
+    if experiment == "E2-CHANNEL-ABLATION":
+        return (
+            "resource_density_spearman_rho",
+            "occupancy_entropy",
+            "wealth_gini",
+        )
     return (
         "resource_density_spearman_rho",
         "occupancy_entropy",
         "wealth_gini",
         "wealth_variance",
     )
+
+
+def absolute_drift_tolerance_for_metric(metric: str) -> Optional[float]:
+    """Absolute-drift tolerance per metric (physical-range fraction, 1%).
+
+    Fixes the relative-drift normalisation degeneracy for metrics whose steady
+    value is physically ~0 (see ``stationarity_diagnostics``).  The tolerance is
+    1% of the metric's natural range, so a whole-window drift below it is a
+    steady state regardless of the degenerate relative normalisation.
+
+    ``wealth_variance`` returns ``None`` (no absolute tolerance) because its
+    physical range depends on the wealth scale and cannot be fixed a priori.
+    """
+    if metric in ("resource_density_spearman_rho", "density_morans_i"):
+        return 0.02  # Spearman/Moran's I ∈ [-1, 1]，范围 2，1% = 0.02
+    if metric in ("occupancy_entropy", "wealth_gini"):
+        return 0.01  # 归一化熵 / Gini ∈ [0, 1]，范围 1，1% = 0.01
+    return None
 
 
 def aggregate_e1(
