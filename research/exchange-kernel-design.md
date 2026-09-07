@@ -451,3 +451,34 @@ SESOI 冻结值完全不变，参数锁 v3 不受影响。新增测试 `test_sta
 **provenance**：结论提交 `ca2192a`（result.json + channel_effects.json 进 git）；代码修复提交
 `d8a4cd1`（drift 容差 + gate 集 + 测试）。`--analyze-only` 保留上次执行统计（executed=160、
 reused=0、elapsed=73562s）。
+
+## 17. E3 高人口 benchmark + execute_runs 并行化（D3→E3，2026-09-07）
+
+**E3 规模**：240 runs = 3 人口（2000/5000/10000）× 2 分辨率（128/256）× 2 景观家族
+（gaussian_mixture / correlated_random_field）× 10 seed × 2 条件（clustered/shuffled）。
+交换核 O(N²)，10000 粒子是最重档。
+
+**benchmark 实测**（OMP=1 串行、256×256 grid、200000 步 = 2000 时间单位）：
+
+| population | 稳态速度 | 单 run 全量耗时 | 超 3600s? |
+|---|---|---|---|
+| 2000 | ~417 步/s | ~8 min | 否 |
+| 5000 | ~144 步/s | ~23 min | 否 |
+| 10000 | ~30 步/s | ~110 min | **是**（速度随 IO 累积从 97→30 步/s 持续下降） |
+
+2000 粒子的 417 步/s 与 E2 实测 460s/run 吻合，验证测量准确。串行 240 runs 总预算
+~188h ≈ 7.8 天，不可接受。
+
+**修正**：
+1. `execute_runs` 提取 `_execute_one_run`，新增 `parallel` 参数；`parallel>1` 时用
+   `ThreadPoolExecutor` 并行驱动多个单核 politeia 子进程（`subprocess.run` 等待时释放 GIL，
+   线程池无需 pickle）。每个 run 只写自己的 `run_dir`，无竞争；completion marker 复用机制
+   保证幂等（失败 run 重跑时 skip 成功的）。
+2. E3 config：`parallel=16`、`per_run_timeout_seconds` 3600→10800（3h，给 16 路并行满负荷
+   竞争留裕量）。`parallel` 与 timeout 均不在参数锁 `parameters` 内（调度参数非科学参数），
+   lock v3 不变。
+3. 新增测试 `test_execute_runs_serial_merges_per_run_summaries` 与
+   `test_execute_runs_parallel_merges_and_speeds_up`（桩模拟单核子进程，验证 4 路并行加速）。
+
+**预计**：16 路并行 wall clock ~12h（188h/16）。E3 于 2026-09-07 启动，watchdog 监控
+`/tmp/e3_watchdog_state.json`。C4-ROBUSTNESS 判定在 E3 完成后进行（holdout_effects.json）。

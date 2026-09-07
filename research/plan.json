@@ -219,7 +219,7 @@
       "priority": "P1",
       "mode": "server",
       "execution_host": "umi",
-      "implementation_status": "designed_ready_awaiting_budget",
+      "implementation_status": "executing",
       "command": [
         "python3",
         "research/src/experiments/run_landscape_study.py",
@@ -289,8 +289,8 @@
   },
   "readiness": {
     "scientific_design": "cycle3_exchange_kernel_scope_frozen (exchange-kernel-design.md D0-D4)",
-    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1-MATCHED-LANDSCAPES executed and passed (C2 supported); E2-CHANNEL-ABLATION executed and passed (C3 supported: movement single-channel attribution); E3-ROBUSTNESS-HOLDOUT designed and bound to lock v3, awaiting E3 budget decision",
-    "preflight": "E2 prepare-only smoke passed (parameter_lock_audit pass=true, 22 parameters, 0 mismatch, decay pairing verified); E1 preflight also passed",
-    "execution": "server only on umi; E1 completed 80/80 and E2 completed 160/160; E3 prepared (prepare-only dry-run validated 240-run input generation)"
+    "experiment_implementation": "E0-NUMERICS-C3 and B0-DYNAMICS-PILOT-C3 executed and passed; E1-MATCHED-LANDSCAPES executed and passed (C2 supported); E2-CHANNEL-ABLATION executed and passed (C3 supported: movement single-channel attribution); E3-ROBUSTNESS-HOLDOUT executing under parameter lock v3 (240 runs, parallel=16, timeout 10800s) after high-population benchmark",
+    "preflight": "E3 prepare-only passed (parameter_lock_audit pass=true, 0 mismatch, 240 runs, matched_input_audit pass=true); E1/E2 preflight also passed",
+    "execution": "server only on umi; E1 80/80, E2 160/160 completed; E3 240 runs executing under parallel=16 with watchdog"
   }
 }

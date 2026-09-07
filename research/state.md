@@ -17,7 +17,19 @@ executed and passed — C2-LANDSCAPE **supported** (clustered-minus-shuffled pai
 effect 4 metrics Holm-significant above frozen SESOI); E2-CHANNEL-ABLATION
 executed and passed — C3-CHANNELS **supported** (movement single-channel
 attribution, production zero effect on spatial structure, interaction zero).
-C4-ROBUSTNESS awaits the E3 CPU budget decision.
+C4-ROBUSTNESS executing (E3 running under parallel=16).
+
+## E3 启动（2026-09-07）
+
+E3-ROBUSTNESS-HOLDOUT 已启动：240 runs（3 人口 × 2 分辨率 × 2 景观家族 × 10 seed ×
+2 条件），`parallel=16` 并行、`per_run_timeout_seconds=10800`（3h）。启动前实测高人口
+benchmark：pop2000 ~8min/run、pop5000 ~23min/run、pop10000 ~110min/run（10000 超过原
+3600s 超时，故提至 10800s）。`execute_runs` 已支持多进程并行（`_execute_one_run` +
+ThreadPoolExecutor）。参数锁 v3 不变（parallel/timeout 是调度参数，非科学参数）。预计
+16 路并行 wall clock ~12h，watchdog 监控 `/tmp/e3_watchdog_state.json`。C4-ROBUSTNESS
+判定在 E3 完成后进行。
+
+**待决策**：无——E3 预算已批准（parallel_full），执行中。
 
 ## E2 完成后的收尾与决策
 
