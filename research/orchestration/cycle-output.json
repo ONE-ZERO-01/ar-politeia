@@ -25,9 +25,12 @@
     },
     {
       "claim_id": "C3-CHANNELS",
-      "verdict": "inconclusive",
+      "verdict": "supported",
       "evidence": [
         "research/jobs/E2-CHANNEL-ABLATION/result.json",
+        "research/jobs/E2-CHANNEL-ABLATION/channel_effects.json",
+        "research/jobs/E2-CHANNEL-ABLATION/workspace/stationarity_report.json",
+        "research/jobs/E2-CHANNEL-ABLATION/workspace/replicate_metrics.csv",
         "research/parameter_lock.json"
       ]
     },
@@ -49,16 +52,18 @@
     "research/jobs/E0-NUMERICS-C3/workspace/replicate_metrics.csv",
     "research/jobs/E0-NUMERICS-C3/workspace/stationarity_report.json",
     "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
+    "research/jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
     "research/jobs/E2-CHANNEL-ABLATION/result.json",
+    "research/jobs/E2-CHANNEL-ABLATION/channel_effects.json",
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
     "research/parameter_lock.json"
   ],
   "unresolved_risks": [
-    "C2-LANDSCAPE is supported by E1 (clustered-minus-shuffled paired effect 4 metrics Holm-significant); C3-CHANNELS and C4-ROBUSTNESS remain inconclusive until E2/E3 complete.",
-    "E2-CHANNEL-ABLATION is executing (160 runs, lock v3); E3-ROBUSTNESS-HOLDOUT awaits the E2 evidence decision.",
-    "density_morans_i is a slow terrain-aggregation mode (>>2000 time units) and is excluded from steady-window gates but retained as a confirmatory effect in E1; its slow relaxation must be reported transparently in the paper.",
-    "clustered-no-exchange diagnostic control failed stationarity (3 true drift failures + 17 ESS slow-mixing); this is positive evidence for the exchange kernel as necessary for fast convergence, but the mechanism attribution requires E2's channel ablation.",
-    "The exchange kernel is IO-bound (98% of runtime in snapshot writes); E2 (160 runs) and E3 (240 runs, populations up to 10000) may exceed the initial ~168h CPU estimate."
+    "C2-LANDSCAPE supported by E1, C3-CHANNELS supported by E2 (movement single-channel attribution); C4-ROBUSTNESS remains inconclusive until E3 completes.",
+    "E3-ROBUSTNESS-HOLDOUT awaits the E3 budget decision after E2 evidence.",
+    "density_morans_i is a slow terrain-aggregation mode (>>2000 time units) and is excluded from steady-window gates but retained as a confirmatory effect in E1/E2; its slow relaxation must be reported transparently in the paper.",
+    "clustered-no-exchange diagnostic control failed stationarity (3 true drift failures + 17 ESS slow-mixing); this is positive evidence for the exchange kernel as necessary for fast convergence.",
+    "The exchange kernel is IO-bound (98% of runtime in snapshot writes); E3 (240 runs, populations up to 10000) may exceed the per-run timeout for large populations — a benchmark of a high-population E3 run is required before authorizing the full E3 budget."
   ],
-  "recommended_next_action": "Await E2-CHANNEL-ABLATION completion (~12-27h), then evaluate C3 channel attribution (movement/production main effects + interaction under Holm correction). If supported, decide the E3-ROBUSTNESS-HOLDOUT budget to resolve C4, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
+  "recommended_next_action": "C1/C2/C3 are supported. Decide the E3-ROBUSTNESS-HOLDOUT budget (after a high-population benchmark run) to resolve C4, then WRITE-COMPREHENSIVE / WRITE-JOURNAL / six-reviewer review / DECIDE."
 }

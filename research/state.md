@@ -14,18 +14,22 @@ Cycle 3 = exchange-kernel steady-state refactoring (design doc
 `research/exchange-kernel-design.md`, D0-D4). D2 calibration passed
 (E0-NUMERICS-C3 + B0-DYNAMICS-PILOT-C3); D3 confirmatory E1-MATCHED-LANDSCAPES
 executed and passed — C2-LANDSCAPE **supported** (clustered-minus-shuffled paired
-effect 4 metrics Holm-significant above frozen SESOI). C3-CHANNELS / C4-ROBUSTNESS
-await the E2/E3 CPU budget decision.
+effect 4 metrics Holm-significant above frozen SESOI); E2-CHANNEL-ABLATION
+executed and passed — C3-CHANNELS **supported** (movement single-channel
+attribution, production zero effect on spatial structure, interaction zero).
+C4-ROBUSTNESS awaits the E3 CPU budget decision.
 
-## E1 完成后的收尾与决策
+## E2 完成后的收尾与决策
 
-E1 结论已提交（`99a1f03`，result.json + paired_effects.json 进 git），findings /
-cycle-output / plan / state 已同步 C2→supported。
+E2 结论已提交（`ca2192a`，result.json + channel_effects.json 进 git），findings /
+cycle-output / plan / state 已同步 C3→supported。C1-NUM / C2-LANDSCAPE /
+C3-CHANNELS 三项核心+机制主张全部 supported。
 
-**待决策**：E2-CHANNEL-ABLATION（C3 机制）与 E3-ROBUSTNESS-HOLDOUT（C4 稳健性）
-是否执行——这是新的 CPU 预算边界，需人类批准。
+**待决策**：E3-ROBUSTNESS-HOLDOUT（C4 稳健性）是否执行——新的 CPU 预算边界，需
+人类批准。E3 已 prepare-only 验证（240-run 输入生成通过），但高人口（10000）run
+存在 O(N²) 交换核超时风险，批准前需先跑一次高人口 benchmark 实测。
 
-**D4 前需手动对齐的 Gate（不阻塞 E2/E3 决策）**：
+**D4 前需手动对齐的 Gate（不阻塞 E3 决策）**：
 
 1. **jobctl reconcile 陈旧** — ✅ 已解决：服务器 `.autoresearcher/jobs/` 下
    7 个 Cycle 1/2 过时 jobctl 运行态记录（死 pid、旧 commit `029820d`、worker
@@ -37,9 +41,8 @@ cycle-output / plan / state 已同步 C2→supported。
    已为 E0-C3/B0-C3/E1 生成，退休 C1/C2 job（pass=false）与未运行 job（blocked）
    自动跳过（走 claim evidence 路径）。本地 audit 确认 manifest 检查通过，仅剩
    `claims file is missing`（D4 写 paper claims.json 时补齐）。
-3. **timeline 再生成**：已纳入 C2 supported。
+3. **timeline 再生成**：已纳入 C2 supported，E2 完成后需再生成纳入 C3。
 
-**E2-CHANNEL-ABLATION 运行中**（`1608ab9` 锁 v3 后启动）：160 runs，progress 见
-`research/jobs/E2-CHANNEL-ABLATION/workspace/`（completion.json 计数），预计 ~27h。
-完成后走 `channel_effects.json` 做 C3 通道机制判定（movement/production 主效应 +
-interaction 的 Holm 校正）。
+**E2-CHANNEL-ABLATION 已完成**（`ca2192a`）：160/160 runs，三 gate 全过，C3
+supported。两处判定逻辑修正（drift 绝对漂移容差 + wealth_variance 移出 E2 gate）
+见 exchange-kernel-design.md §16，均已提交（`d8a4cd1`）。

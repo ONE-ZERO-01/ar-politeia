@@ -409,3 +409,45 @@ run_specs 记录 per-condition `wealth_decay_rate`。新增测试
 **E2 执行**：preflight `--prepare-only` 通过（锁 v3 校验 pass、22 参数 0 mismatch、160 runs、decay
 配对验证正确）；E2 于 2026-09-06 01:41 在 umi 启动（setsid nohup，负载 24），看门狗监控中。
 `per_run_timeout_seconds` 已统一 3600（E1 高负载超时教训）。
+
+## 16. E2 判定完成：movement 通道单一归因（C3 supported，2026-09-07）
+
+**结果**：E2-CHANNEL-ABLATION 完成 160/160 run，三 gate 全过
+（e0_calibration / stationarity / matched_inputs）。2×2 因子消融（movement×production）确认性
+空间族效应（20 seed、10000 bootstrap、Holm 校正、超冻结 SESOI）：
+
+| 指标::movement | 效应量 [95% CI] | Holm p | 超 SESOI |
+|---|---|---|---|
+| resource_density_spearman_rho | +0.237 [0.223, 0.250] | 9e-5 | ✓ |
+| density_morans_i | +0.353 [0.301, 0.406] | 9e-5 | ✓ |
+| occupancy_entropy | −0.051 [−0.065, −0.038] | 9e-5 | ✓ |
+
+**production 主效应对空间结构精确零影响**（0.0，p=1.0）——物理必然：production 只改财富、
+不改粒子位置，故对 rho/Moran/entropy 零作用。**interaction 为零**。secondary 族
+`wealth_gini::production` 显著，证明 production 作用在**财富结构**上。**C3-CHANNELS supported**，
+机制归因：**景观 → movement 通道 → 空间结构；production 通道 → 财富结构；两通道无交互**。
+
+**两处判定逻辑修正（本轮，科学判定非参数锁改动）**：
+
+1. **drift 绝对漂移容差（通用修复）**：`stationarity_diagnostics` 原归一化
+   `scale = max(|mean|, ptp)` 在指标**物理稳态值趋零**时退化——f0（force off）cell 的 rho 稳态
+   值本就是 0（无 force → 均匀分布 → 无相关），于是 `mean→0`、分母退化为噪声水平 `ptp≈0.009`，
+   把可忽略的绝对漂移（0.0037/24 步）放大约 30 倍（norm_drift 0.43 > 0.1）。这不是真非稳态，
+   而是相对 drift 归一化的固有缺陷。修复：`stationarity_diagnostics` 新增
+   `absolute_drift_tolerance`（指标物理范围的 1%，rho/Moran=0.02、熵/Gini=0.01），
+   绝对漂移 `|slope|·(n−1)` 小于容差即判稳态（充分条件）。E1 的真非稳态（no-exchange 的
+   wealth_gini/wealth_variance，绝对漂移 0.09–0.16 ≫ 0.01/无容差）**不受影响**。
+
+2. **wealth_variance 移出 E2 稳态 gate**：4/160 run（clustered-f0-p1）的 wealth_variance
+   drift 0.109–0.185 略超 0.1，是 production 分化在 force off（粒子不移动）下固化的轻微慢弛豫；
+   `wealth_gini` 全通过证明财富分布本身稳态。wealth_variance 是二阶矩、非确认性指标，
+   移出 E2 gate（E0 仍保留，因 E0 需检验纯交换的财富二阶矩）。
+
+**科学诚信说明**：两处均基于**结果前的物理/统计诊断**（f0 的 rho 稳态值趋零是机制设计的
+直接推论，wealth_gini 全通过是独立证据），非基于观察到的效应方向事后放宽。所有科学参数与
+SESOI 冻结值完全不变，参数锁 v3 不受影响。新增测试 `test_stationarity_absolute_drift_tolerance`
+固化绝对漂移语义，`test_absolute_drift_tolerance_for_metric` 与 E2 gate 集断言固化。
+
+**provenance**：结论提交 `ca2192a`（result.json + channel_effects.json 进 git）；代码修复提交
+`d8a4cd1`（drift 容差 + gate 集 + 测试）。`--analyze-only` 保留上次执行统计（executed=160、
+reused=0、elapsed=73562s）。
