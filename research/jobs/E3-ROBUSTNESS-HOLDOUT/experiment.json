@@ -23,7 +23,7 @@
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
   ],
   "config": "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
-  "config_sha256": "0068b0cd5dd3ae0918bc6eddd036c659ffe9273f16c0ca0d120fb8d102373a1d",
+  "config_sha256": "7f0933812196f9d125634772d4447e56f9b3cae3a710ffa73bd7e5b256643a1e",
   "commit_id": "1608ab9df8a85cbaf7a1f1a98a55216b52539162",
   "env_snapshot": "research/jobs/E3-ROBUSTNESS-HOLDOUT/env.txt",
   "seeds": [

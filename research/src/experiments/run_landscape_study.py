@@ -679,133 +679,196 @@ def prepare_inputs(
     return run_specs
 
 
+def _execute_one_run(
+    spec: Mapping[str, Any],
+    binary: Path,
+    binary_sha256: str,
+    *,
+    timeout_seconds: int,
+    omp_threads: int,
+) -> Dict[str, Any]:
+    """Execute (or reuse) a single run; returns a per-run summary dict.
+
+    Extracted from ``execute_runs`` so a run can be executed either serially
+    or in a worker thread.  A run is fully self-contained: it reads/cleans/
+    executes/writes only within its own ``run_dir``, so concurrent runs do
+    not race (each completion marker is per-run).
+    """
+    run_dir = project_path(spec["run_dir"])
+    log_path = run_dir / "run.log"
+    config_path = project_path(spec["cpp_config"], must_exist=True)
+    marker_path = run_dir / "completion.json"
+    fingerprint = canonical_payload_sha256(
+        {
+            "run_spec": dict(spec),
+            "cpp_config_sha256": sha256_file(config_path),
+            "binary_sha256": binary_sha256,
+            "omp_threads": omp_threads,
+        }
+    )
+    if marker_path.is_file():
+        try:
+            marker = load_json(marker_path)
+        except Exception:
+            marker = {}
+        if completion_marker_is_reusable(
+            marker,
+            run_dir=run_dir,
+            expected_fingerprint=fingerprint,
+        ):
+            return {
+                "executed": 0,
+                "skipped": 1,
+                "elapsed_seconds_executed": 0.0,
+                "run_id": str(spec["run_id"]),
+            }
+
+    for stale_path in list(run_dir.glob("*.csv")) + list(
+        run_dir.glob("snap_*.bin")
+    ):
+        stale_path.unlink()
+    environment = os.environ.copy()
+    environment["OMP_NUM_THREADS"] = str(omp_threads)
+    started_at = time.monotonic()
+    try:
+        with log_path.open("w", encoding="utf-8") as log:
+            completed = subprocess.run(
+                [str(binary), str(config_path)],
+                cwd=PROJECT_ROOT,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=timeout_seconds,
+                check=False,
+                text=True,
+                env=environment,
+            )
+    except subprocess.TimeoutExpired as exc:
+        elapsed_seconds = time.monotonic() - started_at
+        write_json(
+            marker_path,
+            {
+                "status": "failed",
+                "run_id": spec["run_id"],
+                "run_fingerprint": fingerprint,
+                "failure": "timeout",
+                "timeout_seconds": timeout_seconds,
+                "elapsed_seconds": elapsed_seconds,
+            },
+        )
+        raise RuntimeError(
+            f"run {spec['run_id']} exceeded {timeout_seconds} seconds"
+        ) from exc
+    if completed.returncode != 0:
+        elapsed_seconds = time.monotonic() - started_at
+        write_json(
+            marker_path,
+            {
+                "status": "failed",
+                "run_id": spec["run_id"],
+                "run_fingerprint": fingerprint,
+                "failure": "nonzero_exit",
+                "returncode": completed.returncode,
+                "elapsed_seconds": elapsed_seconds,
+            },
+        )
+        raise RuntimeError(
+            f"run {spec['run_id']} failed with exit code {completed.returncode}; see {log_path}"
+        )
+    snapshots = sorted(run_dir.glob("snap_*.csv"))
+    elapsed_seconds = time.monotonic() - started_at
+    if not snapshots:
+        write_json(
+            marker_path,
+            {
+                "status": "failed",
+                "run_id": spec["run_id"],
+                "run_fingerprint": fingerprint,
+                "failure": "missing_snapshots",
+            },
+        )
+        raise RuntimeError(f"run {spec['run_id']} produced no CSV snapshots")
+    final_snapshot = snapshots[-1]
+    write_json(
+        marker_path,
+        {
+            "status": "completed",
+            "run_id": spec["run_id"],
+            "run_fingerprint": fingerprint,
+            "binary_sha256": binary_sha256,
+            "omp_threads": omp_threads,
+            "snapshot_count": len(snapshots),
+            "final_snapshot": final_snapshot.name,
+            "final_snapshot_sha256": sha256_file(final_snapshot),
+            "elapsed_seconds": elapsed_seconds,
+        },
+    )
+    return {
+        "executed": 1,
+        "skipped": 0,
+        "elapsed_seconds_executed": elapsed_seconds,
+        "run_id": str(spec["run_id"]),
+    }
+
+
 def execute_runs(
     run_specs: Sequence[Mapping[str, Any]],
     binary: Path,
     *,
     timeout_seconds: int,
     omp_threads: int,
+    parallel: int = 1,
 ) -> Dict[str, Any]:
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise FileNotFoundError(f"Politeia binary is missing or not executable: {binary}")
     binary_sha256 = sha256_file(binary)
-    summary: Dict[str, Any] = {
-        "executed": 0,
-        "skipped_completed": 0,
-        "binary_sha256": binary_sha256,
-        "completed_run_ids": [],
-        "elapsed_seconds_executed": 0.0,
-    }
-    for spec in run_specs:
-        run_dir = project_path(spec["run_dir"])
-        log_path = run_dir / "run.log"
-        config_path = project_path(spec["cpp_config"], must_exist=True)
-        marker_path = run_dir / "completion.json"
-        fingerprint = canonical_payload_sha256(
-            {
-                "run_spec": dict(spec),
-                "cpp_config_sha256": sha256_file(config_path),
-                "binary_sha256": binary_sha256,
-                "omp_threads": omp_threads,
-            }
-        )
-        if marker_path.is_file():
-            try:
-                marker = load_json(marker_path)
-            except Exception:
-                marker = {}
-            if completion_marker_is_reusable(
-                marker,
-                run_dir=run_dir,
-                expected_fingerprint=fingerprint,
-            ):
-                summary["skipped_completed"] += 1
-                summary["completed_run_ids"].append(str(spec["run_id"]))
-                continue
 
-        for stale_path in list(run_dir.glob("*.csv")) + list(
-            run_dir.glob("snap_*.bin")
-        ):
-            stale_path.unlink()
-        environment = os.environ.copy()
-        environment["OMP_NUM_THREADS"] = str(omp_threads)
-        started_at = time.monotonic()
-        try:
-            with log_path.open("w", encoding="utf-8") as log:
-                completed = subprocess.run(
-                    [str(binary), str(config_path)],
-                    cwd=PROJECT_ROOT,
-                    stdout=log,
-                    stderr=subprocess.STDOUT,
-                    timeout=timeout_seconds,
-                    check=False,
-                    text=True,
-                    env=environment,
-                )
-        except subprocess.TimeoutExpired as exc:
-            elapsed_seconds = time.monotonic() - started_at
-            write_json(
-                marker_path,
-                {
-                    "status": "failed",
-                    "run_id": spec["run_id"],
-                    "run_fingerprint": fingerprint,
-                    "failure": "timeout",
-                    "timeout_seconds": timeout_seconds,
-                    "elapsed_seconds": elapsed_seconds,
-                },
+    def _merge(per_run_results: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+        summary: Dict[str, Any] = {
+            "executed": 0,
+            "skipped_completed": 0,
+            "binary_sha256": binary_sha256,
+            "completed_run_ids": [],
+            "elapsed_seconds_executed": 0.0,
+        }
+        for result in per_run_results:
+            summary["executed"] += int(result["executed"])
+            summary["skipped_completed"] += int(result["skipped"])
+            summary["elapsed_seconds_executed"] += float(
+                result["elapsed_seconds_executed"]
             )
-            raise RuntimeError(
-                f"run {spec['run_id']} exceeded {timeout_seconds} seconds"
-            ) from exc
-        if completed.returncode != 0:
-            elapsed_seconds = time.monotonic() - started_at
-            write_json(
-                marker_path,
-                {
-                    "status": "failed",
-                    "run_id": spec["run_id"],
-                    "run_fingerprint": fingerprint,
-                    "failure": "nonzero_exit",
-                    "returncode": completed.returncode,
-                    "elapsed_seconds": elapsed_seconds,
-                },
+            summary["completed_run_ids"].append(str(result["run_id"]))
+        summary["completed_run_ids"].sort()
+        return summary
+
+    if parallel <= 1:
+        results = (
+            _execute_one_run(
+                spec,
+                binary,
+                binary_sha256,
+                timeout_seconds=timeout_seconds,
+                omp_threads=omp_threads,
             )
-            raise RuntimeError(
-                f"run {spec['run_id']} failed with exit code {completed.returncode}; see {log_path}"
-            )
-        snapshots = sorted(run_dir.glob("snap_*.csv"))
-        elapsed_seconds = time.monotonic() - started_at
-        if not snapshots:
-            write_json(
-                marker_path,
-                {
-                    "status": "failed",
-                    "run_id": spec["run_id"],
-                    "run_fingerprint": fingerprint,
-                    "failure": "missing_snapshots",
-                },
-            )
-            raise RuntimeError(f"run {spec['run_id']} produced no CSV snapshots")
-        final_snapshot = snapshots[-1]
-        write_json(
-            marker_path,
-            {
-                "status": "completed",
-                "run_id": spec["run_id"],
-                "run_fingerprint": fingerprint,
-                "binary_sha256": binary_sha256,
-                "omp_threads": omp_threads,
-                "snapshot_count": len(snapshots),
-                "final_snapshot": final_snapshot.name,
-                "final_snapshot_sha256": sha256_file(final_snapshot),
-                "elapsed_seconds": elapsed_seconds,
-            },
+            for spec in run_specs
         )
-        summary["executed"] += 1
-        summary["elapsed_seconds_executed"] += elapsed_seconds
-        summary["completed_run_ids"].append(str(spec["run_id"]))
-    return summary
+        return _merge(results)
+
+    # 并行：每个 politeia 子进程是单核 CPU-bound（OMP=1），subprocess.run 等待时
+    # 释放 GIL，因此线程池可同时驱动多个 politeia 子进程并行执行。线程共享内存，
+    # 无需 pickle；每个 run 只写自己的 run_dir，无竞争。
+    from concurrent.futures import ThreadPoolExecutor
+    from functools import partial
+
+    worker = partial(
+        _execute_one_run,
+        binary=binary,
+        binary_sha256=binary_sha256,
+        timeout_seconds=timeout_seconds,
+        omp_threads=omp_threads,
+    )
+    with ThreadPoolExecutor(max_workers=parallel) as pool:
+        results = list(pool.map(worker, run_specs))
+    return _merge(results)
 
 
 def mean_metrics_for_run(
@@ -1638,6 +1701,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             binary,
             timeout_seconds=int(config.get("per_run_timeout_seconds", 3600)),
             omp_threads=int(config.get("omp_threads", 8)),
+            parallel=int(config.get("parallel", 1)),
         )
     else:
         # --analyze-only 重分析：从已有的 summary result 保留上次执行统计

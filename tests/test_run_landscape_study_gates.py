@@ -164,3 +164,84 @@ def test_e2_default_conditions_pair_decay_with_production():
         assert cond["wealth_decay_rate"] == expected_decay, cond["name"]
         # 名字约定 f{landscape}-f{int(force)}-p{int(production)} 用于快速定位
         assert cond["name"].endswith(f"-p{int(production)}")
+
+
+def _fake_binary(tmp_path: Path) -> Path:
+    binary = tmp_path / "politeia"
+    binary.write_text("#!/bin/sh\nexit 0\n")
+    binary.chmod(0o755)
+    return binary
+
+
+def test_execute_runs_serial_merges_per_run_summaries(tmp_path, monkeypatch):
+    # execute_runs 串行分支正确合并 executed/skipped/elapsed/completed_run_ids。
+    def fake_execute(spec, binary, binary_sha256, *, timeout_seconds, omp_threads):
+        run_id = str(spec["run_id"])
+        # r0/r1 复用（skip），其余执行
+        if run_id in {"r0", "r1"}:
+            return {
+                "executed": 0,
+                "skipped": 1,
+                "elapsed_seconds_executed": 0.0,
+                "run_id": run_id,
+            }
+        return {
+            "executed": 1,
+            "skipped": 0,
+            "elapsed_seconds_executed": 2.5,
+            "run_id": run_id,
+        }
+
+    monkeypatch.setattr(run_landscape_study, "_execute_one_run", fake_execute)
+    binary = _fake_binary(tmp_path)
+    run_specs = [
+        {
+            "run_id": f"r{i}",
+            "run_dir": str(tmp_path / f"r{i}"),
+            "cpp_config": str(tmp_path / f"r{i}.cfg"),
+        }
+        for i in range(4)
+    ]
+    summary = run_landscape_study.execute_runs(
+        run_specs, binary, timeout_seconds=3600, omp_threads=1, parallel=1
+    )
+    assert summary["executed"] == 2
+    assert summary["skipped_completed"] == 2
+    assert summary["elapsed_seconds_executed"] == 5.0
+    assert summary["completed_run_ids"] == ["r0", "r1", "r2", "r3"]
+
+
+def test_execute_runs_parallel_merges_and_speeds_up(tmp_path, monkeypatch):
+    # 并行分支：8 个各 0.1s 的「单核子进程」用 4 路并行应 ~0.2s（串行 ~0.8s），
+    # 且合并结果与串行等价。桩模拟 subprocess.run 释放 GIL 后的 CPU-bound 行为。
+    import time as _time
+
+    def fake_execute(spec, binary, binary_sha256, *, timeout_seconds, omp_threads):
+        _time.sleep(0.1)
+        return {
+            "executed": 1,
+            "skipped": 0,
+            "elapsed_seconds_executed": 0.1,
+            "run_id": str(spec["run_id"]),
+        }
+
+    monkeypatch.setattr(run_landscape_study, "_execute_one_run", fake_execute)
+    binary = _fake_binary(tmp_path)
+    run_specs = [
+        {
+            "run_id": f"r{i}",
+            "run_dir": str(tmp_path / f"r{i}"),
+            "cpp_config": str(tmp_path / f"r{i}.cfg"),
+        }
+        for i in range(8)
+    ]
+    started = _time.monotonic()
+    summary = run_landscape_study.execute_runs(
+        run_specs, binary, timeout_seconds=3600, omp_threads=1, parallel=4
+    )
+    elapsed = _time.monotonic() - started
+    assert summary["executed"] == 8
+    assert summary["skipped_completed"] == 0
+    assert summary["completed_run_ids"] == [f"r{i}" for i in range(8)]
+    # 4 路并行 8×0.1s ≈ 0.2s；串行需 0.8s。留裕量，验证确实并行而非串行。
+    assert elapsed < 0.6, f"expected parallel speedup, took {elapsed:.2f}s"
