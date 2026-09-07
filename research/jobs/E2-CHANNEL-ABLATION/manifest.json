@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION/result.json",
+      "sha256": "b4141430c4f94ccd9f75c8810286047e3f724323ecf9cc9199510a2a58dc59c6",
+      "size": 1073
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION/channel_effects.json",
+      "sha256": "5ee9dba0aebf625697e65b7122640557f9bee7112d05e6b5e42a7f7691516c50",
+      "size": 6622
+    }
+  ]
+}
