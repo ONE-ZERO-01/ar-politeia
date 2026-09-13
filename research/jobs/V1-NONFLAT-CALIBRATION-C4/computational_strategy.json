@@ -1,0 +1,6 @@
+{
+  "approach": "Single-rank Release simulator, one OpenMP thread per process, eight independent runs in parallel; three non-flat landscapes by three timesteps plus a paired deterministic storage-order matrix.",
+  "evidence_role": "numerical_calibration",
+  "evidence_boundary": "V1 can bound simulation resolution and determine whether the implementation is fit for a later confirmatory run. It cannot support the landscape-effect claim itself, and its numerical limits are distinct from a scientific relevance threshold.",
+  "supports_core_claim": false
+}

@@ -126,8 +126,8 @@
       "objective": "Measure timestep error on smooth non-flat, clustered, and shuffled landscapes with at least three timesteps at fixed physical duration; keep numerical tolerance separate from scientific relevance thresholds.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "designed_waiting_validation_and_budget",
-      "blocked_by": "an explicit full-calibration compute budget (V0C and V1P passed)",
+      "status": "ready_waiting_budget",
+      "blocked_by": "explicit authorization of the requested full-calibration compute budget (V0C, V1P, and preflight passed)",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
     },
     {
@@ -172,6 +172,18 @@
   "budget": {
     "authorized_now": "Local static/unit checks, umi V0C OpenMP OFF/ON build plus CTest, and a V1P non-evidentiary runtime pilot capped at three short runs and 0.1 CPU-hour.",
     "numerical_calibration": "V1P estimates 3.47 CPU-hours / 0.43 wall-hours at parallel=8 for 75 runs. Record explicit authorization before the complete V1 matrix executes.",
+    "requested_full_calibration": {
+      "status": "awaiting_human_authorization",
+      "runs": 75,
+      "population_per_run": 1000,
+      "physical_time_per_run": 1500.0,
+      "estimated_cpu_hours_with_safety_factor": 3.467211327806581,
+      "requested_cpu_hour_cap": 5.0,
+      "estimated_wall_hours_at_parallel_8": 0.4334014159758226,
+      "requested_wall_hour_cap": 1.0,
+      "gpu_hours": 0,
+      "on_cap_exceeded": "stop remaining submissions, preserve completed markers, and return to budget review"
+    },
     "confirmatory_runs": "Not authorized by this plan revision.",
     "gpu_hours": 0
   }

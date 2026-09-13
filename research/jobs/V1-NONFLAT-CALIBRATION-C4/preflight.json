@@ -1,0 +1,49 @@
+{
+  "status": "ok",
+  "checks": 8,
+  "passed": 8,
+  "failed": [],
+  "warnings": [],
+  "details": [
+    {
+      "check": "commit_id",
+      "description": "commit_id is present and not dirty",
+      "passed": true
+    },
+    {
+      "check": "env_snapshot",
+      "description": "env_snapshot file exists and non-empty",
+      "passed": true
+    },
+    {
+      "check": "config",
+      "description": "config file exists",
+      "passed": true
+    },
+    {
+      "check": "seeds",
+      "description": "seeds declared (P0≥3 or waiver)",
+      "passed": true
+    },
+    {
+      "check": "artifacts",
+      "description": "output artifact paths declared",
+      "passed": true
+    },
+    {
+      "check": "finite_json",
+      "description": "JSON configs contain no NaN/Inf",
+      "passed": true
+    },
+    {
+      "check": "data_checksums",
+      "description": "data checksums recorded",
+      "passed": true
+    },
+    {
+      "check": "computational_strategy",
+      "description": "performance or screening strategy preserves reference validation",
+      "passed": true
+    }
+  ]
+}

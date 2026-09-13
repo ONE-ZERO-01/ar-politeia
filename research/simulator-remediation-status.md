@@ -12,7 +12,7 @@
 | 分支 | `codex/cycle3-validation` |
 | 参数锁 | `research/parameter_lock.json`，`ar-politeia-cycle3-confirmatory-v3`，SHA-256 `034c3dd357f13d1192a887b31759dbd2b0d3f05ae50409823d00c371fa8dd36e` |
 | E0 校准 | `research/jobs/E0-NUMERICS-C3/numerical_calibration.json`，SHA-256 `cf484987a3c9d63ff5276f098ae75a66312065f5bfdaef9d0588e7b9b8f9c73e` |
-| 旧结果版本 | E0-NUMERICS-C3 / B0-DYNAMICS-PILOT-C3 / E1-MATCHED-LANDSCAPES / E2-CHANNEL-ABLATION（Cycle 3，均已提交）；E3-ROBUSTNESS-HOLDOUT 执行中（不阻塞） |
+| 旧结果版本 | E0-NUMERICS-C3 / B0-DYNAMICS-PILOT-C3 / E1-MATCHED-LANDSCAPES / E2-CHANNEL-ABLATION（Cycle 3，均已提交）；E3-ROBUSTNESS-HOLDOUT 不完整（62 completed / 9 timeout / 169 unattempted） |
 | 分析脚本版本 | `research/src/experiments/landscape_study.py`、`run_landscape_study.py`（Cycle 3） |
 
 ## 2. 问题台账
@@ -73,14 +73,20 @@
 
 ### 4.2 本地验证结果与下一 Gate
 
-本地（2026-09-13 复核）：`python3 -m pytest -q` 为 141 passed；改动 C++ 的逐文件 `c++ -std=c++20 -fsyntax-only` 与 `git diff --check` 均通过。这些检查不执行模拟器，不构成数值证据。
+本地（2026-09-13 复核）：`python3 -m pytest -q` 为 147 passed；改动 C++ 的逐文件 `c++ -std=c++20 -fsyntax-only` 与 `git diff --check` 均通过。这些检查不执行模拟器，不构成数值证据。
 
-下一 Gate：提交并 push 到 `umi`，随后在 `umi` 进行 OpenMP OFF/ON 双构建与 CTest。只有两套构建均通过，才进入非平坦 dt 校准设计和小规模数值验证。
+当前 Gate：V0B/V0C 双构建均已通过，V1P 已给出运行时估计。完整 V1 的代码、矩阵与 preflight 已就绪，等待 5 CPU 小时 / 1 墙钟小时预算授权；确认性实验仍未授权。
 
 首次 V0（commit `78a742b`）在 umi 的 OpenMP OFF/ON 两套构建均成功，Python 141 tests 通过，两个 CTest 组合中均只有 `exchange_kernel` 失败。失败来自一个假设“多粒子原地交易应对存储重排逐粒子完全不变”的新增测试；实测表明稳定 GID 只固定随机抽样，不能消除非交换的顺序更新效应。这项要求超出了 S07 的单对随机流修复，也证明 S08 仍未完成。后续 V0B 保留单对 GID/seed 回归与所有不变量测试，把多粒子顺序效应移入 V1 的三级步长定量检查；在误差界冻结前不开展确认性实验。
 
 V0B 在 umi 完成：Python 141/141；OpenMP OFF CTest 7/7；OpenMP ON CTest 7/7；`jobctl reconcile` 返回 completed。V0B 关闭实现构建 Gate，但不关闭 S08，也不构成非平坦数值校准或科学证据。
 
-### 4.3 Cycle 3 E3 证据纠正
+### 4.3 V0C 与 V1P（2026-09-13）
+
+V1 顺序层要求仅改变存储行序，因此 IC loader 新增可选 `gid,px,py` 显式相态输入并拒绝重复 GID；Python 输入生成器可生成 canonical/permuted 两份按 GID 完全相同的状态。V0C 在 umi 完成 Python 147/147、OpenMP OFF/ON CTest 各 7/7，`jobctl reconcile` 为 completed。
+
+V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非证据 profile，实际总运行 2.80 秒。对冻结的 75-run、每 run 物理时长 1500 的 V1 矩阵按 step 数线性外推并乘 1.5 安全系数，估计 3.47 CPU 小时、并发 8 时 0.43 墙钟小时。完整 V1 已声明且 preflight 8/8，但在 5 CPU 小时 / 1 墙钟小时预算获明确授权前不提交。
+
+### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。
