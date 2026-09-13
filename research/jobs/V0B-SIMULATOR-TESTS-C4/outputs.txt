@@ -1,0 +1,9 @@
+result.json
+environment.json
+pytest.log
+configure-off.log
+build-off.log
+ctest-off.log
+configure-on.log
+build-on.log
+ctest-on.log

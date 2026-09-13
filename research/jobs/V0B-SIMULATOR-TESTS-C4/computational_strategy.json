@@ -1,0 +1,6 @@
+{
+  "approach": "Native CMake builds with OpenMP disabled and enabled, complete CTest in each build, and the Python contract-test suite.",
+  "evidence_role": "implementation_validation",
+  "evidence_boundary": "This task validates corrected test scope and implementation invariants only. Sequential-order sensitivity remains a required quantitative calibration item.",
+  "supports_core_claim": false
+}

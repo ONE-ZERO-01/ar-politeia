@@ -1,0 +1,11 @@
+{
+  "experiment_id": "V0B-SIMULATOR-TESTS-C4",
+  "source_commit": "fd682de39fb71ddbeb52497d499c9b1d449e0dd3",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [false, true],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true,
+  "test_scope": "Implementation invariants and stable-ID random streams; multi-particle sequential-order sensitivity is deferred to V1 quantitative calibration."
+}
