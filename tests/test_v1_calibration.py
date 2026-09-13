@@ -78,6 +78,18 @@ def test_validate_full_matrix_rejects_missing_order_pair():
         )
 
 
+def test_validate_full_matrix_rejects_unknown_stationarity_gate_unit():
+    with pytest.raises(ValueError, match="stationarity_gate_unit"):
+        run_v1.validate_full_matrix(
+            {
+                "seeds": [101, 211, 307],
+                "timesteps": [0.02, 0.01, 0.005],
+                "conditions": full_conditions(),
+                "stationarity_gate_unit": "individual_majority",
+            }
+        )
+
+
 def test_order_condition_requires_noise_isolation_and_explicit_state():
     bad = condition(
         "bad-order",

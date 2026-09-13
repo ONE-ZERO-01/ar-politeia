@@ -13,14 +13,22 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from landscape_study import sha256_file, write_json
+from landscape_study import (
+    metric_status,
+    read_snapshot_csv,
+    sha256_file,
+    snapshot_metrics,
+    write_json,
+)
 from run_landscape_study import (
     PROJECT_ROOT,
+    _stationarity_for_metric,
     analyze_runs,
     execute_runs,
     load_json,
     prepare_inputs,
     project_path,
+    stationary_metrics_for_experiment,
 )
 
 
@@ -103,6 +111,83 @@ def validate_full_matrix(config: Mapping[str, Any]) -> None:
     }
     if order_cells != expected_order:
         raise ValueError("order matrix must be clustered x dt(3) x storage_order(2) exactly")
+    if config.get("stationarity_gate_unit", "run") not in {"run", "condition_ensemble"}:
+        raise ValueError("stationarity_gate_unit must be run or condition_ensemble")
+
+
+def aggregate_condition_ensemble_stationarity(
+    specs: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Evaluate stationarity for each landscape×dt ensemble-mean time series."""
+    timestep_specs = [spec for spec in specs if spec["calibration_component"] == "timestep"]
+    grouped: dict[tuple[str, float], list[Mapping[str, Any]]] = defaultdict(list)
+    for spec in timestep_specs:
+        grouped[(str(spec["landscape"]), float(spec["dt"]))].append(spec)
+    expected_replicates = len(config["seeds"])
+    if len(grouped) != 9 or any(len(items) != expected_replicates for items in grouped.values()):
+        raise RuntimeError("condition-ensemble gate requires a complete 3x3 timestep matrix")
+
+    window = int(config["steady_snapshots"])
+    bounds = tuple(float(value) for value in config["bounds"])
+    stationary_metrics = stationary_metrics_for_experiment(str(config["experiment_id"]))
+    conditions: dict[str, Any] = {}
+    for (landscape, dt), condition_specs in sorted(grouped.items()):
+        series_by_metric: dict[str, list[list[float]]] = {
+            metric: [] for metric in stationary_metrics
+        }
+        for spec in condition_specs:
+            run_dir = project_path(spec["run_dir"], must_exist=True)
+            snapshots = sorted(run_dir.glob("snap_*.csv"))
+            if len(snapshots) < window:
+                raise RuntimeError(f"{spec['run_id']} has fewer than {window} snapshots")
+            resource = np.load(
+                project_path(spec["resource_npy"], must_exist=True), allow_pickle=False
+            )
+            rows = [
+                snapshot_metrics(read_snapshot_csv(path), resource, bounds)
+                for path in snapshots[-window:]
+            ]
+            for metric in stationary_metrics:
+                series_by_metric[metric].append([float(row[metric]) for row in rows])
+
+        diagnostics: dict[str, Any] = {}
+        for metric, replicate_series in series_by_metric.items():
+            ensemble_series = np.mean(np.asarray(replicate_series, dtype=np.float64), axis=0)
+            status = metric_status(metric, float(np.mean(ensemble_series)))
+            diagnostics[metric] = _stationarity_for_metric(
+                metric,
+                ensemble_series,
+                status,
+                max_normalized_drift=float(config["stationarity_max_normalized_drift"]),
+                min_effective_samples=float(config["stationarity_min_ess"]),
+                reversal_span_sigma=float(config.get("stationarity_reversal_span_sigma", 1.0)),
+            )
+        stationarity_pass = all(bool(item.get("pass", False)) for item in diagnostics.values())
+        precision_pass = all(
+            item.get("precision_pass") is not False for item in diagnostics.values()
+        )
+        conditions[f"{landscape}--dt-{dt:.17g}"] = {
+            "landscape": landscape,
+            "dt": dt,
+            "replicates": len(condition_specs),
+            "stationarity_pass": stationarity_pass,
+            "precision_pass": precision_pass,
+            "metrics": diagnostics,
+        }
+    payload = {
+        "experiment": config["experiment_id"],
+        "gate_unit": "condition_ensemble",
+        "window_snapshots": window,
+        "replicates_per_condition": expected_replicates,
+        "stationarity_valid": all(item["stationarity_pass"] for item in conditions.values()),
+        "precision_valid": all(item["precision_pass"] for item in conditions.values()),
+        "conditions": conditions,
+    }
+    payload["pass"] = bool(payload["stationarity_valid"] and payload["precision_valid"])
+    write_json(output_dir / "ensemble_stationarity_report.json", payload)
+    return payload
 
 
 def _weak_bound(values_a: Sequence[float], values_b: Sequence[float]) -> dict[str, float]:
@@ -131,6 +216,7 @@ def aggregate_v1(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
     output_dir: Path,
+    ensemble_stationarity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply the preregistered weak-convergence and storage-order gates."""
     dts = sorted((float(value) for value in config["timesteps"]), reverse=True)
@@ -227,12 +313,19 @@ def aggregate_v1(
         "total_wealth_change_finite": all(math.isfinite(value) for value in total_wealth_drifts),
     }
     timestep_rows = [row for row in rows if row["calibration_component"] == "timestep"]
-    stationarity_pass = all(bool(row["stationarity_pass"]) for row in timestep_rows)
-    precision_pass = all(
-        bool(item.get("precision_pass", False))
-        for row in timestep_rows
-        for item in row["stationarity_diagnostics"].values()
-    )
+    stationarity_gate_unit = str(config.get("stationarity_gate_unit", "run"))
+    if stationarity_gate_unit == "condition_ensemble":
+        if ensemble_stationarity is None:
+            raise ValueError("condition_ensemble gate requires an ensemble report")
+        stationarity_pass = bool(ensemble_stationarity["stationarity_valid"])
+        precision_pass = bool(ensemble_stationarity["precision_valid"])
+    else:
+        stationarity_pass = all(bool(row["stationarity_pass"]) for row in timestep_rows)
+        precision_pass = all(
+            bool(item.get("precision_pass", False))
+            for row in timestep_rows
+            for item in row["stationarity_diagnostics"].values()
+        )
     passed = bool(
         all(invariant_checks.values())
         and timestep_pass
@@ -252,6 +345,7 @@ def aggregate_v1(
             "stationarity": stationarity_pass,
             "precision": precision_pass,
         },
+        "stationarity_gate_unit": stationarity_gate_unit,
         "invariant_checks": invariant_checks,
         "total_wealth_relative_drift_range": [
             min(total_wealth_drifts),
@@ -351,6 +445,7 @@ def main() -> int:
         "V1P-RUNTIME-PILOT-C4",
         "V1-NONFLAT-CALIBRATION-C4",
         "V1B-NONFLAT-CALIBRATION-C4",
+        "V1C-NONFLAT-CALIBRATION-C4",
     }:
         raise ValueError("unexpected experiment_id")
     _validate_conditions(config.get("conditions"))
@@ -369,7 +464,14 @@ def main() -> int:
         payload = summarize_runtime_pilot(specs, config, output_dir)
     else:
         rows = analyze_runs(experiment, config, output_dir, specs)
-        payload = aggregate_v1(rows, config, output_dir)
+        ensemble_stationarity = None
+        if config.get("stationarity_gate_unit", "run") == "condition_ensemble":
+            ensemble_stationarity = aggregate_condition_ensemble_stationarity(
+                specs, config, output_dir
+            )
+        payload = aggregate_v1(
+            rows, config, output_dir, ensemble_stationarity=ensemble_stationarity
+        )
         payload = {
             "experiment": experiment,
             "status": "completed",
