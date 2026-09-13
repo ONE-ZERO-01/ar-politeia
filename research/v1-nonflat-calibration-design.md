@@ -45,7 +45,7 @@ Cycle 3 的平坦场校准也不能界定 `resource_density_spearman_rho`：资�
 所有非平坦单元都要求指标状态为 `valid`。稳态前提还包含 `wealth_variance` 和 `zero_wealth_fraction`。全体运行继续检查：
 
 - 最小财富 `>= -1e-12`；
-- 总财富相对漂移绝对值 `<= 1e-8`；
+- 总财富相对变化为有限值并报告范围；由于非平坦运行显式包含生产与财富衰减，总财富不应守恒，交换核的零和守恒由 V0 单元 Gate 负责；
 - 步长层每个必需指标通过 stationarity；
 - 步长层每个必需指标通过 ESS precision。
 

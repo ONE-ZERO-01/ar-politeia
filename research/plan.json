@@ -115,8 +115,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "ready_after_v0c",
+      "status": "executed_passed",
       "blocked_by": "V0C-SIMULATOR-TESTS-C4",
+      "result": "Three runs completed in 2.80 seconds; the frozen 75-run target is estimated at 3.47 CPU-hours or 0.43 wall-hours at parallel=8, including a 1.5 safety factor.",
       "artifacts": ["run_specs.json", "runtime_estimate.json", "result.json"]
     },
     {
@@ -126,7 +127,7 @@
       "mode": "server",
       "execution_host": "umi",
       "status": "designed_waiting_validation_and_budget",
-      "blocked_by": "V0C-SIMULATOR-TESTS-C4, V1P-RUNTIME-PILOT-C4, and an explicit full-calibration compute budget",
+      "blocked_by": "an explicit full-calibration compute budget (V0C and V1P passed)",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
     },
     {
@@ -170,7 +171,7 @@
   },
   "budget": {
     "authorized_now": "Local static/unit checks, umi V0C OpenMP OFF/ON build plus CTest, and a V1P non-evidentiary runtime pilot capped at three short runs and 0.1 CPU-hour.",
-    "numerical_calibration": "Use V1P to estimate runtime; request/record a new budget before the complete V1 matrix executes.",
+    "numerical_calibration": "V1P estimates 3.47 CPU-hours / 0.43 wall-hours at parallel=8 for 75 runs. Record explicit authorization before the complete V1 matrix executes.",
     "confirmatory_runs": "Not authorized by this plan revision.",
     "gpu_hours": 0
   }

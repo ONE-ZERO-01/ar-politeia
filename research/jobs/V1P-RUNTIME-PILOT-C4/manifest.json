@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/V1P-RUNTIME-PILOT-C4/result.json",
+      "sha256": "d0490d37a8efc9ac6ef90e225d89a472b9e0f033566c3ab017f645f911b2d0cc",
+      "size": 1486
+    }
+  ]
+}

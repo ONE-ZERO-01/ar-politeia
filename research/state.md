@@ -27,7 +27,10 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - V1 now has a registered two-layer design: non-flat weak timestep convergence
   plus a deterministic, full-phase-state storage-order diagnostic. The next Gate
   V0C passed on umi (Python 147/147 and both CTest builds 7/7). The next Gate
-  is a three-run runtime pilot before any full matrix.
+  V1P then completed three capped runtime profiles in 2.80 seconds. The frozen
+  75-run target is estimated at 3.47 CPU-hours, or 0.43 wall-hours at eight-way
+  parallelism with a 1.5 safety factor.
+- Full V1 is designed but awaits the plan's explicit compute-budget authorization.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

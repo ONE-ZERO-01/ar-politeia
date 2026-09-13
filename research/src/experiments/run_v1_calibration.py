@@ -217,11 +217,14 @@ def aggregate_v1(
             "pass": metric_pass,
         }
 
+    # Active non-flat runs include production and wealth decay, so total system
+    # wealth is not conserved by design. Exchange conservation is already a V0
+    # unit invariant. V1 only requires the source/sink trajectory to stay finite
+    # and wealth to remain non-negative.
+    total_wealth_drifts = [float(row["total_wealth_relative_drift"]) for row in rows]
     invariant_checks = {
         "wealth_nonnegative": min(float(row["minimum_wealth"]) for row in rows) >= -1e-12,
-        "wealth_conservation": max(
-            abs(float(row["total_wealth_relative_drift"])) for row in rows
-        ) <= 1e-8,
+        "total_wealth_change_finite": all(math.isfinite(value) for value in total_wealth_drifts),
     }
     timestep_rows = [row for row in rows if row["calibration_component"] == "timestep"]
     stationarity_pass = all(bool(row["stationarity_pass"]) for row in timestep_rows)
@@ -250,6 +253,10 @@ def aggregate_v1(
             "precision": precision_pass,
         },
         "invariant_checks": invariant_checks,
+        "total_wealth_relative_drift_range": [
+            min(total_wealth_drifts),
+            max(total_wealth_drifts),
+        ],
         "discretization": discretization,
         "storage_order_sensitivity": order_sensitivity,
         "numerical_resolution_limits": numerical_limits,

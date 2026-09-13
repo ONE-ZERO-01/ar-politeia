@@ -1,0 +1,39 @@
+{
+  "experiment": "V1P-RUNTIME-PILOT-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "pilot_runs": [
+    {
+      "run_id": "seed-6007--pilot-smooth-dt-0.01",
+      "component": "timestep",
+      "dt": 0.01,
+      "steps": 1000,
+      "elapsed_seconds": 0.7675118912011385,
+      "seconds_per_step": 0.0007675118912011385
+    },
+    {
+      "run_id": "seed-6007--pilot-clustered-dt-0.005",
+      "component": "timestep",
+      "dt": 0.005,
+      "steps": 2000,
+      "elapsed_seconds": 1.1684086322784424,
+      "seconds_per_step": 0.0005842043161392212
+    },
+    {
+      "run_id": "seed-6007--pilot-order-canonical-dt-0.005",
+      "component": "order",
+      "dt": 0.005,
+      "steps": 2000,
+      "elapsed_seconds": 0.8674861118197441,
+      "seconds_per_step": 0.00043374305590987205
+    }
+  ],
+  "target_run_count": 75,
+  "target_total_time": 1500.0,
+  "runtime_safety_factor": 1.5,
+  "estimated_cpu_hours": 3.467211327806581,
+  "estimated_wall_hours_at_declared_parallelism": 0.4334014159758226,
+  "declared_parallelism": 8,
+  "estimate_limitations": "Linear step-count extrapolation at the same population and grid. It includes a multiplicative safety factor but does not authorize V1 execution."
+}
