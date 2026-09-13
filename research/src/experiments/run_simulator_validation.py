@@ -111,7 +111,11 @@ def main() -> int:
     config_path = project_path(args.config)
     output_dir = project_path(args.output_dir, create=True)
     config = json.loads(config_path.read_text(encoding="utf-8"))
-    if config.get("experiment_id") != "V0-SIMULATOR-TESTS-C4":
+    experiment_id = str(config.get("experiment_id", ""))
+    if experiment_id not in {
+        "V0-SIMULATOR-TESTS-C4",
+        "V0B-SIMULATOR-TESTS-C4",
+    }:
         raise ValueError("unexpected experiment_id")
     if platform.node() != "umi":
         raise RuntimeError("simulator validation must run on host umi")
@@ -146,7 +150,7 @@ def main() -> int:
         item["pass"] for item in builds
     )
     result = {
-        "experiment": "V0-SIMULATOR-TESTS-C4",
+        "experiment": experiment_id,
         "status": "completed" if passed else "failed",
         "pass": passed,
         "non_evidentiary": True,
@@ -164,4 +168,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

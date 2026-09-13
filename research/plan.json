@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V1-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V1-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -81,8 +81,19 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "ready_after_commit",
+      "status": "completed_failed",
+      "result": "Both builds succeeded and Python tests passed; exchange_kernel failed because a three-particle exact storage-permutation invariant does not hold for serial in-place updates.",
       "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "environment.txt", "result.json"]
+    },
+    {
+      "id": "V0B-SIMULATOR-TESTS-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Repeat the umi OpenMP OFF/ON build and CTest gate after correcting the test scope: stable-ID random draws and exchange invariants are unit requirements; multi-particle sequential-order sensitivity is measured in V1 rather than assumed exactly absent.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "ready_after_commit",
+      "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
     },
     {
       "id": "V1-NONFLAT-CALIBRATION-C4",
@@ -91,7 +102,7 @@
       "mode": "server",
       "execution_host": "umi",
       "status": "design_after_v0",
-      "blocked_by": "V0-SIMULATOR-TESTS-C4 and explicit runtime estimate",
+      "blocked_by": "V0B-SIMULATOR-TESTS-C4, a registered multi-particle order-sensitivity design, and explicit runtime estimate",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
     },
     {

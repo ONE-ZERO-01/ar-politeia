@@ -1,0 +1,31 @@
+{
+  "experiment": "V0-SIMULATOR-TESTS-C4",
+  "status": "failed",
+  "pass": false,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "source_commit": "78a742b8a4f8afb38b274a0ef6a947f5059ec68f",
+  "pytest": {
+    "pass": true,
+    "tests_passed": 141
+  },
+  "openmp_off": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": false,
+    "tests_passed": 6,
+    "tests_total": 7
+  },
+  "openmp_on": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": false,
+    "tests_passed": 6,
+    "tests_total": 7
+  },
+  "failed_test": "exchange_kernel",
+  "failure": "The three-particle exact storage-permutation assertion failed in both builds: serial in-place pair updates are order dependent even though the random sign is keyed by stable GID.",
+  "interpretation": "The S07 stable-ID random-stream fix is covered by the single-pair reorder test. V0 demonstrates that S08 multi-particle sequential-order sensitivity remains unresolved; it must be quantified across timesteps before confirmatory execution.",
+  "next_experiment": "V0B-SIMULATOR-TESTS-C4",
+  "evidence_boundary": "Implementation validation only; this failure and its correction do not support or refute a landscape-effect claim."
+}

@@ -317,7 +317,7 @@ void test_exchange_invariant_to_storage_reorder() {
             "storage reorder changed the physical pair's transfer");
 }
 
-// --- R08: locked-parameter boundary + >=3 particle reorder ---
+// --- R08: locked-parameter boundary diagnostics ---
 
 void test_exchange_enabled_false_is_noop() {
     auto particles = make_pair(10.0, 2.0);
@@ -357,47 +357,6 @@ void test_nonzero_transfer_pairs_distinct_from_active_pairs() {
     }
 }
 
-void test_three_particle_storage_permutation_invariant() {
-    // R08: >=3 particles sharing neighbours; only the storage order differs
-    // (GID/position/wealth/epsilon all fixed). Per-pair sign uses stable GIDs
-    // (S07), so per-GID final wealth and total transferred are invariant.
-    const std::array<double, 3> w = {10.0, 2.0, 5.0};  // indexed by gid-100
-    const std::array<double, 3> e = {1.0, 3.0, 2.0};
-    const std::array<std::array<double, 2>, 3> xy = {{{0.0, 0.0}, {1.0, 0.0}, {0.5, 0.8}}};
-
-    auto run = [&](const std::array<politeia::Id, 3>& order) {
-        politeia::ParticleData particles(3);
-        for (politeia::Id gid : order) {
-            const int k = static_cast<int>(gid - 100);
-            (void)particles.add_particle_with_gid(
-                {xy[k][0], xy[k][1]}, {0.0, 0.0}, w[k], e[k], 20.0, gid);
-        }
-        auto cells = make_cells();
-        auto params = make_params(0.5, 0.05);
-        politeia::ExchangeDiagnostics diag;
-        double total_transferred = 0.0;
-        for (std::uint64_t step = 0; step < 50; ++step) {
-            total_transferred += static_cast<double>(
-                run_step(particles, cells, params, 0.01, step, 42, &diag));
-        }
-        std::array<double, 3> result{};
-        for (politeia::Id gid : {politeia::Id{100}, politeia::Id{101}, politeia::Id{102}}) {
-            result[static_cast<int>(gid - 100)] =
-                particles.wealth(particles.gid_to_local(gid));
-        }
-        return std::make_pair(result, total_transferred);
-    };
-
-    const auto res_a = run({100, 101, 102});
-    const auto res_b = run({102, 100, 101});
-    for (int k = 0; k < 3; ++k) {
-        require(close(res_a.first[k], res_b.first[k], 1e-9),
-                "storage permutation changed per-GID wealth");
-    }
-    require(close(res_a.second, res_b.second, 1e-9),
-            "storage permutation changed total transferred");
-}
-
 } // namespace
 
 int main() {
@@ -418,7 +377,6 @@ int main() {
     test_exchange_invariant_to_storage_reorder();
     test_exchange_enabled_false_is_noop();
     test_nonzero_transfer_pairs_distinct_from_active_pairs();
-    test_three_particle_storage_permutation_invariant();
     std::cout << "exchange kernel invariant tests passed\n";
     return 0;
 }

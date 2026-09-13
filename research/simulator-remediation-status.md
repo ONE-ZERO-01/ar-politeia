@@ -57,7 +57,7 @@
 | R05 | 交换前 `std::isfinite`+负财富政策前置；`validate_particle_state` 全体检查（含无邻居粒子）；main 按阶段检查 + 非零退出；执行器失败传播已确认 | 本地完成 |
 | R06 | `stationarity_diagnostics` 分层 `stationarity_pass`/`precision_pass` + 子窗口非单调；E0 纳入 `zero_wealth_fraction` | 本地完成 |
 | R07 | `validate_config` 改 `isfinite`、正半径、grid 可读文件；`confirmative_mode` 严格拒绝未知键/非法布尔 | 本地完成 |
-| R08 | `ExchangeDiagnostics` 新增 `nonzero_transfer_pairs`；锁定参数边界 + ≥3 粒子重排测试 | 本地完成 |
+| R08 | `ExchangeDiagnostics` 新增 `nonzero_transfer_pairs`；稳定 GID 已通过单对重排测试。V0 的三粒子测试证实串行原地交易仍依赖存储/遍历顺序 | 待量化，阻塞确认性执行 |
 | R09 | main 分别记录 pre/post 动能；分窗口 `health.json` | 本地完成 |
 | R12 | 快照 CSV 用 `max_digits10`；`min_wealth_observed` 全程不变量；结果拆 `execution/numerics/stationarity/precision/claim` 分层 | 本地完成 |
 | R10/R11 | `confirmative_mode` 拒绝 `nprocs>1` 与 `--restart`（清晰报错） | 本地完成 |
@@ -76,6 +76,8 @@
 本地（2026-09-13 复核）：`python3 -m pytest -q` 为 141 passed；改动 C++ 的逐文件 `c++ -std=c++20 -fsyntax-only` 与 `git diff --check` 均通过。这些检查不执行模拟器，不构成数值证据。
 
 下一 Gate：提交并 push 到 `umi`，随后在 `umi` 进行 OpenMP OFF/ON 双构建与 CTest。只有两套构建均通过，才进入非平坦 dt 校准设计和小规模数值验证。
+
+首次 V0（commit `78a742b`）在 umi 的 OpenMP OFF/ON 两套构建均成功，Python 141 tests 通过，两个 CTest 组合中均只有 `exchange_kernel` 失败。失败来自一个假设“多粒子原地交易应对存储重排逐粒子完全不变”的新增测试；实测表明稳定 GID 只固定随机抽样，不能消除非交换的顺序更新效应。这项要求超出了 S07 的单对随机流修复，也证明 S08 仍未完成。后续 V0B 保留单对 GID/seed 回归与所有不变量测试，把多粒子顺序效应移入 V1 的三级步长定量检查；在误差界冻结前不开展确认性实验。
 
 ### 4.3 Cycle 3 E3 证据纠正
 
