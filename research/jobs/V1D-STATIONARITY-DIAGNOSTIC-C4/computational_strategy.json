@@ -1,0 +1,6 @@
+{
+  "approach": "Read the last 96 snapshots of each of the 75 completed V1 runs once, then deterministically evaluate the fixed 3-by-2 window and reversal-threshold grid in memory.",
+  "evidence_role": "analysis-contract diagnostic",
+  "evidence_boundary": "V1D may freeze an analysis contract for independently seeded V1B. It cannot change the archived V1 failed verdict and cannot support a landscape-effect claim.",
+  "supports_core_claim": false
+}

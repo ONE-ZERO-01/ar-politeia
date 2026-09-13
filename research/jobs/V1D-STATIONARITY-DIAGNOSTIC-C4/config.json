@@ -1,0 +1,22 @@
+{
+  "experiment_id": "V1D-STATIONARITY-DIAGNOSTIC-C4",
+  "source_experiment": "V1-NONFLAT-CALIBRATION-C4",
+  "source_workspace": "research/jobs/V1-NONFLAT-CALIBRATION-C4/workspace",
+  "expected_source_runs": 75,
+  "bounds": [0.0, 100.0, 0.0, 100.0],
+  "snapshot_time_interval": 5.0,
+  "window_snapshots": [24, 48, 96],
+  "reversal_span_sigma": [1.0, 2.0],
+  "max_normalized_drift": 0.1,
+  "min_effective_samples": 4.0,
+  "baseline_comparison_key": "window-24--sigma-1",
+  "expected_v1_baseline": {
+    "stationarity_failed_runs": 19,
+    "precision_failed_runs": 7,
+    "window_shape_reversal": 18,
+    "drift": 5,
+    "precision": 7
+  },
+  "preregistered_v1b_candidate_key": "window-96--sigma-2",
+  "candidate_selection_rule": "V1B uses the longest declared window and the two-standard-deviation reversal threshold. The longer fixed window raises effective sample size and reduces chance half-window reversals; the two-sigma rule retains sensitivity to pronounced U/V shapes. This choice is frozen before independent V1B seeds are generated and does not alter V1."
+}
