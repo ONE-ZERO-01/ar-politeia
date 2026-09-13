@@ -1,0 +1,37 @@
+{
+  "experiment": "V1-NONFLAT-CALIBRATION-C4",
+  "window_snapshots": 24,
+  "snapshot_time_interval": 5.0,
+  "timestep_layer": {
+    "runs": 45,
+    "stationarity_passed_runs": 26,
+    "stationarity_failed_runs": 19,
+    "precision_passed_runs": 38,
+    "precision_failed_runs": 7,
+    "stationarity_failure_count_by_metric": {
+      "resource_density_spearman_rho": 6,
+      "density_morans_i": 5,
+      "occupancy_entropy": 3,
+      "wealth_gini": 2,
+      "wealth_variance": 6,
+      "zero_wealth_fraction": 0
+    },
+    "precision_failure_count_by_metric": {
+      "resource_density_spearman_rho": 3,
+      "occupancy_entropy": 1,
+      "wealth_variance": 3
+    },
+    "diagnostic_failure_components": {
+      "window_shape_reversal": 18,
+      "drift": 5,
+      "precision": 7
+    }
+  },
+  "order_layer": {
+    "runs": 30,
+    "stationarity_failed_runs": 7,
+    "precision_failed_runs": 30,
+    "note": "Order-layer precision was not a registered aggregate gate, but non-stationary order windows make the passing order bound provisional until revalidation."
+  },
+  "interpretation": "Most timestep failures came from the reversal-shape detector, often while absolute drift was below its metric tolerance. Requiring every metric in every stochastic replicate to pass this unadjusted shape check creates a likely multiple-testing problem. Window-length sensitivity must be diagnosed before choosing an independent V1B design."
+}

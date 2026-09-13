@@ -1,0 +1,49 @@
+{
+  "experiment": "V1-NONFLAT-CALIBRATION-C4",
+  "status": "completed_failed_gate",
+  "pass": false,
+  "execution_completed": true,
+  "runs_planned": 75,
+  "runs_completed": 75,
+  "run_failures": 0,
+  "execution_host": "umi",
+  "execution_checkout_commit": "0fb0d6e7792caae377ad071c6e676c1747d924dc",
+  "elapsed_cpu_hours": 7.935089871598821,
+  "maximum_single_run_seconds": 1702.3256052490324,
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": true,
+    "storage_order_sensitivity": true,
+    "stationarity": false,
+    "precision": false
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.019934091610144707,
+    "density_morans_i": 0.010739390078641607,
+    "occupancy_entropy": 0.0029860642925313733,
+    "wealth_gini": 0.004381744401298853
+  },
+  "stationarity_summary": {
+    "timestep_runs": 45,
+    "stationarity_failed_runs": 19,
+    "precision_failed_runs": 7,
+    "failure_components": {
+      "window_shape_reversal": 18,
+      "drift": 5,
+      "precision": 7
+    }
+  },
+  "invariant_checks": {
+    "wealth_nonnegative": true,
+    "total_wealth_change_finite": true
+  },
+  "total_wealth_relative_drift_range": [-0.8907173948347398, -0.40789735534443744],
+  "workspace_artifact_sha256": {
+    "numerical_calibration.json": "b6e0977d5542456ede9fc6a9b565f301f9e3d782ab839e3d1544abb758b1b070",
+    "stationarity_report.json": "766c1cf4d343c8ec13e7f4190d3f62aae142c93c06ce0734f569871a4e70f74b",
+    "replicate_metrics.csv": "f0c1484c9f61be18676e9868d1d8288dbc62ee61aa95ba99a89bdb5c3e7830f0"
+  },
+  "jobctl_reconcile": "failed because the runner returned exit code 1 for a valid negative gate result; runner corrected for subsequent calibrations",
+  "conclusion": "The registered timestep and storage-order error bounds passed, but the calibration as a whole failed because the last-24-snapshot stationarity and precision contract did not hold. E1 remains blocked.",
+  "evidence_boundary": "Negative numerical-calibration result; no Cycle 4 landscape-effect claim is supported."
+}

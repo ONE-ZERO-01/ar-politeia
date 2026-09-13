@@ -1,0 +1,10 @@
+{
+  "experiment": "V1-NONFLAT-CALIBRATION-C4",
+  "pilot_estimated_cpu_hours": 3.467211327806581,
+  "observed_cpu_hours": 7.935089871598821,
+  "underestimate_factor": 2.288024867128867,
+  "maximum_single_run_seconds": 1702.3256052490324,
+  "workspace_size_gib_approx": 4.2,
+  "cause": "The physical-time-10 pilot wrote only a few snapshots and did not capture the long-run cost of 301 CSV snapshots per run. Long order-layer runs spent up to roughly 80-90 percent of profiled time in I/O.",
+  "future_action": "Runtime pilots must match snapshot count or separately model per-snapshot I/O. Keep the simulation matrix fixed; optimize output cadence only in a newly versioned design."
+}

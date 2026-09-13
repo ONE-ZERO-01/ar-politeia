@@ -1,0 +1,12 @@
+{
+  "exit_code": 1,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/V1-NONFLAT-CALIBRATION-C4/result.json",
+      "sha256": "eba80abb04af5331d17f82710f1928bb4e6fcdc3c54fae5fb2d39e4ab4fd410d",
+      "size": 2037
+    }
+  ],
+  "note": "All 75 runs and analysis artifacts completed. Exit code 1 represented the negative numerical gate; the runner now returns zero for valid negative results."
+}

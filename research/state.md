@@ -34,6 +34,12 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   unrestricted project compute, including multi-process CPU and GPU resources.
   V1 will use the validated CPU reference with eight single-thread processes;
   its point estimate is 3.47 CPU-hours / 0.43 wall-hours.
+- V1 completed all 75 runs on umi with no execution failure. Invariants,
+  timestep convergence, and storage-order sensitivity passed, but stationarity
+  failed in 19/45 timestep runs and precision failed in 7/45; the overall V1
+  verdict is failed and E1 remains blocked.
+- The next step is V1D: diagnose window-length and reversal-shape behavior using
+  existing V1 snapshots, then freeze an independently seeded V1B design.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

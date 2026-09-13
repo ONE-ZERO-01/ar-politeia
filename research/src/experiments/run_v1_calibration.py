@@ -381,7 +381,12 @@ def main() -> int:
     summary_result = config.get("summary_result")
     if isinstance(summary_result, str) and summary_result:
         write_json(project_path(summary_result), payload)
-    return 0 if payload["pass"] else 1
+    # A completed calibration may legitimately falsify its numerical gate.
+    # jobctl's process exit code represents execution integrity, while
+    # payload["pass"] represents the scientific/numerical verdict. Returning
+    # non-zero for a valid negative result incorrectly labels all artifacts as
+    # an execution failure and prevents normal reconciliation.
+    return 0
 
 
 if __name__ == "__main__":

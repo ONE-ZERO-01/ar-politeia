@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -126,9 +126,30 @@
       "objective": "Measure timestep error on smooth non-flat, clustered, and shuffled landscapes with at least three timesteps at fixed physical duration; keep numerical tolerance separate from scientific relevance thresholds.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "authorized_ready",
-      "blocked_by": "none (V0C, V1P, preflight, and compute authorization passed)",
+      "status": "executed_failed_gate",
+      "blocked_by": "stationarity and precision failed; V1D diagnosis and independently seeded V1B are required",
+      "result": "75/75 runs completed with no execution failure. Invariants, timestep convergence, and storage-order bounds passed; stationarity failed in 19/45 timestep runs and precision failed in 7/45.",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
+    },
+    {
+      "id": "V1D-STATIONARITY-DIAGNOSTIC-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Diagnose the V1 stationarity failure without new simulation by comparing preregistered window lengths and decomposing drift, reversal-shape, and ESS failures; results select a new independent V1B design but cannot rescue V1.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "designing",
+      "blocked_by": "none",
+      "artifacts": ["window_sensitivity.json", "result.json"]
+    },
+    {
+      "id": "V1B-NONFLAT-CALIBRATION-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Independently revalidate non-flat timestep, storage-order, stationarity, and precision gates using new seeds and the stationarity contract frozen after V1D.",
+      "mode": "server",
+      "execution_host": "umi",
+      "status": "deferred",
+      "blocked_by": "V1D design decision and a new config/preflight lock"
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",

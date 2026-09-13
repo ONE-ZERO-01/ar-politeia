@@ -28,7 +28,7 @@
 | S05 | P1 | A/C | Langevin 外叠加阈值速度缩放 | 温控诊断计数 | 本轮 | 社会力截断待完整模型验证 |
 | S06 | P1 | A | OpenMP 无噪声分支遗漏摩擦 | 修复 + 回归 | 本轮 | 无 |
 | S07 | P1 | A/C | 交换噪声不含 seed、用数组下标 | 稳定 GID + base_seed 子流 | 本轮 | 重排不变性需 umi 实测 |
-| S08 | P1 | A/C | 固定顺序原地交换 | 量化后选方案 | 待办 | 需对照实验 |
+| S08 | P1 | A/C | 固定顺序原地交换 | 三级步长 × 完整相态重排量化 | V1 数值界通过，暂定无需改核 | V1 稳态失败使结论仍需 V1B 独立确认 |
 | S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象 | 待办 | 纯生产/纯衰减分离设计 |
 | S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
@@ -86,6 +86,8 @@ V0B 在 umi 完成：Python 141/141；OpenMP OFF CTest 7/7；OpenMP ON CTest 7/7
 V1 顺序层要求仅改变存储行序，因此 IC loader 新增可选 `gid,px,py` 显式相态输入并拒绝重复 GID；Python 输入生成器可生成 canonical/permuted 两份按 GID 完全相同的状态。V0C 在 umi 完成 Python 147/147、OpenMP OFF/ON CTest 各 7/7，`jobctl reconcile` 为 completed。
 
 V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非证据 profile，实际总运行 2.80 秒。对冻结的 75-run、每 run 物理时长 1500 的 V1 矩阵按 step 数线性外推并乘 1.5 安全系数，估计 3.47 CPU 小时、并发 8 时 0.43 墙钟小时。完整 V1 已声明且 preflight 8/8；用户于 2026-09-13 授权本项目计算资源不设限并允许多进程/GPU，V1 采用已验证的 CPU 参考实现并发 8 执行。
+
+完整 V1 随后在 umi 完成 75/75 runs，0 个运行失败，累计 7.94 CPU 小时。财富非负/有限性、非平坦三级步长界和存储顺序界全部通过；四项数值分辨率上限分别为 Spearman `0.0199341`、Moran's I `0.0107394`、occupancy entropy `0.00298606`、wealth Gini `0.00438174`。但步长层 45 runs 中 19 个未通过稳态、7 个未通过精度，因此 V1 总 Gate 失败，E1 继续阻塞。失败以 reversal-shape 判据为主（18 个 metric-run），需先做窗口敏感性诊断，再以新 seed 执行 V1B；不得用事后窗口选择挽救 V1。
 
 ### 4.4 Cycle 3 E3 证据纠正
 
