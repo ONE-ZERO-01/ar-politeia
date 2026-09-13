@@ -241,7 +241,7 @@ def aggregate_v1(
         and precision_pass
     )
     payload = {
-        "experiment": "V1-NONFLAT-CALIBRATION-C4",
+        "experiment": str(config.get("experiment_id", "V1-NONFLAT-CALIBRATION-C4")),
         "pass": passed,
         "scope": "non-flat weak timestep convergence plus deterministic exchange-order sensitivity",
         "timesteps": {"coarse": coarse_dt, "fine": fine_dt, "finest": finest_dt},
@@ -347,10 +347,14 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     config = load_json(config_path)
     experiment = str(config.get("experiment_id", ""))
-    if experiment not in {"V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4"}:
+    if experiment not in {
+        "V1P-RUNTIME-PILOT-C4",
+        "V1-NONFLAT-CALIBRATION-C4",
+        "V1B-NONFLAT-CALIBRATION-C4",
+    }:
         raise ValueError("unexpected experiment_id")
     _validate_conditions(config.get("conditions"))
-    if experiment == "V1-NONFLAT-CALIBRATION-C4":
+    if experiment != "V1P-RUNTIME-PILOT-C4":
         validate_full_matrix(config)
 
     specs = prepare_inputs(experiment, config, output_dir)
