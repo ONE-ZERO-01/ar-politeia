@@ -91,6 +91,8 @@ V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非
 
 V1D 随后复用 75 个 V1 运行的最后 96 帧完成确定性诊断，24/1σ 基线逐项复现旧计数，jobctl reconcile 通过。2σ 阈值将 24 帧形状反转从 18 降到 0，但 96/2σ 暴露 37 次漂移失败和 42 次精度失败，说明 `total_time=1500` 的长窗口仍包含瞬态。V1B 在产生任何自身结果前冻结为新 seeds、`total_time=2500`、最后 96 帧与 2σ 反转阈值的完整 75-run 重校准。
 
+V1B 在 umi 完成 75/75 runs、0 个运行失败，jobctl reconcile 通过，消耗 14.49 CPU 小时。延长时长把步长层 96/2σ 的稳态失败从 28/45 降至 8/45、精度失败从 26/45 降至 9/45，但仍未满足逐运行全合取 Gate；smooth 的 Spearman fine-vs-finest 两标准误上界为 `0.0279453`，超过冻结上限 `0.02`，其余步长单元、存储顺序界和不变量通过。V1B 是有效负结果，E1 继续阻塞；下一步 V1BD 将检查条件级 ensemble 稳态与独立重复数需求，不能事后改写 V1B。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

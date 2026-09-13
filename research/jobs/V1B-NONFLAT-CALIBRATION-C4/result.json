@@ -1,0 +1,58 @@
+{
+  "experiment": "V1B-NONFLAT-CALIBRATION-C4",
+  "status": "completed_failed_gate",
+  "pass": false,
+  "execution_completed": true,
+  "runs_planned": 75,
+  "runs_completed": 75,
+  "run_failures": 0,
+  "execution_host": "umi",
+  "source_commit": "f6b37eea4540660c364dd5f9b8b49a4f385b7a19",
+  "elapsed_cpu_hours": 14.487723049265332,
+  "maximum_single_run_seconds": 3188.089159682393,
+  "jobctl_wall_seconds": 8158.974862664938,
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": false,
+    "storage_order_sensitivity": true,
+    "stationarity": false,
+    "precision": false
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.027945297630111166,
+    "density_morans_i": 0.011183654574969885,
+    "occupancy_entropy": 0.004644241412919888,
+    "wealth_gini": 0.004430269893999154
+  },
+  "timestep_layer": {
+    "runs": 45,
+    "stationarity_failed_runs": 8,
+    "precision_failed_runs": 9,
+    "stationarity_failure_count_by_metric": {"resource_density_spearman_rho": 4, "density_morans_i": 4, "wealth_variance": 1, "occupancy_entropy": 1},
+    "precision_failure_count_by_metric": {"resource_density_spearman_rho": 5, "wealth_variance": 3, "occupancy_entropy": 2, "wealth_gini": 1},
+    "failure_components": {"precision": 11, "drift": 9, "window_shape_reversal": 1}
+  },
+  "order_layer": {
+    "runs": 30,
+    "stationarity_failed_runs": 18,
+    "precision_failed_runs": 30,
+    "stationarity_failure_count_by_metric": {"occupancy_entropy": 12, "resource_density_spearman_rho": 12},
+    "precision_failure_count_by_metric": {"resource_density_spearman_rho": 18, "density_morans_i": 12, "occupancy_entropy": 24},
+    "failure_components": {"precision": 54, "drift": 12, "window_shape_reversal": 12}
+  },
+  "failed_timestep_cells": [
+    {"landscape": "smooth", "metric": "resource_density_spearman_rho", "two_se_bound": 0.027945297630111166, "ceiling": 0.02}
+  ],
+  "invariant_checks": {"wealth_nonnegative": true, "total_wealth_change_finite": true},
+  "total_wealth_relative_drift_range": [-0.8870023581851348, -0.5208174056326552],
+  "workspace_artifact_sha256": {
+    "numerical_calibration.json": "c8808491e1f1832408475c0114d770900ad70257719079fb524e12bf6fd9b89a",
+    "stationarity_report.json": "8a5b3d608fd4b8ca90f3b4cfb8d3dbb3d1dc07e59c3c65b670f5d82438a5773a",
+    "replicate_metrics.csv": "61bff1ecad71161aade592e0a734e7d3a67ec6c7712325bc959d266158e807db",
+    "result.json": "e2dec4178f12ef963e8cc951bc9a7bf5dd1433984ea234e94d7e0cb2b0fc968a",
+    "run_specs.json": "b12c74ce335d430c9c9e1d3ba3b17fd461d56d0a439f619845dead31716b778e",
+    "matched_input_audit.json": "63ed02c848528e0de83809748a5c2cf236d89d6918c17ec899b26dcad718a231"
+  },
+  "conclusion": "The extended-horizon independent recalibration completed cleanly but failed one timestep-error ceiling plus run-wise stationarity and precision conjunctions. E1 remains blocked.",
+  "evidence_boundary": "Negative numerical-calibration result; no Cycle 4 landscape-effect claim is supported."
+}

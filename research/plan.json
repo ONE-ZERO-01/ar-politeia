@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -149,9 +149,20 @@
       "objective": "Independently revalidate non-flat timestep, storage-order, stationarity, and precision gates using new seeds and the stationarity contract frozen after V1D.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "preregistered",
-      "blocked_by": "none; V1D passed, config is frozen, preflight passes, and compute is authorized",
-      "result": "Pending execution: 75 independent runs, total_time=2500, last-96-snapshot stationarity window, 2-sigma reversal threshold, and new seeds."
+      "status": "executed_failed_gate",
+      "blocked_by": "V1BD ensemble-stationarity and sampling diagnostic is required before another independent calibration",
+      "result": "75/75 runs completed without execution failure. Invariants and storage-order bounds passed; one smooth-landscape Spearman timestep ceiling failed (0.02795 > 0.02), while timestep stationarity failed in 8/45 runs and precision in 9/45."
+    },
+    {
+      "id": "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Reanalyse V1B without new simulation to compare the run-wise conjunction with condition-level ensemble stationarity over adjacent fixed windows and estimate the independent-replicate count required by the failed timestep ceiling.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "designing",
+      "blocked_by": "none",
+      "artifacts": ["ensemble_stationarity_diagnostic.json", "result.json"]
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",

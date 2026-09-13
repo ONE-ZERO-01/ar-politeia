@@ -44,7 +44,19 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   96/2-sigma timestep layer still failed stationarity in 28/45 runs and precision
   in 26/45. V1B is now frozen with independent seeds, total_time=2500, and the
   last-96-snapshot/2-sigma contract; its 75-run preflight passes.
-- The next step is to execute V1B on umi using eight single-thread CPU processes.
+- V1B completed 75/75 runs on umi with no execution failure and jobctl reconcile
+  passed. It consumed 14.49 CPU-hours / 2.27 wall-hours. Invariants and the
+  storage-order bound passed, but the overall Gate remained negative: the smooth
+  Spearman fine-vs-finest bound was 0.02795 against a 0.02 ceiling; timestep
+  stationarity failed in 8/45 runs and precision failed in 9/45.
+- Extending the horizon reduced the 96/2-sigma stationarity failures from V1D's
+  28/45 to 8/45 and precision failures from 26/45 to 9/45. Remaining failures
+  are mostly isolated stochastic trajectories, including ESS values just below
+  four, while requiring every metric in every replicate to pass creates a
+  family-wise conjunction whose failure probability rises with sample size.
+- The next step is V1BD: deterministically compare individual-run and
+  condition-level ensemble stationarity on adjacent 96-snapshot windows and
+  calculate the independent-replicate requirement for the failed numerical cell.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 
