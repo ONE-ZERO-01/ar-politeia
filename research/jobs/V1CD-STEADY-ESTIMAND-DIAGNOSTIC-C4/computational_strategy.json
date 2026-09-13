@@ -1,0 +1,6 @@
+{
+  "approach": "Read the last 288 snapshots of the 135 V1C timestep runs once, reproduce the frozen last-144 condition-ensemble verdict, compare two adjacent non-overlapping 144-snapshot windows, and separately quantify temporal ESS and between-seed uncertainty.",
+  "evidence_role": "equilibration and steady-estimand precision diagnostic",
+  "evidence_boundary": "V1CD cannot change V1C. Any revised steady-estimand contract or horizon requires a new independently seeded calibration.",
+  "supports_core_claim": false
+}

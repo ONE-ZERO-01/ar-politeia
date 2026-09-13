@@ -1,0 +1,37 @@
+{
+  "experiment_id": "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
+  "source_experiment": "V1C-NONFLAT-CALIBRATION-C4",
+  "source_workspace": "research/jobs/V1C-NONFLAT-CALIBRATION-C4/workspace",
+  "expected_source_runs": 225,
+  "expected_timestep_runs": 135,
+  "bounds": [0.0, 100.0, 0.0, 100.0],
+  "window_snapshots": 144,
+  "snapshot_time_interval": 5.0,
+  "reversal_span_sigma": 2.0,
+  "max_normalized_drift": 0.1,
+  "min_effective_samples": 4.0,
+  "source_sha256": {
+    "run_specs": "9ad11ed59a7dc4153874c695cde68c29f46bacdb739e909cf617d47da1247176",
+    "calibration": "551fec4d2bb26940a258ba1c61800137aa8e4cfa789a3040e91f3e050fc0341b",
+    "ensemble_report": "370deac79253ccc07ac7ebe67bbcdd3f00a3f1ddb41608ead634dd7024f8e201"
+  },
+  "expected_v1c_tail": {
+    "condition_count": 9,
+    "stationarity_failed_conditions": 1,
+    "precision_failed_conditions": 6,
+    "stationarity_failure_count_by_metric": {"resource_density_spearman_rho": 1},
+    "precision_failure_count_by_metric": {
+      "resource_density_spearman_rho": 6,
+      "density_morans_i": 2,
+      "occupancy_entropy": 3,
+      "wealth_gini": 3,
+      "wealth_variance": 4
+    }
+  },
+  "planning_half_widths": {
+    "resource_density_spearman_rho": 0.05,
+    "density_morans_i": 0.05,
+    "occupancy_entropy": 0.025,
+    "wealth_gini": 0.025
+  }
+}

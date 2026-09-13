@@ -15,6 +15,14 @@ assert SPEC and SPEC.loader
 run_v1 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(run_v1)
 
+V1CD_MODULE_PATH = EXPERIMENTS / "run_v1c_steady_estimand_diagnostic.py"
+V1CD_SPEC = importlib.util.spec_from_file_location(
+    "run_v1c_steady_estimand_diagnostic", V1CD_MODULE_PATH
+)
+assert V1CD_SPEC and V1CD_SPEC.loader
+run_v1cd = importlib.util.module_from_spec(V1CD_SPEC)
+V1CD_SPEC.loader.exec_module(run_v1cd)
+
 
 def condition(name, landscape, dt, component, **extra):
     return {
@@ -102,3 +110,35 @@ def test_order_condition_requires_noise_isolation_and_explicit_state():
     )
     with pytest.raises(ValueError, match="temperature=0"):
         run_v1._validate_conditions([bad])
+
+
+def test_v1cd_precision_uses_independent_run_window_means():
+    specs = {
+        ("smooth", 0.01): [
+            {"run_id": "a"},
+            {"run_id": "b"},
+        ]
+    }
+    series = {
+        run_id: {
+            metric: values
+            for metric in run_v1cd.STATIONARY_METRICS
+        }
+        for run_id, values in {
+            "a": [0.0, 2.0],
+            "b": [2.0, 4.0],
+        }.items()
+    }
+    report = run_v1cd._independent_replicate_precision(
+        specs,
+        series,
+        segment=slice(0, 2),
+        planning_half_widths={"resource_density_spearman_rho": 2.0},
+    )
+    metric = report["conditions"]["smooth--dt-0.01"][
+        "resource_density_spearman_rho"
+    ]
+    assert metric["mean_of_run_window_means"] == pytest.approx(2.0)
+    assert metric["two_se_half_width"] == pytest.approx(2.0)
+    assert metric["planning_width_pass"] is True
+    assert metric["estimated_replicates_for_planning_width"] == 3

@@ -189,6 +189,17 @@
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "numerical_calibration.json", "result.json"]
     },
     {
+      "id": "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Reanalyse the fixed V1C outputs over adjacent windows to separate persistent equilibration drift, temporal autocorrelation, and independent-seed precision without changing the negative V1C verdict.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "preregistered",
+      "blocked_by": "none",
+      "artifacts": ["steady_estimand_diagnostic.json", "result.json"]
+    },
+    {
       "id": "E1-MATCHED-LANDSCAPES-C4",
       "claim_ids": ["C2-LANDSCAPE-C4"],
       "objective": "Independently rerun the clustered-versus-shuffled comparison using new seeds, the remediated simulator, the frozen non-flat calibration, and required stationarity plus precision gates.",

@@ -1,0 +1,1 @@
+V1CD is a deterministic reanalysis of the 15 declared V1C seeds and draws no new random values.
