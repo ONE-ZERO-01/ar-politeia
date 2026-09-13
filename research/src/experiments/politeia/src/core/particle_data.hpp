@@ -211,4 +211,10 @@ private:
     void grow_to(Index new_cap);
 };
 
+/// R05: validate every alive particle has finite, non-negative wealth and
+/// finite, non-negative ability. Throws ``std::runtime_error`` (with global id
+/// and value) on the first violation. Independent of neighbour pairs, so an
+/// invalid particle with no neighbours is still detected.
+void validate_particle_state(const ParticleData& particles);
+
 } // namespace politeia

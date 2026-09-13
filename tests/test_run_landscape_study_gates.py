@@ -29,13 +29,14 @@ def _e0_row(
     variance: float = 1.0,
     drift: float = 0.0,
     stationary: bool = True,
+    entropy: float = 0.9,
 ) -> dict[str, object]:
     return {
         "seed": seed,
         "condition": condition,
         "resource_density_spearman_rho": 0.0,
         "density_morans_i": 0.0,
-        "occupancy_entropy": 0.9,
+        "occupancy_entropy": entropy,
         "wealth_gini": gini,
         "wealth_variance": variance,
         "minimum_wealth": 0.0,
@@ -44,27 +45,34 @@ def _e0_row(
     }
 
 
-def test_stationary_metrics_for_experiment_uses_cycle3_gate_sets():
+def test_stationary_metrics_for_experiment_restores_full_gate_sets():
+    # R06: E0 wealth stationarity premise now includes zero_wealth_fraction.
     assert run_landscape_study.stationary_metrics_for_experiment(
         "E0-NUMERICS"
-    ) == ("wealth_gini", "wealth_variance")
-    assert "density_morans_i" not in (
-        run_landscape_study.stationary_metrics_for_experiment("B0-DYNAMICS-PILOT")
+    ) == ("wealth_gini", "wealth_variance", "zero_wealth_fraction")
+    # S03 (Cycle 4 remediation): density_morans_i restored to every non-E0
+    # steady gate, wealth_variance restored to E2, zero_wealth_fraction added
+    # (WP5.1). All non-E0 experiments share the full gate set.
+    expected_non_e0 = (
+        "resource_density_spearman_rho",
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+        "wealth_variance",
+        "zero_wealth_fraction",
     )
-    # density_morans_i 已从所有 non-E0 实验的稳态 gate 移出（E1 与 B0 一致），
-    # 仅作为确认性效应在配对分析中检验。
-    assert "density_morans_i" not in (
-        run_landscape_study.stationary_metrics_for_experiment("E1-MATCHED-LANDSCAPES")
-    )
-    # E2 移除 wealth_variance（2026-09-07）：f0-p1 cell 下 production 分化因粒子不
-    # 移动而固化，wealth_variance 有轻微慢弛豫（4/160 边界失败），wealth_gini 已
-    # 覆盖财富稳态前提，故不阻塞 C3 通道判定。
-    e2_metrics = run_landscape_study.stationary_metrics_for_experiment(
+    assert run_landscape_study.stationary_metrics_for_experiment(
+        "B0-DYNAMICS-PILOT"
+    ) == expected_non_e0
+    assert run_landscape_study.stationary_metrics_for_experiment(
+        "E1-MATCHED-LANDSCAPES"
+    ) == expected_non_e0
+    assert run_landscape_study.stationary_metrics_for_experiment(
         "E2-CHANNEL-ABLATION"
-    )
-    assert "wealth_variance" not in e2_metrics
-    assert "wealth_gini" in e2_metrics
-    assert "resource_density_spearman_rho" in e2_metrics
+    ) == expected_non_e0
+    assert run_landscape_study.stationary_metrics_for_experiment(
+        "E3-ROBUSTNESS-HOLDOUT"
+    ) == expected_non_e0
 
 
 def test_absolute_drift_tolerance_for_metric():
@@ -81,6 +89,9 @@ def test_absolute_drift_tolerance_for_metric():
     ) == 0.01
     assert run_landscape_study.absolute_drift_tolerance_for_metric(
         "wealth_gini"
+    ) == 0.01
+    assert run_landscape_study.absolute_drift_tolerance_for_metric(
+        "zero_wealth_fraction"
     ) == 0.01
     assert run_landscape_study.absolute_drift_tolerance_for_metric(
         "wealth_variance"
@@ -118,7 +129,7 @@ def test_aggregate_e0_passes_four_core_checks_with_stationarity_pending(tmp_path
     assert "stationarity" not in payload["core_checks"]
 
 
-def test_aggregate_b0_excludes_moran_from_stationarity_gate(tmp_path):
+def test_aggregate_b0_includes_moran_in_stationarity_gate(tmp_path):
     rows = [
         {
             "seed": seed,
@@ -131,6 +142,7 @@ def test_aggregate_b0_excludes_moran_from_stationarity_gate(tmp_path):
             "occupancy_entropy": 0.7,
             "wealth_gini": 0.5,
             "wealth_variance": 1.0,
+            "zero_wealth_fraction": 0.0,
         }
         for seed in (7103, 7207, 7309)
     ]
@@ -138,7 +150,9 @@ def test_aggregate_b0_excludes_moran_from_stationarity_gate(tmp_path):
         rows, {"population": 500}, tmp_path
     )
     assert payload["pass"] is True
-    assert "density_morans_i" not in payload["stationarity_metrics"]
+    # S03: density_morans_i restored to the steady-window gate.
+    assert "density_morans_i" in payload["stationarity_metrics"]
+    assert "zero_wealth_fraction" in payload["stationarity_metrics"]
 
 
 def test_e2_default_conditions_pair_decay_with_production():
@@ -245,3 +259,116 @@ def test_execute_runs_parallel_merges_and_speeds_up(tmp_path, monkeypatch):
     assert summary["completed_run_ids"] == [f"r{i}" for i in range(8)]
     # 4 路并行 8×0.1s ≈ 0.2s；串行需 0.8s。留裕量，验证确实并行而非串行。
     assert elapsed < 0.6, f"expected parallel speedup, took {elapsed:.2f}s"
+
+
+def _e0_valid_rows() -> list[dict[str, object]]:
+    return [
+        _e0_row(condition="equal-no-exchange", seed=1),
+        _e0_row(condition="equal-exchange", seed=1, variance=0.0),
+        _e0_row(condition="perturbed-dt-1", seed=1),
+        *[
+            _e0_row(condition="perturbed-dt-0.5", seed=seed)
+            for seed in (1, 2, 3)
+        ],
+        *[
+            _e0_row(condition="perturbed-dt-0.25", seed=seed)
+            for seed in (1, 2, 3)
+        ],
+    ]
+
+
+def test_aggregate_e0_rejects_invalid_required_metrics(tmp_path):
+    # R02: NaN/Inf in a required metric (wealth_gini / occupancy_entropy) is
+    # data corruption and must fail, not be silently excluded.
+    for bad in (float("nan"), float("inf")):
+        rows = _e0_valid_rows()
+        for row in rows:
+            if row["condition"] in ("perturbed-dt-0.5", "perturbed-dt-0.25"):
+                row["wealth_gini"] = bad
+        with pytest.raises(RuntimeError, match="invalid"):
+            run_landscape_study.aggregate_e0(rows, tmp_path)
+
+    rows = _e0_valid_rows()
+    for row in rows:
+        if row["condition"] in ("perturbed-dt-0.5", "perturbed-dt-0.25"):
+            row["occupancy_entropy"] = float("inf")
+    with pytest.raises(RuntimeError, match="invalid"):
+        run_landscape_study.aggregate_e0(rows, tmp_path)
+
+
+def test_aggregate_e0_tolerates_degenerate_spatial_metrics(tmp_path):
+    # R02: constant-field Spearman/Moran NaN are expected degenerate and must
+    # be recorded (not raise), while required metrics stay calibrated.
+    rows = _e0_valid_rows()
+    for row in rows:
+        if row["condition"] in ("perturbed-dt-0.5", "perturbed-dt-0.25"):
+            row["resource_density_spearman_rho"] = float("nan")
+            row["density_morans_i"] = float("nan")
+    payload = run_landscape_study.aggregate_e0(rows, tmp_path)
+    assert set(payload["undefined_degenerate_metrics"]) == {
+        "resource_density_spearman_rho",
+        "density_morans_i",
+    }
+    assert payload["pass"] is True
+    assert "gate_layers" in payload
+    assert payload["gate_layers"]["numerics_valid"] is True
+
+
+def test_validate_calibration_coverage(tmp_path):
+    required = (
+        "resource_density_spearman_rho",
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+    )
+    good = {
+        "sesoi_frozen_before_confirmatory_analysis": {
+            "resource_density_spearman_rho": 0.02,
+            "density_morans_i": 0.02,
+            "occupancy_entropy": 0.01,
+            "wealth_gini": 0.01,
+        }
+    }
+    run_landscape_study.validate_calibration_coverage(good, required)  # no raise
+
+    missing = {
+        "sesoi_frozen_before_confirmatory_analysis": {
+            "occupancy_entropy": 0.01,
+            "wealth_gini": 0.01,
+        }
+    }
+    with pytest.raises(RuntimeError, match="missing SESOI"):
+        run_landscape_study.validate_calibration_coverage(missing, required)
+
+    nonfinite = {
+        "sesoi_frozen_before_confirmatory_analysis": {
+            "resource_density_spearman_rho": float("inf"),
+            "density_morans_i": 0.02,
+            "occupancy_entropy": 0.01,
+            "wealth_gini": 0.01,
+        }
+    }
+    with pytest.raises(RuntimeError, match="non-finite SESOI"):
+        run_landscape_study.validate_calibration_coverage(nonfinite, required)
+
+
+def test_no_exchange_conditions_disable_reversion_and_enabled():
+    # R04: no-exchange controls must disable drift, noise AND reversion, and set
+    # the exchange_enabled master switch so the kernel is a strict no-op.
+    config = {
+        "exchange_rate": 0.003,
+        "exchange_noise_strength": 0.05,
+        "exchange_reversion_rate": 1.0,
+        "epsilon_log_sigma": 0.5,
+        "wealth_decay_rate": 0.0,
+        "dt": 0.01,
+    }
+    e0 = run_landscape_study.default_conditions("E0-NUMERICS", config)
+    e0_ne = next(c for c in e0 if c["name"] == "equal-no-exchange")
+    assert e0_ne["exchange_reversion_rate"] == 0.0
+    assert e0_ne["exchange_enabled"] is False
+
+    e1 = run_landscape_study.default_conditions("E1-MATCHED-LANDSCAPES", config)
+    e1_ne = next(c for c in e1 if c["name"] == "clustered-no-exchange")
+    assert e1_ne["exchange_reversion_rate"] == 0.0
+    assert e1_ne["exchange_enabled"] is False

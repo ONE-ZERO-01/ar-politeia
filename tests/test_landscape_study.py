@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import math
 from pathlib import Path
 
 import numpy as np
@@ -132,11 +133,21 @@ def test_spatial_and_wealth_metrics_have_expected_limits():
     resource = np.array([[0.0, 1.0], [2.0, 3.0]])
     assert landscape_study.spearman_correlation(resource, resource) == pytest.approx(1.0)
     assert landscape_study.spearman_correlation(resource, -resource) == pytest.approx(-1.0)
-    assert landscape_study.morans_i(np.ones((3, 3))) == 0.0
+    # S04: a constant field has no defined Moran's I → NaN, not a fallback 0.
+    assert math.isnan(landscape_study.morans_i(np.ones((3, 3))))
     assert landscape_study.occupancy_entropy(np.ones((2, 2))) == pytest.approx(1.0)
     assert landscape_study.occupancy_entropy(np.array([[4.0, 0.0], [0.0, 0.0]])) == 0.0
     assert landscape_study.gini(np.array([1.0, 1.0])) == pytest.approx(0.0)
     assert landscape_study.gini(np.array([0.0, 2.0])) == pytest.approx(0.5)
+
+
+def test_degenerate_correlation_is_nan_not_zero():
+    # S04: constant-vector correlation must be marked undefined (NaN), not a
+    # fallback zero that would masquerade as a zero discretization error.
+    constant = np.full((4, 4), 2.0)
+    assert math.isnan(landscape_study.spearman_correlation(constant, constant))
+    density = np.array([[1.0, 1.0], [1.0, 1.0]])
+    assert math.isnan(landscape_study.morans_i(density))
 
 
 def test_snapshot_metrics_and_paired_bootstrap():
@@ -153,6 +164,7 @@ def test_snapshot_metrics_and_paired_bootstrap():
     assert metrics["resource_density_spearman_rho"] > 0.0
     assert metrics["minimum_wealth"] == 1.0
     assert metrics["wealth_variance"] > 0.0
+    assert metrics["zero_wealth_fraction"] == 0.0
     interval = landscape_study.paired_bootstrap_mean_difference(
         [2.0, 3.0, 4.0], [1.0, 2.0, 3.0], seed=7, samples=1000
     )
@@ -220,20 +232,61 @@ def test_stationarity_diagnostics_distinguish_flat_and_drifting_windows():
     assert drifting["normalized_window_drift"] > 0.1
 
 
-def test_stationarity_drift_decides_over_ess():
-    # Cycle 3：drift 是稳态的决定性指标，ESS 是辅助。构造一个 drift 精确为 0
-    # （对称 palindrome）但强自相关（慢混合 → ESS 略低）的序列，验证其判定为
-    # 稳态（pass=True），而 ess_pass 仍为 False 供审查。
-    half = [np.cos(2 * np.pi * i / 24) for i in range(12)]
-    slow_mixing = half + half[::-1]  # 24 点，精确对称 → 线性趋势为 0
+def test_stationarity_separates_platform_from_precision():
+    # R06: stationarity (drift + non-monotonic shape) and precision (ESS) are
+    # independent layers. A level platform with a huge ESS threshold passes
+    # stationarity while failing precision.
     diagnostic = landscape_study.stationarity_diagnostics(
-        slow_mixing, max_normalized_drift=0.1, min_effective_samples=4.0
+        [2.0] * 12, max_normalized_drift=0.1, min_effective_samples=1e9
     )
     assert diagnostic["drift_pass"] is True
-    assert diagnostic["normalized_window_drift"] < 1e-9
-    assert diagnostic["ess_pass"] is False  # ESS 略低（慢混合）
-    assert diagnostic["effective_samples"] < 4.0
-    assert diagnostic["pass"] is True  # drift 决定性 → 稳态
+    assert diagnostic["stationarity_pass"] is True
+    assert diagnostic["precision_pass"] is False  # ESS=12 << 1e9
+
+    # A drifting ramp is not a platform (stationarity fails) regardless of ESS.
+    drifting = landscape_study.stationarity_diagnostics(
+        np.arange(12.0), max_normalized_drift=0.1, min_effective_samples=1.0
+    )
+    assert drifting["stationarity_pass"] is False
+
+
+def test_stationarity_rejects_nonmonotonic_ushape():
+    # R06: a symmetric U-shape has ~zero linear slope but is not a platform.
+    ushape = [0.0, 1.0, 2.0, 3.0, 4.0, 3.0, 2.0, 1.0, 0.0]
+    diagnostic = landscape_study.stationarity_diagnostics(
+        ushape, max_normalized_drift=0.1, min_effective_samples=3.0
+    )
+    assert diagnostic["drift_pass"] is True  # slope ≈ 0
+    assert diagnostic["monotonic_pass"] is False
+    assert diagnostic["stationarity_pass"] is False
+
+
+def test_stationarity_reports_nan_as_undefined_not_slope():
+    # R01: a non-finite observation is reported as undefined, never as a slope.
+    diagnostic = landscape_study.stationarity_diagnostics(
+        [1.0, float("nan"), 1.0], max_normalized_drift=0.1, min_effective_samples=3.0
+    )
+    assert diagnostic["status"] == "undefined"
+    assert diagnostic["stationarity_pass"] is False
+    assert "slope_per_observation" not in diagnostic
+
+
+def test_metric_status_three_states():
+    valid = landscape_study.metric_status("wealth_gini", 0.42)
+    assert valid["status"] == "valid" and valid["value"] == 0.42
+
+    undefined = landscape_study.metric_status("density_morans_i", float("nan"))
+    assert undefined["status"] == "undefined" and undefined["value"] is None
+    assert undefined["reason"] == "constant_field"
+
+    corrupt_nan = landscape_study.metric_status("wealth_gini", float("nan"))
+    assert corrupt_nan["status"] == "invalid"
+
+    inf = landscape_study.metric_status("wealth_gini", float("inf"))
+    assert inf["status"] == "invalid" and inf["reason"] == "infinity"
+
+    missing = landscape_study.metric_status("wealth_gini", None)
+    assert missing["status"] == "undefined" and missing["value"] is None
 
 
 def test_stationarity_absolute_drift_tolerance():

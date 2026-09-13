@@ -131,9 +131,14 @@ IntegratorState LangevinIntegrator::step(ParticleData& particles, CellList& cell
             }
         }
     } else {
+        // T=0 (noise_amp_ == 0) branch: damping must still be applied when
+        // friction_ > 0 (S06 fix). The momentum update is
+        //   p += (dt/2)*F - (dt/2)*γ*p
+        // so the friction term is present in both half-steps regardless of
+        // whether noise is active, matching the serial path below.
         #pragma omp parallel for schedule(static)
         for (Index i = 0; i < n * SPATIAL_DIM; ++i) {
-            p[i] += half_dt * f[i];
+            p[i] += half_dt * f[i] - half_dt_gamma * p[i];
         }
     }
 #else
@@ -176,9 +181,10 @@ IntegratorState LangevinIntegrator::step(ParticleData& particles, CellList& cell
             }
         }
     } else {
+        // S06 fix: second half-step friction term must be present too.
         #pragma omp parallel for schedule(static)
         for (Index i = 0; i < n * SPATIAL_DIM; ++i) {
-            p[i] += half_dt * f[i];
+            p[i] += half_dt * f[i] - half_dt_gamma * p[i];
         }
     }
 #else

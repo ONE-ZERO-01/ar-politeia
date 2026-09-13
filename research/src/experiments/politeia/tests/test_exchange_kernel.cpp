@@ -6,7 +6,9 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
+#include <utility>
 
 namespace {
 
@@ -52,11 +54,14 @@ Real run_step(
     politeia::CellList& cells,
     const politeia::ExchangeParams& params,
     Real dt,
-    std::uint64_t step
+    std::uint64_t step,
+    std::uint64_t base_seed = 0,
+    politeia::ExchangeDiagnostics* diag = nullptr
 ) {
     cells.build(particles.x_data(), particles.count());
     return politeia::exchange_resources(
-        particles, cells, params, dt, nullptr, nullptr, nullptr, step);
+        particles, cells, params, dt, nullptr, nullptr, nullptr,
+        step, base_seed, diag);
 }
 
 void test_equal_state_is_absorbing_with_noise() {
@@ -187,6 +192,212 @@ void test_deterministic_reproducibility() {
     require(close(first.wealth(1), second.wealth(1), 1e-12), "deterministic run 1 mismatch");
 }
 
+// --- S02: zero-wealth boundary policy ---
+
+void test_zero_wealth_endpoint_reflows_from_positive_neighbour() {
+    // (0, W): the zero-wealth particle is allowed to enter, and the mean
+    // reversion + ability drift pulls wealth back from the positive neighbour.
+    auto particles = make_pair(0.0, 10.0);
+    auto cells = make_cells();
+    auto params = make_params(0.003, 0.0);  // noise off for a deterministic sign
+    (void)run_step(particles, cells, params, 0.01, 0);
+    require(particles.wealth(0) > 0.0, "zero-wealth particle did not receive reflow");
+    require(close(particles.wealth(0) + particles.wealth(1), 10.0, 1e-12),
+            "zero-wealth reflow broke zero-sum");
+}
+
+void test_wealth_endpoint_reflows_to_zero_neighbour() {
+    // (W, 0): symmetric case — the second (zero) particle receives reflow.
+    auto particles = make_pair(10.0, 0.0);
+    auto cells = make_cells();
+    auto params = make_params(0.003, 0.0);
+    (void)run_step(particles, cells, params, 0.01, 0);
+    require(particles.wealth(1) > 0.0, "zero-wealth neighbour did not receive reflow");
+    require(close(particles.wealth(0) + particles.wealth(1), 10.0, 1e-12),
+            "zero-wealth reflow broke zero-sum");
+}
+
+void test_both_zero_wealth_is_noop() {
+    auto particles = make_pair(0.0, 0.0);
+    auto cells = make_cells();
+    auto params = make_params(0.003, 0.5);
+    politeia::ExchangeDiagnostics diag;
+    (void)run_step(particles, cells, params, 0.01, 0, 0, &diag);
+    require(close(particles.wealth(0), 0.0, 1e-15) &&
+            close(particles.wealth(1), 0.0, 1e-15),
+            "zero-zero pair must stay zero");
+    require(diag.active_pairs == 0, "zero-total pair must not be active");
+}
+
+void test_negative_wealth_is_declared_not_skipped() {
+    auto particles = make_pair(-1.0, 10.0);
+    auto cells = make_cells();
+    auto params = make_params(0.003, 0.5);
+    politeia::ExchangeDiagnostics diag;
+    (void)run_step(particles, cells, params, 0.01, 0, 0, &diag);
+    require(diag.negative_wealth_encounters == 1,
+            "negative-wealth pair must be recorded");
+    // No transfer happens (conservation of the declared state), so the
+    // positive endpoint is untouched.
+    require(close(particles.wealth(1), 10.0, 1e-12),
+            "negative-wealth pair must not transfer");
+
+    // R05: the same invalid state must fail business validation even without
+    // a neighbour pair — the full-population check is pair-independent.
+    bool threw = false;
+    try {
+        politeia::validate_particle_state(particles);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+    require(threw, "validate_particle_state must reject negative wealth");
+}
+
+void test_nonfinite_wealth_is_declared_not_silent() {
+    // NaN/Inf comparisons are false under <=/<, so the kernel must check
+    // finiteness explicitly (R05) and record a non-finite encounter.
+    for (politeia::Real bad : {std::numeric_limits<politeia::Real>::quiet_NaN(),
+                               std::numeric_limits<politeia::Real>::infinity()}) {
+        auto particles = make_pair(bad, 10.0);
+        auto cells = make_cells();
+        auto params = make_params(0.003, 0.5);
+        politeia::ExchangeDiagnostics diag;
+        (void)run_step(particles, cells, params, 0.01, 0, 0, &diag);
+        require(diag.nonfinite_encounters == 1,
+                "non-finite wealth must be recorded as a non-finite encounter");
+        require(close(particles.wealth(1), 10.0, 1e-12),
+                "non-finite wealth must not corrupt the neighbour");
+    }
+}
+
+// --- S07: stable-GID + seed sub-stream ---
+
+void test_exchange_seed_changes_stream() {
+    // Different base seeds must resample the exchange stream (WP2.1): with
+    // noise on, the same pair under two seeds drifts apart.
+    auto run_with_seed = [](std::uint64_t seed) {
+        auto particles = make_pair(10.0, 2.0);
+        auto cells = make_cells();
+        auto params = make_params(0.5, 0.5);
+        for (std::uint64_t step = 0; step < 50; ++step) {
+            (void)run_step(particles, cells, params, 0.01, step, seed);
+        }
+        return particles.wealth(0);
+    };
+    const Real wa = run_with_seed(1);
+    const Real wb = run_with_seed(2);
+    require(!close(wa, wb, 1e-9), "different seeds produced identical exchange stream");
+}
+
+void test_exchange_invariant_to_storage_reorder() {
+    // Same physical pair (GIDs 100/200) with wealth attached to GID, but the
+    // storage order is swapped. The physical particle gid=100 must evolve
+    // identically because the per-pair sign depends on stable GIDs, not array
+    // indices (S07). Before the fix the noise sign was index-based and this
+    // test fails.
+    auto run = [](bool swap_storage) {
+        politeia::ParticleData particles(2);
+        const politeia::Id gid_low = 100;
+        const politeia::Id gid_high = 200;
+        if (!swap_storage) {
+            (void)particles.add_particle_with_gid({0.0, 0.0}, {0.0, 0.0}, 10.0, 1.0, 20.0, gid_low);
+            (void)particles.add_particle_with_gid({1.0, 0.0}, {0.0, 0.0}, 2.0, 1.0, 20.0, gid_high);
+        } else {
+            (void)particles.add_particle_with_gid({0.0, 0.0}, {0.0, 0.0}, 2.0, 1.0, 20.0, gid_high);
+            (void)particles.add_particle_with_gid({1.0, 0.0}, {0.0, 0.0}, 10.0, 1.0, 20.0, gid_low);
+        }
+        auto cells = make_cells();
+        auto params = make_params(0.003, 0.5);
+        (void)run_step(particles, cells, params, 0.01, 0, 42);
+        return particles.wealth(particles.gid_to_local(gid_low));
+    };
+    const Real wa = run(false);
+    const Real wb = run(true);
+    require(close(wa, wb, 1e-12),
+            "storage reorder changed the physical pair's transfer");
+}
+
+// --- R08: locked-parameter boundary + >=3 particle reorder ---
+
+void test_exchange_enabled_false_is_noop() {
+    auto particles = make_pair(10.0, 2.0);
+    auto cells = make_cells();
+    auto params = make_params(0.5, 0.5);
+    params.enabled = false;  // R04 master switch
+    politeia::ExchangeDiagnostics diag;
+    const Real transferred = run_step(particles, cells, params, 0.01, 0, 42, &diag);
+    require(transferred == 0.0, "disabled exchange must transfer nothing");
+    require(close(particles.wealth(0), 10.0, 1e-15)
+            && close(particles.wealth(1), 2.0, 1e-15),
+            "disabled exchange must not change wealth");
+    require(diag.active_pairs == 0 && diag.nonzero_transfer_pairs == 0,
+            "disabled exchange must record no activity");
+}
+
+void test_nonzero_transfer_pairs_distinct_from_active_pairs() {
+    // Locked params k=1, eta=0.5, noise=0.05 (R08). Equal state enters the
+    // computation (active) but transfers nothing (dw=0); unequal state does both.
+    {
+        auto particles = make_pair(5.0, 5.0);
+        auto cells = make_cells();
+        auto params = make_params(0.5, 0.05);
+        politeia::ExchangeDiagnostics diag;
+        (void)run_step(particles, cells, params, 0.01, 0, 42, &diag);
+        require(diag.active_pairs == 1, "equal pair must enter the computation");
+        require(diag.nonzero_transfer_pairs == 0, "equal pair must transfer zero");
+    }
+    {
+        auto particles = make_pair(10.0, 2.0);
+        auto cells = make_cells();
+        auto params = make_params(0.5, 0.05);
+        politeia::ExchangeDiagnostics diag;
+        (void)run_step(particles, cells, params, 0.01, 0, 42, &diag);
+        require(diag.active_pairs == 1, "unequal pair must enter the computation");
+        require(diag.nonzero_transfer_pairs == 1, "unequal pair must transfer");
+    }
+}
+
+void test_three_particle_storage_permutation_invariant() {
+    // R08: >=3 particles sharing neighbours; only the storage order differs
+    // (GID/position/wealth/epsilon all fixed). Per-pair sign uses stable GIDs
+    // (S07), so per-GID final wealth and total transferred are invariant.
+    const std::array<double, 3> w = {10.0, 2.0, 5.0};  // indexed by gid-100
+    const std::array<double, 3> e = {1.0, 3.0, 2.0};
+    const std::array<std::array<double, 2>, 3> xy = {{{0.0, 0.0}, {1.0, 0.0}, {0.5, 0.8}}};
+
+    auto run = [&](const std::array<politeia::Id, 3>& order) {
+        politeia::ParticleData particles(3);
+        for (politeia::Id gid : order) {
+            const int k = static_cast<int>(gid - 100);
+            (void)particles.add_particle_with_gid(
+                {xy[k][0], xy[k][1]}, {0.0, 0.0}, w[k], e[k], 20.0, gid);
+        }
+        auto cells = make_cells();
+        auto params = make_params(0.5, 0.05);
+        politeia::ExchangeDiagnostics diag;
+        double total_transferred = 0.0;
+        for (std::uint64_t step = 0; step < 50; ++step) {
+            total_transferred += static_cast<double>(
+                run_step(particles, cells, params, 0.01, step, 42, &diag));
+        }
+        std::array<double, 3> result{};
+        for (politeia::Id gid : {politeia::Id{100}, politeia::Id{101}, politeia::Id{102}}) {
+            result[static_cast<int>(gid - 100)] =
+                particles.wealth(particles.gid_to_local(gid));
+        }
+        return std::make_pair(result, total_transferred);
+    };
+
+    const auto res_a = run({100, 101, 102});
+    const auto res_b = run({102, 100, 101});
+    for (int k = 0; k < 3; ++k) {
+        require(close(res_a.first[k], res_b.first[k], 1e-9),
+                "storage permutation changed per-GID wealth");
+    }
+    require(close(res_a.second, res_b.second, 1e-9),
+            "storage permutation changed total transferred");
+}
+
 } // namespace
 
 int main() {
@@ -198,6 +409,16 @@ int main() {
     test_dt_zero_is_noop();
     test_multi_particle_zero_sum();
     test_deterministic_reproducibility();
+    test_zero_wealth_endpoint_reflows_from_positive_neighbour();
+    test_wealth_endpoint_reflows_to_zero_neighbour();
+    test_both_zero_wealth_is_noop();
+    test_negative_wealth_is_declared_not_skipped();
+    test_nonfinite_wealth_is_declared_not_silent();
+    test_exchange_seed_changes_stream();
+    test_exchange_invariant_to_storage_reorder();
+    test_exchange_enabled_false_is_noop();
+    test_nonzero_transfer_pairs_distinct_from_active_pairs();
+    test_three_particle_storage_permutation_invariant();
     std::cout << "exchange kernel invariant tests passed\n";
     return 0;
 }

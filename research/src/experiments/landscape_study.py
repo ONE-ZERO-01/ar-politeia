@@ -356,24 +356,28 @@ def _average_ranks(values: Array) -> Array:
 
 
 def spearman_correlation(lhs: Array, rhs: Array) -> float:
-    """Spearman correlation with average ranks and defined zero for constants."""
+    """Spearman correlation with average ranks; NaN for a constant vector."""
     left = _average_ranks(lhs)
     right = _average_ranks(rhs)
     left -= float(left.mean())
     right -= float(right.mean())
     denominator = math.sqrt(float(np.dot(left, left) * np.dot(right, right)))
     if denominator == 0.0:
-        return 0.0
+        # S04: a constant vector has no defined correlation. Returning the
+        # fallback zero would masquerade as "zero error" in flat-terrain
+        # calibration, so mark it degenerate/undefined instead.
+        return float("nan")
     return float(np.dot(left, right) / denominator)
 
 
 def morans_i(field: Array) -> float:
-    """Global Moran's I using a symmetric four-neighbour lattice."""
+    """Global Moran's I using a symmetric four-neighbour lattice; NaN for a
+    constant field (degenerate/undefined, S04)."""
     values = np.asarray(field, dtype=np.float64)
     centered = values - float(values.mean())
     denominator = float(np.sum(centered * centered))
     if denominator == 0.0:
-        return 0.0
+        return float("nan")
 
     horizontal = float(np.sum(centered[:, :-1] * centered[:, 1:]))
     vertical = float(np.sum(centered[:-1, :] * centered[1:, :]))
@@ -425,13 +429,16 @@ def snapshot_metrics(
     bounds: Tuple[float, float, float, float],
 ) -> Dict[str, float]:
     density = density_grid(snapshot["x"], snapshot["y"], resource.shape, bounds)
+    wealth = snapshot["w"]
+    n_wealth = max(1, wealth.size)
     return {
         "resource_density_spearman_rho": spearman_correlation(resource, density),
         "density_morans_i": morans_i(density),
         "occupancy_entropy": occupancy_entropy(density),
-        "wealth_gini": gini(snapshot["w"]),
-        "wealth_variance": float(np.var(snapshot["w"])),
-        "minimum_wealth": float(np.min(snapshot["w"])),
+        "wealth_gini": gini(wealth),
+        "wealth_variance": float(np.var(wealth)),
+        "zero_wealth_fraction": float(np.count_nonzero(wealth == 0.0) / n_wealth),
+        "minimum_wealth": float(np.min(wealth)),
         "particle_count": float(np.sum(density)),
     }
 
@@ -598,6 +605,64 @@ def integrated_autocorrelation_time(values: Sequence[float]) -> float:
     return max(1.0, min(tau, float(data.size)))
 
 
+def metric_status(metric: str, value: Any) -> Dict[str, Any]:
+    """R01 data contract: classify a metric value for JSON-safe reporting.
+
+    A metric is ``valid`` (finite), ``undefined`` (structurally not defined for
+    this input — e.g. a constant-vector correlation → NaN), or ``invalid``
+    (non-finite value from data corruption). Non-finite values are carried as
+    ``value: null`` so strict JSON serialization (``allow_nan=False``) never
+    fails, while the reason is preserved instead of being silently dropped or
+    zero-filled.
+    """
+    if value is None:
+        return {"value": None, "status": "undefined", "reason": "missing"}
+    if isinstance(value, bool):
+        return {"value": value, "status": "valid", "reason": None}
+    if not isinstance(value, (int, float)):
+        return {"value": value, "status": "valid", "reason": None}
+    numeric = float(value)
+    if math.isfinite(numeric):
+        return {"value": numeric, "status": "valid", "reason": None}
+    if math.isnan(numeric) and metric in {
+        "resource_density_spearman_rho",
+        "density_morans_i",
+    }:
+        return {"value": None, "status": "undefined", "reason": "constant_field"}
+    if math.isnan(numeric):
+        return {"value": None, "status": "invalid", "reason": "nan"}
+    return {"value": None, "status": "invalid", "reason": "infinity"}
+
+
+def _window_monotonic_pass(data: np.ndarray) -> bool:
+    """Detect a non-platform shape (rise-then-fall / oscillation) via halves.
+
+    A steady platform must not show a systematic reversal — the first half
+    rising while the second falls (or vice versa). A symmetric U/V shape
+    `[0,1,2,3,2,1,0]` has zero linear slope but is clearly not a platform.
+    Monotonic drift is intentionally NOT flagged here: it is the drift layer's
+    job (``drift_pass``), and flagging it would conflict with the
+    absolute-drift tolerance for small monotonic ramps.
+    """
+    n = data.size
+    first = data[: n // 2]
+    second = data[n - n // 2 :]
+    pooled_std = float(np.std(data, ddof=1))
+    if not math.isfinite(pooled_std) or pooled_std <= 0.0:
+        return True
+
+    first_trend = float(np.polyfit(np.arange(first.size, dtype=np.float64), first, 1)[0])
+    second_trend = float(np.polyfit(np.arange(second.size, dtype=np.float64), second, 1)[0])
+    first_span = abs(first_trend) * (first.size - 1)
+    second_span = abs(second_trend) * (second.size - 1)
+    reversal = bool(
+        first_trend * second_trend < 0.0
+        and first_span > pooled_std
+        and second_span > pooled_std
+    )
+    return not reversal
+
+
 def stationarity_diagnostics(
     values: Sequence[float],
     *,
@@ -605,49 +670,68 @@ def stationarity_diagnostics(
     min_effective_samples: float,
     absolute_drift_tolerance: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Diagnose residual linear drift and autocorrelation in a fixed window.
+    """Diagnose drift, autocorrelation and window shape (R01/R06).
+
+    Returns two independent verdicts:
+
+    - ``stationarity_pass``: the window shows neither residual linear drift nor
+      a non-monotonic "rise-then-fall / oscillating" shape. This is the
+      steady-platform verdict.
+    - ``precision_pass``: the effective sample size is large enough to support
+      a high-precision effect estimate (``min_effective_samples``). Low ESS is
+      diagnosed but does not by itself negate a steady platform.
 
     ``absolute_drift_tolerance`` (optional) is the metric's physical-range
-    fraction below which a whole-window absolute drift is treated as a
-    steady state even when the *relative* drift exceeds ``max_normalized_drift``.
-    This fixes a normalisation degeneracy (Cycle 3 E2, 2026-09-07): for metrics
-    whose steady value is physically ~0 (e.g. ``resource_density_spearman_rho``
-    when the terrain force is off, so the density field is uniform), the scale
-    ``max(|mean|, ptp)`` collapses to the noise level and blows up an otherwise
-    negligible drift ~30×. The absolute drift ``|slope|·(n−1)`` is the physical
-    quantity that matters, so a small absolute drift is decisive regardless of
-    the degenerate relative normalisation.
+    fraction below which a whole-window absolute drift is treated as steady even
+    when the *relative* drift exceeds ``max_normalized_drift`` (fixes the
+    degenerate normalisation for metrics whose steady value is ~0).
+
+    Non-finite observations cannot be diagnosed as a trend (R01): they are
+    reported with ``status`` set and both verdicts false rather than
+    fabricating a slope from NaN.
     """
     data = np.asarray(values, dtype=np.float64)
     if data.ndim != 1 or data.size < 3:
         raise ValueError("stationarity diagnostics require at least three observations")
+
+    if not np.all(np.isfinite(data)):
+        has_inf = bool(np.isinf(data).any())
+        status = "invalid" if has_inf else "undefined"
+        reason = "non_finite_observation" if has_inf else "constant_vector"
+        return {
+            "pass": False,
+            "status": status,
+            "reason": reason,
+            "stationarity_pass": False,
+            "precision_pass": False,
+            "observations": int(data.size),
+            "non_finite_observations": int(np.count_nonzero(~np.isfinite(data))),
+        }
+
     index = np.arange(data.size, dtype=np.float64)
     slope = float(np.polyfit(index, data, deg=1)[0])
-    scale = max(
-        abs(float(data.mean())),
-        float(np.ptp(data)),
-        1e-12,
-    )
+    scale = max(abs(float(data.mean())), float(np.ptp(data)), 1e-12)
     normalized_drift = abs(slope) * (data.size - 1) / scale
     absolute_drift = abs(slope) * (data.size - 1)
     iat = integrated_autocorrelation_time(data)
     effective_samples = float(data.size / iat)
-    # Cycle 3（E1 判定，2026-09-05）：drift 是稳态的决定性指标——残差线性趋势是否
-    # 已消失；ESS 是估计精度的辅助指标。24 点短序列的 IAT 估计方差极大，使 ESS 在
-    # 3.5~4.0 边界上随机波动；drift 通过（≤ 阈值）即证明系统已达稳态，此时 ESS 略
-    # 低只是「稳态但慢混合」的精度警告，不应判为非稳态。因此 pass 由 drift 单独决定，
-    # ESS 作为辅助字段（ess_pass）保留供审查。no-exchange 条件下仍有 3 个 run 的
-    # drift 真超阈值（真非稳态），不受本改动影响。
-    # Cycle 3（E2 判定，2026-09-07）：绝对漂移容差作为稳态的充分条件，修复「指标
-    # 稳态值趋零 → 相对 drift 归一化退化」的伪非稳态（见函数 docstring）。
+
     drift_pass = bool(normalized_drift <= max_normalized_drift)
     if absolute_drift_tolerance is not None and absolute_drift <= absolute_drift_tolerance:
         drift_pass = True
+
+    monotonic_pass = _window_monotonic_pass(data)
     ess_pass = bool(effective_samples >= min_effective_samples)
-    passed = drift_pass
+    stationarity_pass = bool(drift_pass and monotonic_pass)
+    precision_pass = ess_pass
+
     return {
-        "pass": passed,
+        "pass": stationarity_pass,
+        "status": "valid",
+        "stationarity_pass": stationarity_pass,
+        "precision_pass": precision_pass,
         "drift_pass": drift_pass,
+        "monotonic_pass": monotonic_pass,
         "ess_pass": ess_pass,
         "observations": int(data.size),
         "slope_per_observation": slope,

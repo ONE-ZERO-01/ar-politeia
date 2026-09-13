@@ -32,3 +32,17 @@ add_test(NAME io_roundtrip COMMAND test_io_roundtrip)
 set_tests_properties(io_roundtrip PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_executable(test_integrator test_integrator.cpp)
+target_link_libraries(test_integrator PRIVATE politeia_core)
+add_test(NAME integrator COMMAND test_integrator)
+set_tests_properties(integrator PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+add_executable(test_invalid_state test_invalid_state.cpp)
+target_link_libraries(test_invalid_state PRIVATE politeia_core)
+add_test(NAME invalid_state COMMAND test_invalid_state)
+set_tests_properties(invalid_state PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)

@@ -1,7 +1,9 @@
 #include "core/particle_data.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
+#include <string>
 
 namespace politeia {
 
@@ -195,6 +197,32 @@ Index ParticleData::compact_with_map(std::vector<Index>& old_to_new) {
     count_ = write;
     rebuild_gid_map();
     return removed;
+}
+
+void validate_particle_state(const ParticleData& particles) {
+    const Index n = particles.count();
+    const Real* w = particles.w_data();
+    const Real* eps = particles.eps_data();
+    for (Index i = 0; i < n; ++i) {
+        if (particles.status(i) != ParticleStatus::Alive) continue;
+        const Real wi = w[i];
+        if (!std::isfinite(wi)) {
+            throw std::runtime_error(
+                "non-finite wealth: particle gid=" + std::to_string(particles.global_id(i))
+                + " w=" + std::to_string(static_cast<double>(wi)));
+        }
+        if (wi < 0.0) {
+            throw std::runtime_error(
+                "negative wealth: particle gid=" + std::to_string(particles.global_id(i))
+                + " w=" + std::to_string(static_cast<double>(wi)));
+        }
+        const Real ei = eps[i];
+        if (!std::isfinite(ei) || ei < 0.0) {
+            throw std::runtime_error(
+                "invalid ability: particle gid=" + std::to_string(particles.global_id(i))
+                + " eps=" + std::to_string(static_cast<double>(ei)));
+        }
+    }
 }
 
 } // namespace politeia

@@ -4,6 +4,8 @@
 #include "core/particle_data.hpp"
 #include "domain/cell_list.hpp"
 
+#include <cstdint>
+
 namespace politeia {
 
 struct ExchangeParams {
@@ -11,6 +13,7 @@ struct ExchangeParams {
     Real noise_strength = 0.0;  // η_n: antisymmetric zero-sum fluctuation intensity (continuous-time)
     Real reversion_rate = 1.0;  // k: mean-reversion rate of share toward 1/2 (continuous-time)
     Real cutoff = 2.5;         // 交互距离（与人际交互力的社交视野半径一致）
+    bool enabled = true;        // R04: master switch; false → strict no-op
     bool terrain_barrier_enabled = false;
     Real terrain_barrier_scale = 5.0;  // h0: larger = weaker barrier effect
     bool river_exchange_enabled = false;
@@ -18,6 +21,17 @@ struct ExchangeParams {
     Real ability_saturation_w = 5.0;   // w_ref: wealth half-saturation for diminishing returns
                                        // A_i = ε_i × w_i/(w_i + w_ref)
                                        // Set 0 to disable (use A_i = ε_i × w_i)
+};
+
+/// Per-step exchange diagnostics (S02/WP1 boundary accounting).
+/// Filled by `exchange_resources` when a non-null pointer is passed.
+struct ExchangeDiagnostics {
+    std::uint64_t active_pairs = 0;                  // pairs entering the computation (incl. dw=0)
+    std::uint64_t nonzero_transfer_pairs = 0;        // pairs with |dw| > 0 (R08)
+    std::uint64_t clamp_events = 0;                  // share clamped outside [0,1]
+    std::uint64_t negative_wealth_encounters = 0;    // pair with a negative wealth/ability endpoint (declared error)
+    std::uint64_t nonfinite_encounters = 0;          // pair with a NaN/Inf wealth or ability endpoint (R05)
+    std::uint64_t degenerate_ability_encounters = 0; // A_i + A_j < epsilon (no well-defined D)
 };
 
 /// Perform symmetric resource exchange between neighboring particles.
@@ -62,7 +76,9 @@ class InteractionNetwork;
     class InteractionNetwork* network = nullptr,
     const Real* terrain_potential_at_particle = nullptr,
     const Real* river_proximity_at_particle = nullptr,
-    std::uint64_t step = 0
+    std::uint64_t step = 0,
+    std::uint64_t base_seed = 0,
+    ExchangeDiagnostics* diag = nullptr
 );
 
 /// Apply per-step resource consumption and terrain-based production.

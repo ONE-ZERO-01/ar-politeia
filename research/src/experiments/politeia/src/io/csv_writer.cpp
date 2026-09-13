@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 namespace politeia {
@@ -54,7 +55,10 @@ void CSVWriter::write_snapshot(const ParticleData& particles, Index step,
     }
     f << "\n";
 
-    f << std::setprecision(8);
+    // R12: the snapshot CSV is authoritative data read back by the analysis
+    // pipeline, so it must be lossless (max_digits10), not a display-precision
+    // 8 digits that could alias a 1e-8 conservation tolerance.
+    f << std::setprecision(std::numeric_limits<Real>::max_digits10);
 
     const Real* x = particles.x_data();
     const Real* p = particles.p_data();

@@ -47,20 +47,30 @@ inline std::uint64_t splitmix64(std::uint64_t x) {
     return x;
 }
 
-/// Deterministic antisymmetric sign for pair (i,j) at time step `step`.
+/// Deterministic antisymmetric sign for a pair at time step `step`, keyed by
+/// the particles' stable global IDs (gi, gj) and a per-stream seed (S07).
+///
 /// Returns s with s(i,j) = −s(j,i), reproducible across runs, and independent
 /// of the traversal direction — so the OpenMP `for_neighbors_of` path (which
-/// visits each pair from both endpoints) stays exactly zero-sum.
-inline Real antisymmetric_sign(std::uint64_t i, std::uint64_t j, std::uint64_t step) {
-    const std::uint64_t lo = (i < j) ? i : j;
-    const std::uint64_t hi = (i < j) ? j : i;
-    const std::uint64_t key = splitmix64(lo)
+/// visits each pair from both endpoints) stays exactly zero-sum. Using stable
+/// GIDs (not array indices) keeps the per-pair draw invariant under storage
+/// reordering, migration and restart; mixing in `seed` makes distinct
+/// replicate_seed runs resample the exchange stream independently.
+inline Real antisymmetric_sign(std::uint64_t gi, std::uint64_t gj,
+                               std::uint64_t step, std::uint64_t seed) {
+    const std::uint64_t lo = (gi < gj) ? gi : gj;
+    const std::uint64_t hi = (gi < gj) ? gj : gi;
+    const std::uint64_t key = splitmix64(seed ^ lo)
                             ^ (splitmix64(hi) * 0x9e3779b97f4a7c15ULL)
                             ^ (step * 0xd6e8feb86659fd93ULL);
     const std::uint64_t r = splitmix64(key);
     const Real mag = ((r >> 63) & 1ULL) ? 1.0 : -1.0;
-    return (i < j) ? mag : -mag;
+    return (gi < gj) ? mag : -mag;
 }
+
+/// Exchange stream identifier: mixed with the base seed so exchange draws use
+/// their own sub-stream, independent of motion/population streams (WP2.1).
+constexpr std::uint64_t EXCHANGE_STREAM_ID = 0x9e3779b97f4a7c15ULL;
 
 } // namespace
 
@@ -72,8 +82,17 @@ Real exchange_resources(
     InteractionNetwork* network,
     const Real* terrain_potential_at_particle,
     const Real* river_proximity_at_particle,
-    std::uint64_t step
+    std::uint64_t step,
+    std::uint64_t base_seed,
+    ExchangeDiagnostics* diag
 ) {
+    // R04: when exchange is disabled the kernel is a strict no-op — no drift,
+    // no noise, no reversion, no network recording. This is the single source
+    // of truth for "no-exchange" control conditions.
+    if (!params.enabled) {
+        return 0.0;
+    }
+
     const Real cutoff_sq = params.cutoff * params.cutoff;
     const Real eta = params.exchange_rate;
     const Real eta_n = params.noise_strength;
@@ -92,6 +111,10 @@ Real exchange_resources(
 
     Real total_transferred = 0.0;
 
+    // Per-stream exchange seed (S07): exchange draws get their own sub-stream,
+    // independent of motion/population streams, keyed by the base seed.
+    const std::uint64_t stream_seed = base_seed ^ EXCHANGE_STREAM_ID;
+
     // Candidate C (Cycle 3): multiplicative reallocation with serial in-place
     // updates. share ∈ [0,1] keeps both endpoints non-negative and each pair
     // exactly zero-sum, eliminating the accumulated-clamp negative-wealth bug
@@ -105,7 +128,26 @@ Real exchange_resources(
 
             const Real wi = w[i];
             const Real wj = w[j];
-            if (wi <= 0.0 || wj <= 0.0) return;
+
+            // R05: finiteness first — NaN/Inf comparisons are false under <=/<
+            // so they would otherwise slip through to the arithmetic below.
+            if (!std::isfinite(wi) || !std::isfinite(wj)
+                || !std::isfinite(eps[i]) || !std::isfinite(eps[j])) {
+                if (diag) ++diag->nonfinite_encounters;
+                return;
+            }
+            // Negative wealth/ability is a declared error, checked before the
+            // zero-total early-out so (-2,1)/(-1,-1) are not silently skipped.
+            if (wi < 0.0 || wj < 0.0 || eps[i] < 0.0 || eps[j] < 0.0) {
+                if (diag) ++diag->negative_wealth_encounters;
+                return;
+            }
+            const Real total = wi + wj;
+
+            // S02 boundary policy: only a non-positive total is a no-op. A
+            // single zero endpoint is allowed to enter — share ∈ [0,1] keeps
+            // both endpoints valid — so a positive neighbour can drive reflow.
+            if (total <= 0.0) return;
 
             Real Ai, Aj;
             if (use_saturation) {
@@ -116,15 +158,17 @@ Real exchange_resources(
                 Aj = wj * eps[j];
             }
             const Real A_sum = Ai + Aj;
-            if (A_sum < 1e-15) return;
+            if (A_sum < 1e-15) {
+                if (diag) ++diag->degenerate_ability_encounters;
+                return;
+            }
 
-            const Real total = wi + wj;
             const Real D = (Ai - Aj) / A_sum;
             const Real absD = std::abs(D);
             const Real s = antisymmetric_sign(
-                static_cast<std::uint64_t>(i),
-                static_cast<std::uint64_t>(j),
-                step);
+                static_cast<std::uint64_t>(particles.global_id(i)),
+                static_cast<std::uint64_t>(particles.global_id(j)),
+                step, stream_seed);
 
             // Continuous-time mean-reverting reallocation (candidate C,
             // dt-convergent): drift is O(dt), fluctuation is O(sqrt(dt)).
@@ -151,8 +195,8 @@ Real exchange_resources(
             }
 
             Real share = share0 + dt * drift + sqrt_dt * noise;
-            if (share < 0.0) share = 0.0;
-            if (share > 1.0) share = 1.0;
+            if (share < 0.0) { share = 0.0; if (diag) ++diag->clamp_events; }
+            if (share > 1.0) { share = 1.0; if (diag) ++diag->clamp_events; }
 
             const Real wi_new = share * total;
             const Real dw = wi_new - wi;
@@ -160,10 +204,14 @@ Real exchange_resources(
             w[i] = wi_new;
             w[j] = total - wi_new;
 
-            if (network && std::abs(dw) > 1e-15) {
+            if (diag) ++diag->active_pairs;
+            const Real dw_abs = std::abs(dw);
+            if (diag && dw_abs > 1e-15) ++diag->nonzero_transfer_pairs;
+
+            if (network && dw_abs > 1e-15) {
                 network->record_transfer(i, j, dw);
             }
-            total_transferred += std::abs(dw);
+            total_transferred += dw_abs;
         }
     );
 

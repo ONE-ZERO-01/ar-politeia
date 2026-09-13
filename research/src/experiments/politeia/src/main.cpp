@@ -31,7 +31,10 @@
 #include <random>
 #include <chrono>
 #include <cmath>
+#include <exception>
 #include <filesystem>
+#include <fstream>
+#include <limits>
 #include <cstring>
 #include "analysis/async_analyzer.hpp"
 
@@ -48,6 +51,11 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 #endif
+
+    // R05: any invalid numerical state raises an exception; convert it into a
+    // structured failure with a non-zero exit so the executor's failed marker
+    // is written and the run is never reused as a success.
+    try {
 
     // Parse CLI: politeia [config.cfg]
     //            politeia --restart checkpoint.bin [override.cfg]
@@ -71,6 +79,31 @@ int main(int argc, char* argv[]) {
         cfg.restart_file = restart_path;
     }
     const bool is_restart = !cfg.restart_file.empty();
+
+    // R10/R11: confirmative mode is the single-rank, single-shot reference.
+    // MPI halo exchange and restart RNG recovery are explicitly NOT validated
+    // (see remediation ledger support matrix), so they are rejected up front.
+    if (cfg.confirmative_mode) {
+        if (nprocs > 1) {
+            throw std::runtime_error(
+                "confirmative mode requires nprocs=1; MPI halo is not a "
+                "validated reference (R10 support matrix)");
+        }
+        if (is_restart) {
+            throw std::runtime_error(
+                "confirmative mode forbids --restart; restart RNG recovery is "
+                "not validated (R11 support matrix)");
+        }
+    }
+
+    // --- Config fail-fast + interval normalization (S10.4) ---
+    // Normalize zero intervals BEFORE any derived value (e.g. network_window)
+    // caches them, and reject invalid physical/config values up front instead
+    // of failing deep inside the stepping loop.
+    if (cfg.output_interval == 0) cfg.output_interval = 1;
+    if (cfg.compact_interval == 0) cfg.compact_interval = 100;
+    if (cfg.density_update_interval == 0) cfg.density_update_interval = 10;
+    politeia::validate_config(cfg);
 
     // --- SFC Domain Decomposition (Morton Z-curve) ---
     politeia::SFCDecomposition domain;
@@ -208,8 +241,14 @@ int main(int argc, char* argv[]) {
     }
 
     // --- Initialize cell list (uses global domain; SFC handles partitioning) ---
-    // Cell size must cover both interaction range and density radius for neighbor searching
-    const politeia::Real cell_cutoff = std::max(cfg.interaction_range, cfg.density_radius);
+    // Cell size must cover interaction range, density radius AND exchange
+    // cutoff (S10.1): exchange uses its own cutoff, so a larger exchange_cutoff
+    // would otherwise fall outside the fixed 3×3 search and miss neighbours.
+    const politeia::Real exchange_cutoff_effective =
+        (cfg.exchange_cutoff > 0) ? cfg.exchange_cutoff : cfg.interaction_range;
+    const politeia::Real cell_cutoff = std::max(
+        std::max(cfg.interaction_range, cfg.density_radius),
+        exchange_cutoff_effective);
     politeia::CellList cells;
     cells.init(cfg.domain_xmin, cfg.domain_xmax,
                cfg.domain_ymin, cfg.domain_ymax, cell_cutoff);
@@ -388,6 +427,7 @@ int main(int argc, char* argv[]) {
     exchange_params.ability_saturation_w = cfg.ability_saturation_w;
     exchange_params.noise_strength = cfg.exchange_noise_strength;
     exchange_params.reversion_rate = cfg.exchange_reversion_rate;
+    exchange_params.enabled = cfg.exchange_enabled;
 
     // --- Reproduction parameters ---
     politeia::ReproductionParams repro_params;
@@ -559,15 +599,37 @@ int main(int argc, char* argv[]) {
     constexpr politeia::Index MIN_REBALANCE_GAP = 50;
     politeia::Index steps_since_rebalance = 0;
 
-    // --- Validate intervals (prevent division by zero) ---
-    if (cfg.output_interval == 0) cfg.output_interval = 1;
-    if (cfg.compact_interval == 0) cfg.compact_interval = 100;
-    if (cfg.density_update_interval == 0) cfg.density_update_interval = 10;
-
     // --- Main time-stepping loop ---
     auto t_start = std::chrono::steady_clock::now();
     politeia::Index total_deaths = 0;
     politeia::Index cached_global_N = init_lstats.global_total;
+
+    // Exchange boundary/thermostat diagnostics (S02/S05): accumulated per-step,
+    // reported once at end of run (rank 0). Cross-rank totals require an
+    // MPI reduce; single-rank (confirmatory reference) reports directly.
+    politeia::ExchangeDiagnostics exchange_diag;
+    std::uint64_t thermostat_trigger_count = 0;
+    double thermostat_max_correction = 0.0;
+
+    // R09: record pre/post thermostat kinetic energy at a well-defined moment
+    // and accumulate per-window health statistics for a structured health.json.
+    struct WindowHealth {
+        politeia::Index step = 0;
+        double time = 0.0;
+        double pre_ke = 0.0;
+        double post_ke = 0.0;
+        std::uint64_t trigger_count = 0;
+        double max_correction = 0.0;
+        double ke_removed = 0.0;
+    };
+    std::vector<WindowHealth> window_health;
+    double step_pre_ke = 0.0;
+    double step_post_ke = 0.0;
+    std::uint64_t window_trigger_count = 0;
+    double window_max_correction = 0.0;
+    double window_ke_removed = 0.0;
+    // R12: whole-run minimum wealth invariant (accumulated across output windows).
+    double min_wealth_observed = std::numeric_limits<double>::infinity();
 
     // Demographic tracking: accumulate births/deaths between output intervals
     politeia::Index interval_births = 0;
@@ -645,6 +707,12 @@ int main(int argc, char* argv[]) {
             const politeia::Real target_ke = n_ke * cfg.temperature;  // 2D: N*kT
             const politeia::Real ke_ratio = ke / std::max(target_ke, 1e-15);
 
+            // R09: explicit pre-thermostat KE (after river/climate momentum
+            // changes but before rescaling) — the health diagnostic uses this
+            // well-defined moment rather than the integrator's earlier value.
+            step_pre_ke = static_cast<double>(ke);
+            step_post_ke = static_cast<double>(ke);
+
             constexpr politeia::Real tau_T = 0.1;  // coupling time (in sim time units)
             const politeia::Real berendsen_dt = cfg.dt / tau_T;
 
@@ -656,9 +724,23 @@ int main(int argc, char* argv[]) {
                 if (ke_ratio > 2.0) {
                     lambda = std::sqrt(1.0 / ke_ratio);
                 }
+                // S05 diagnostics: record every velocity-rescaling trigger and
+                // the largest per-step correction magnitude for transparency.
+                ++thermostat_trigger_count;
+                ++window_trigger_count;
+                thermostat_max_correction = std::max(
+                    thermostat_max_correction, std::abs(1.0 - lambda));
+                window_max_correction = std::max(
+                    window_max_correction, std::abs(1.0 - lambda));
                 politeia::Real* p = particles.p_data();
                 for (politeia::Index i = 0; i < n_ke * 2; ++i) p[i] *= lambda;
+                // KE scales by lambda^2 after uniform rescaling.
+                step_post_ke = static_cast<double>(ke * lambda * lambda);
+                window_ke_removed += static_cast<double>(ke) - step_post_ke;
             }
+        } else {
+            step_pre_ke = 0.0;
+            step_post_ke = 0.0;
         }
 
         perf.stop(politeia::PerfMonitor::Dynamics);
@@ -674,7 +756,9 @@ int main(int argc, char* argv[]) {
             need_network ? &network : nullptr,
             terrain_at_particle.empty() ? nullptr : terrain_at_particle.data(),
             river_proximity_at_particle.empty() ? nullptr : river_proximity_at_particle.data(),
-            static_cast<std::uint64_t>(step));
+            static_cast<std::uint64_t>(step),
+            static_cast<std::uint64_t>(cfg.random_seed),
+            &exchange_diag);
         perf.stop(politeia::PerfMonitor::Exchange);
 
         // 3. Cultural dynamics: assimilation between neighbors
@@ -780,6 +864,12 @@ int main(int argc, char* argv[]) {
             cfg.wealth_decay_rate
         );
         perf.stop(politeia::PerfMonitor::Resources);
+
+        // R05: fail-fast after production/consumption/decay so a negative or
+        // non-finite wealth produced by this stage is caught immediately.
+        if (cfg.strict_numerics) {
+            politeia::validate_particle_state(particles);
+        }
 
         // 6. Population dynamics: age, death, plague, reproduction
         perf.start(politeia::PerfMonitor::Population);
@@ -983,6 +1073,20 @@ int main(int argc, char* argv[]) {
         politeia::Real gini = 0;
         if (do_output && rank == 0) {
             gini = politeia::compute_gini(particles);
+            // R09: capture this window's thermostat health at a defined moment
+            // (the output step's pre/post KE) and reset the per-window counters.
+            WindowHealth wh;
+            wh.step = step;
+            wh.time = static_cast<double>(step) * static_cast<double>(cfg.dt);
+            wh.pre_ke = step_pre_ke;
+            wh.post_ke = step_post_ke;
+            wh.trigger_count = window_trigger_count;
+            wh.max_correction = window_max_correction;
+            wh.ke_removed = window_ke_removed;
+            window_health.push_back(wh);
+            window_trigger_count = 0;
+            window_max_correction = 0.0;
+            window_ke_removed = 0.0;
         }
         perf.stop(politeia::PerfMonitor::Analysis);
 
@@ -1009,7 +1113,12 @@ int main(int argc, char* argv[]) {
 
         if (do_output && rank == 0) {
             politeia::Real time = step * cfg.dt;
-            (void)politeia::compute_wealth_stats(global_snap);
+            // R12: accumulate the whole-run minimum wealth (a full-run invariant)
+            // across output windows so an early negative/low value is recorded
+            // even though the steady-window analysis only reads the tail.
+            const politeia::WealthStats wstats =
+                politeia::compute_wealth_stats(global_snap);
+            min_wealth_observed = std::min(min_wealth_observed, wstats.min_val);
 
             writer.write_energy(step, time, state.kinetic_energy,
                                 state.social_potential, state.terrain_potential,
@@ -1132,6 +1241,12 @@ int main(int argc, char* argv[]) {
 
         perf.step_done();
 
+        // R05: final-step state check — catches any invalid state produced by
+        // exchange or any other stage, including particles with no neighbours.
+        if (cfg.strict_numerics) {
+            politeia::validate_particle_state(particles);
+        }
+
         // Load balance report (all ranks participate in MPI_Allreduce)
         if (do_output) {
             auto lr = perf.compute_load_report(
@@ -1158,6 +1273,45 @@ int main(int argc, char* argv[]) {
     double elapsed = std::chrono::duration<double>(t_end - t_start).count();
 
     if (rank == 0) {
+        // S02/S05 diagnostics: report exchange boundary accounting and
+        // thermostat rescaling activity for transparency (WP1/WP3).
+        std::cout << "Exchange diagnostics: active_pairs="
+                  << exchange_diag.active_pairs
+                  << " clamp_events=" << exchange_diag.clamp_events
+                  << " negative_wealth_encounters="
+                  << exchange_diag.negative_wealth_encounters
+                  << " degenerate_ability_encounters="
+                  << exchange_diag.degenerate_ability_encounters << "\n";
+        std::cout << "Thermostat diagnostics: trigger_count="
+                  << thermostat_trigger_count
+                  << " max_correction=" << thermostat_max_correction << "\n";
+
+        // R09: write structured per-window thermostat health (pre/post kinetic
+        // energy, trigger count, max correction, energy removed) as JSON.
+        {
+            std::ofstream health_file(cfg.output_dir + "/health.json");
+            health_file << std::setprecision(17);
+            health_file << "{\n  \"windows\": [\n";
+            for (std::size_t i = 0; i < window_health.size(); ++i) {
+                const WindowHealth& wh = window_health[i];
+                health_file << "    {\"step\": " << wh.step
+                            << ", \"time\": " << wh.time
+                            << ", \"pre_ke\": " << wh.pre_ke
+                            << ", \"post_ke\": " << wh.post_ke
+                            << ", \"trigger_count\": " << wh.trigger_count
+                            << ", \"max_correction\": " << wh.max_correction
+                            << ", \"ke_removed\": " << wh.ke_removed << "}";
+                health_file << (i + 1 < window_health.size() ? ",\n" : "\n");
+            }
+            health_file << "  ],\n"
+                        << "  \"total_trigger_count\": " << thermostat_trigger_count
+                        << ",\n"
+                        << "  \"total_max_correction\": " << thermostat_max_correction
+                        << ",\n"
+                        << "  \"min_wealth_observed\": " << min_wealth_observed
+                        << "\n}\n";
+        }
+
         writer.close();
         std::cout << "\nSimulation complete. Wall time: " << elapsed << " s\n";
     }
@@ -1166,4 +1320,12 @@ int main(int argc, char* argv[]) {
     MPI_Finalize();
 #endif
     return 0;
+
+    } catch (const std::exception& e) {
+        std::cerr << "FATAL: " << e.what() << "\n";
+#ifdef POLITEIA_USE_MPI
+        MPI_Finalize();
+#endif
+        return 3;
+    }
 }

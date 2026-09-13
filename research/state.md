@@ -2,59 +2,48 @@
 
 ```
 current_stage = EXPERIMENT
-cycle = 3
-replan_from = cycle-2
+cycle = 4
+replan_from = cycle-3
 ```
 
 This file is a human-readable stage summary for the single research plan under
 `research/`. Orchestrator truth lives in `.autoresearcher/orchestrator/state.json`
 and must not be overwritten from here.
 
-Cycle 3 = exchange-kernel steady-state refactoring (design doc
-`research/exchange-kernel-design.md`, D0-D4). D2 calibration passed
-(E0-NUMERICS-C3 + B0-DYNAMICS-PILOT-C3); D3 confirmatory E1-MATCHED-LANDSCAPES
-executed and passed — C2-LANDSCAPE **supported** (clustered-minus-shuffled paired
-effect 4 metrics Holm-significant above frozen SESOI); E2-CHANNEL-ABLATION
-executed and passed — C3-CHANNELS **supported** (movement single-channel
-attribution, production zero effect on spatial structure, interaction zero).
-C4-ROBUSTNESS executing (E3 running under parallel=16).
+Cycle 4 is a simulator-remediation and revalidation cycle. The implementation
+scope and remaining checks are recorded in `research/simulator-improvement-plan.md`,
+`research/simulator-review-and-repair-plan-2026-09-08.md`, and
+`research/simulator-remediation-status.md`.
 
-## E3 启动（2026-09-07）
+## Current status (2026-09-13)
 
-E3-ROBUSTNESS-HOLDOUT 已启动：240 runs（3 人口 × 2 分辨率 × 2 景观家族 × 10 seed ×
-2 条件），`parallel=16` 并行、`per_run_timeout_seconds=10800`（3h）。启动前实测高人口
-benchmark：pop2000 ~8min/run、pop5000 ~23min/run、pop10000 ~110min/run（10000 超过原
-3600s 超时，故提至 10800s）。`execute_runs` 已支持多进程并行（`_execute_one_run` +
-ThreadPoolExecutor）。参数锁 v3 不变（parallel/timeout 是调度参数，非科学参数）。预计
-16 路并行 wall clock ~12h，watchdog 监控 `/tmp/e3_watchdog_state.json`。C4-ROBUSTNESS
-判定在 E3 完成后进行。
+- The Cycle 4 local remediation implementation is present in the working tree.
+- Local non-numerical validation passes: 141 pytest tests, per-file C++ syntax
+  checks, and `git diff --check`.
+- The Cycle 3 plan is archived under `research/versions/cycle-3/`; the new
+  Cycle 4 plan limits current execution to implementation validation.
+- The next required step is to commit/push the remediation event and run
+  OpenMP OFF/ON CMake builds plus CTest on `umi`.
+- Non-flat timestep calibration and all new numerical evidence remain pending.
+  No Cycle 4 confirmatory claim is currently supported.
 
-**待决策**：无——E3 预算已批准（parallel_full），执行中。
+## Cycle 3 E3 correction
 
-## E2 完成后的收尾与决策
+`E3-ROBUSTNESS-HOLDOUT` is not running. Inspection of its authoritative `umi`
+workspace found 240 planned run directories, 71 completion markers, 62 completed
+runs, 9 runs that timed out at 10,800 seconds, and 169 runs that were never
+attempted. The last marker was written on 2026-09-07. No aggregate robustness
+analysis was produced.
 
-E2 结论已提交（`ca2192a`，result.json + channel_effects.json 进 git），findings /
-cycle-output / plan / state 已同步 C3→supported。C1-NUM / C2-LANDSCAPE /
-C3-CHANNELS 三项核心+机制主张全部 supported。
+The partial runs remain as provenance but must not be resumed or pooled into a
+Cycle 4 conclusion: the simulator and analysis contract changed during the
+remediation cycle. The tracked E3 result is therefore `incomplete`, not a null
+scientific result and not evidence for C4-ROBUSTNESS.
 
-**待决策**：E3-ROBUSTNESS-HOLDOUT（C4 稳健性）是否执行——新的 CPU 预算边界，需
-人类批准。E3 已 prepare-only 验证（240-run 输入生成通过），但高人口（10000）run
-存在 O(N²) 交换核超时风险，批准前需先跑一次高人口 benchmark 实测。
+## Evidence status
 
-**D4 前需手动对齐的 Gate（不阻塞 E3 决策）**：
-
-1. **jobctl reconcile 陈旧** — ✅ 已解决：服务器 `.autoresearcher/jobs/` 下
-   7 个 Cycle 1/2 过时 jobctl 运行态记录（死 pid、旧 commit `029820d`、worker
-   exit_code=1）已清理。Cycle 3 实验全走 nohup 手动运行（非 jobctl submit），
-   不依赖 jobctl handle；清理后 `jobctl reconcile` 返回 `no_handle`，语义正确。
-2. **audit 缺 manifest.json** — ✅ 已解决（`42a6d50`）：新增 foundation 工具
-   `gen_manifest.py`，从 result.json（status=completed && pass=true）生成
-   manifest.json（exit_code=0/mode=server/artifacts[{path,sha256,size}]）。
-   已为 E0-C3/B0-C3/E1 生成，退休 C1/C2 job（pass=false）与未运行 job（blocked）
-   自动跳过（走 claim evidence 路径）。本地 audit 确认 manifest 检查通过，仅剩
-   `claims file is missing`（D4 写 paper claims.json 时补齐）。
-3. **timeline 再生成**：已纳入 C2 supported，E2 完成后需再生成纳入 C3。
-
-**E2-CHANNEL-ABLATION 已完成**（`ca2192a`）：160/160 runs，三 gate 全过，C3
-supported。两处判定逻辑修正（drift 绝对漂移容差 + wealth_variance 移出 E2 gate）
-见 exchange-kernel-design.md §16，均已提交（`d8a4cd1`）。
+- Cycle 3 E0/E1/E2 outputs and the archived plan remain versioned historical evidence.
+- Their earlier `supported` labels require reinterpretation under the simulator
+  review, especially the flat-terrain calibration and E2 channel semantics.
+- Cycle 4 uses new experiment IDs and will require a new non-degenerate calibration and a
+  new parameter lock before any confirmatory execution.

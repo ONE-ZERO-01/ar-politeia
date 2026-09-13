@@ -52,6 +52,7 @@ struct SimConfig {
     Real ability_saturation_w = 5.0; // wealth half-saturation for exchange ability
     Real exchange_noise_strength = 0.0; // η_n: antisymmetric zero-sum fluctuation intensity (continuous-time)
     Real exchange_reversion_rate = 1.0; // k: mean-reversion rate of share toward 1/2 (continuous-time)
+    bool exchange_enabled = true;  // R04: master switch; false → exchange is a strict no-op
 
     // Culture dynamics
     Real assimilation_rate = 0.01;
@@ -166,6 +167,8 @@ struct SimConfig {
     int random_seed = 42;
     int network_window_factor = 10;
     Index density_update_interval = 10;
+    bool strict_numerics = true;  // R05: fail-fast on non-finite/negative state
+    bool confirmative_mode = false;  // R07: reject unknown keys / illegal booleans
 
     // Module switches (for ablation experiments)
     bool culture_enabled = true;
@@ -259,5 +262,10 @@ struct SimConfig {
 
 /// Load config with all defaults.
 [[nodiscard]] SimConfig default_config();
+
+/// Validate a loaded config and throw on invalid values (S10.4 fail-fast).
+/// Checks physical values (dt > 0 finite, temperature >= 0, friction >= 0,
+/// non-negative rates) and file-backed terrain existence for "grid" type.
+void validate_config(const SimConfig& cfg);
 
 } // namespace politeia

@@ -31,6 +31,7 @@ from landscape_study import (
     completion_marker_is_reusable,
     holm_adjust,
     make_matched_landscapes,
+    metric_status,
     paired_bootstrap_mean_difference,
     paired_discretization_sesoi,
     read_snapshot_csv,
@@ -144,6 +145,11 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_production_enabled": False,
                 "exchange_rate": 0.0,
                 "exchange_noise_strength": 0.0,
+                # R04: "no-exchange" must disable drift, noise AND reversion —
+                # otherwise the mean-reversion term dt·k·(1/2−share) still moves
+                # wealth. Setting reversion to 0 makes the kernel a strict no-op.
+                "exchange_reversion_rate": 0.0,
+                "exchange_enabled": False,
                 "wealth_log_sigma": 0.0,
                 # Uniform ability keeps the equal-state absorption check
                 # (w_i=w_j and eps_i=eps_j => D_ij=0 => no exchange) well-defined.
@@ -219,6 +225,10 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "terrain_production_enabled": True,
                 "exchange_rate": 0.0,
                 "exchange_noise_strength": 0.0,
+                # R04: disable reversion too so the kernel is a strict no-op,
+                # not a mean-reversion-only process.
+                "exchange_reversion_rate": 0.0,
+                "exchange_enabled": False,
                 "wealth_log_sigma": 0.01,
                 "epsilon_log_sigma": epsilon_log_sigma,
                 "dt": dt,
@@ -304,6 +314,8 @@ def common_cpp_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         "river_enabled": False,
         "snapshot_binary": False,
         "checkpoint_interval": 0,
+        "strict_numerics": bool(config.get("strict_numerics", True)),
+        "confirmative_mode": bool(config.get("confirmative_mode", False)),
     }
 
 
@@ -619,8 +631,12 @@ def prepare_inputs(
                         condition.get("exchange_noise_strength", 0.0)
                     ),
                     "exchange_reversion_rate": float(
-                        condition.get("exchange_reversion_rate", 1.0)
+                        condition.get(
+                            "exchange_reversion_rate",
+                            config.get("exchange_reversion_rate", 1.0),
+                        )
                     ),
+                    "exchange_enabled": bool(condition.get("exchange_enabled", True)),
                     "output_dir": relative_to_project(run_dir),
                 }
             )
@@ -646,6 +662,13 @@ def prepare_inputs(
                     "exchange_noise_strength": float(
                         condition.get("exchange_noise_strength", 0.0)
                     ),
+                    "exchange_reversion_rate": float(
+                        condition.get(
+                            "exchange_reversion_rate",
+                            config.get("exchange_reversion_rate", 1.0),
+                        )
+                    ),
+                    "exchange_enabled": bool(condition.get("exchange_enabled", True)),
                     "epsilon_log_sigma": float(
                         condition.get("epsilon_log_sigma", 0.0)
                     ),
@@ -871,6 +894,57 @@ def execute_runs(
     return _merge(results)
 
 
+def precision_valid_for_rows(rows: Sequence[Mapping[str, Any]]) -> bool:
+    """R12: every defined stationarity diagnostic must have ``precision_pass``.
+
+    Metrics with an ``undefined``/``invalid`` status carry no precision verdict
+    and are handled by ``stationarity_valid`` (they block stationarity), so they
+    are skipped here. ``precision_valid`` is the effective-sample-size layer.
+    """
+    for row in rows:
+        for diagnostic in row.get("stationarity_diagnostics", {}).values():
+            if "precision_pass" in diagnostic and not bool(diagnostic["precision_pass"]):
+                return False
+    return True
+
+
+def _stationarity_for_metric(
+    metric: str,
+    series: Sequence[float],
+    status: Mapping[str, Any],
+    *,
+    max_normalized_drift: float,
+    min_effective_samples: float,
+) -> Dict[str, Any]:
+    """Route a metric's snapshot series to a stationarity verdict (R01/R06).
+
+    Undefined metrics (constant-field correlation → NaN) and invalid metrics
+    (data corruption) cannot support a stationarity claim: they return a
+    structured ``{pass: False, status: ...}`` result instead of a fabricated
+    slope. Finite series are delegated to ``stationarity_diagnostics``.
+    """
+    if status.get("status") == "undefined":
+        return {
+            "pass": False,
+            "status": "undefined",
+            "reason": status.get("reason"),
+            "observations": len(series),
+        }
+    if status.get("status") == "invalid":
+        return {
+            "pass": False,
+            "status": "invalid",
+            "reason": status.get("reason"),
+            "observations": len(series),
+        }
+    return stationarity_diagnostics(
+        series,
+        max_normalized_drift=max_normalized_drift,
+        min_effective_samples=min_effective_samples,
+        absolute_drift_tolerance=absolute_drift_tolerance_for_metric(metric),
+    )
+
+
 def mean_metrics_for_run(
     spec: Mapping[str, Any],
     *,
@@ -897,26 +971,43 @@ def mean_metrics_for_run(
         for snapshot in selected
     ]
     metric_names = rows[0].keys()
-    means = {name: float(np.mean([row[name] for row in rows])) for name in metric_names}
+    metric_statuses = {
+        name: metric_status(name, float(np.mean([row[name] for row in rows])))
+        for name in metric_names
+    }
+    # R01: carry the metric value as null when it is undefined/invalid so no
+    # raw NaN/Inf leaks into JSON or CSV; keep the finite float otherwise.
+    means = {
+        name: status["value"] for name, status in metric_statuses.items()
+    }
     means["minimum_wealth"] = min(float(row["minimum_wealth"]) for row in rows)
     diagnostics = {
-        metric: stationarity_diagnostics(
+        metric: _stationarity_for_metric(
+            metric,
             [row[metric] for row in rows],
+            metric_statuses.get(metric, {"status": "valid"}),
             max_normalized_drift=stationarity_max_drift,
             min_effective_samples=stationarity_min_ess,
-            absolute_drift_tolerance=absolute_drift_tolerance_for_metric(metric),
         )
         for metric in stationary_metrics
     }
-    means["stationarity_pass"] = all(item["pass"] for item in diagnostics.values())
+    # R01/R06: stationarity requires every required metric to be a steady
+    # platform AND to be numerically valid; undefined (constant-field) or
+    # invalid metrics block rather than silently passing.
+    means["stationarity_pass"] = all(
+        bool(item["pass"]) for item in diagnostics.values()
+    )
     for metric, diagnostic in diagnostics.items():
-        means[f"{metric}__normalized_drift"] = float(
-            diagnostic["normalized_window_drift"]
-        )
-        means[f"{metric}__iat"] = float(
-            diagnostic["integrated_autocorrelation_time"]
-        )
-        means[f"{metric}__ess"] = float(diagnostic["effective_samples"])
+        if "normalized_window_drift" in diagnostic:
+            means[f"{metric}__normalized_drift"] = float(
+                diagnostic["normalized_window_drift"]
+            )
+        if "integrated_autocorrelation_time" in diagnostic:
+            means[f"{metric}__iat"] = float(
+                diagnostic["integrated_autocorrelation_time"]
+            )
+        if "effective_samples" in diagnostic:
+            means[f"{metric}__ess"] = float(diagnostic["effective_samples"])
     final_snapshot = read_snapshot_csv(selected[-1])
     initial_snapshot = np.genfromtxt(
         project_path(spec["initial_conditions"], must_exist=True),
@@ -933,6 +1024,7 @@ def mean_metrics_for_run(
         **means,
         "snapshots_used": len(selected),
         "stationarity_diagnostics": diagnostics,
+        "metric_statuses": metric_statuses,
     }
 
 
@@ -981,6 +1073,61 @@ def load_e0_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
     return calibration
 
 
+def confirmatory_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
+    """Metrics a confirmatory analysis indexes against the frozen SESOI (R03).
+
+    These must each have a finite SESOI threshold in the loaded calibration;
+    otherwise the analysis would KeyError after expensive runs complete.
+    """
+    if experiment in {"E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION",
+                      "E3-ROBUSTNESS-HOLDOUT"}:
+        return (
+            "resource_density_spearman_rho",
+            "density_morans_i",
+            "occupancy_entropy",
+            "wealth_gini",
+        )
+    return ()
+
+
+def validate_calibration_coverage(
+    calibration: Mapping[str, Any],
+    required_metrics: Sequence[str],
+) -> None:
+    """Fail fast if the calibration cannot cover a confirmatory analysis (R03).
+
+    Checks every required metric has a finite SESOI threshold and that the
+    calibration declares a scope. A flat-terrain numerics calibration does not
+    carry spatial-correlation thresholds (they are degenerate), so confirmatory
+    experiments that need them must be blocked until a non-flat calibration
+    exists (phase C, umi) — never silently substitute an old 1e-6 threshold.
+    """
+    sesoi = calibration.get("sesoi_frozen_before_confirmatory_analysis")
+    if not isinstance(sesoi, dict):
+        raise RuntimeError("calibration has no frozen SESOI values")
+    missing: List[str] = []
+    non_finite: List[str] = []
+    for metric in required_metrics:
+        if metric not in sesoi:
+            missing.append(metric)
+        else:
+            value = sesoi[metric]
+            if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                non_finite.append(metric)
+    if not missing and not non_finite:
+        return
+    detail: List[str] = []
+    if missing:
+        detail.append(f"missing SESOI: {sorted(missing)}")
+    if non_finite:
+        detail.append(f"non-finite SESOI: {sorted(non_finite)}")
+    raise RuntimeError(
+        "calibration does not cover the confirmatory analysis's required metrics; "
+        "a non-flat-terrain calibration (phase C, umi) is required before running "
+        "this experiment. " + "; ".join(detail)
+    )
+
+
 def apply_holm_and_sesoi(
     intervals: Mapping[str, Mapping[str, float]],
     sesoi: Mapping[str, float],
@@ -1006,32 +1153,27 @@ def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
     """Return the steady-window metrics checked for each experiment.
 
     E0 is a flat-terrain pure-exchange numerics test: spatial density metrics
-    are degenerate noise there, so only the wealth distribution is checked.
-    ``density_morans_i`` is a slow terrain-aggregation mode whose relaxation
-    time far exceeds the exchange kernel's (≫2000 time units, D2 §10), and it
-    is itself a confirmatory effect in E1 rather than a stationarity premise.
-    It is therefore reported as a metric but excluded from the steady-window
-    gate of every non-E0 experiment, and is left for E1 matched-landscape
-    analysis.
+    are degenerate (undefined) there, so only the wealth distribution is
+    checked.
+
+    S03 (Cycle 4 remediation): ``density_morans_i`` and ``wealth_variance``
+    are restored to the steady-window gate of every non-E0 experiment — a
+    steady-state claim on the spatial/wealth structure cannot be inferred from
+    the other metrics alone. ``zero_wealth_fraction`` (zero-wealth mass, WP5.1)
+    is added to the wealth stationarity premise. Whether these pass must be
+    re-verified on umi after the WP1–WP3 core fixes (deferred).
     """
     if experiment == "E0-NUMERICS":
-        return ("wealth_gini", "wealth_variance")
-    # E2 移除 wealth_variance（2026-09-07）：它是二阶矩，在 f0-p1 cell
-    # （force off + production on）下 production 造成的财富分化因粒子不移动而固化，
-    # 有轻微慢弛豫（4/160 run 的 drift 0.109–0.185 略超阈值），而 wealth_gini 全
-    # 通过证明财富分布本身稳态。wealth_gini 已覆盖财富稳态前提，variance 的边界
-    # 慢模不阻塞 C3 通道判定。
-    if experiment == "E2-CHANNEL-ABLATION":
-        return (
-            "resource_density_spearman_rho",
-            "occupancy_entropy",
-            "wealth_gini",
-        )
+        # R06: zero_wealth_fraction joins the wealth stationarity premise for
+        # E0 (boundary-calibration role), alongside Gini and variance.
+        return ("wealth_gini", "wealth_variance", "zero_wealth_fraction")
     return (
         "resource_density_spearman_rho",
+        "density_morans_i",
         "occupancy_entropy",
         "wealth_gini",
         "wealth_variance",
+        "zero_wealth_fraction",
     )
 
 
@@ -1048,8 +1190,8 @@ def absolute_drift_tolerance_for_metric(metric: str) -> Optional[float]:
     """
     if metric in ("resource_density_spearman_rho", "density_morans_i"):
         return 0.02  # Spearman/Moran's I ∈ [-1, 1]，范围 2，1% = 0.02
-    if metric in ("occupancy_entropy", "wealth_gini"):
-        return 0.01  # 归一化熵 / Gini ∈ [0, 1]，范围 1，1% = 0.01
+    if metric in ("occupancy_entropy", "wealth_gini", "zero_wealth_fraction"):
+        return 0.01  # 归一化熵 / Gini / 零财富比例 ∈ [0, 1]，范围 1，1% = 0.01
     return None
 
 
@@ -1170,14 +1312,19 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         abs(float(row["total_wealth_relative_drift"])) for row in rows
     )
     minimum_wealth = min(float(row["minimum_wealth"]) for row in rows)
-    bounded_metrics = (
+    # R02: E0 declares which metrics are required (must be finite and produce a
+    # dt-convergence bound) versus which are expected to be degenerate on flat
+    # terrain (constant-field correlation → undefined). Inf/NaN data corruption
+    # is neither and must fail. An empty convergence set must not pass.
+    required_metrics = ("occupancy_entropy", "wealth_gini")
+    expected_degenerate_metrics = (
         "resource_density_spearman_rho",
         "density_morans_i",
-        "occupancy_entropy",
-        "wealth_gini",
     )
+    bounded_metrics = required_metrics + expected_degenerate_metrics
     convergence: Dict[str, float] = {}
     sesoi_diagnostics: Dict[str, Dict[str, float]] = {}
+    undefined_degenerate: List[str] = []
     for metric in bounded_metrics:
         half_rows = sorted(
             by_condition["perturbed-dt-0.5"], key=lambda item: int(item["seed"])
@@ -1189,24 +1336,46 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         quarter_seeds = [int(row["seed"]) for row in quarter_rows]
         if half_seeds != quarter_seeds:
             raise RuntimeError("E0 dt/2 and dt/4 conditions do not have paired seeds")
-        dt_half = [
-            float(row[metric])
-            for row in half_rows
-        ]
-        dt_quarter = [
-            float(row[metric])
-            for row in quarter_rows
-        ]
+        if len(half_seeds) != len(set(half_seeds)):
+            raise RuntimeError(f"E0 {metric} dt/2 condition has duplicate seeds")
+        dt_half = [row.get(metric) for row in half_rows]
+        dt_quarter = [row.get(metric) for row in quarter_rows]
+
+        # R02: classify every observed value. Undefined is only tolerated for
+        # expected-degenerate metrics; invalid (Inf/NaN corruption) always fails.
+        statuses = [metric_status(metric, value) for value in dt_half + dt_quarter]
+        if any(status["status"] == "invalid" for status in statuses):
+            raise RuntimeError(
+                f"E0 metric {metric} contains invalid (non-finite) values"
+            )
+        if any(status["status"] == "undefined" for status in statuses):
+            if metric in expected_degenerate_metrics:
+                undefined_degenerate.append(metric)
+                continue
+            raise RuntimeError(
+                f"E0 required metric {metric} is undefined and cannot be calibrated"
+            )
+        numeric_half = [float(value) for value in dt_half]
+        numeric_quarter = [float(value) for value in dt_quarter]
         paired_absolute_differences = np.abs(
-            np.asarray(dt_half, dtype=np.float64)
-            - np.asarray(dt_quarter, dtype=np.float64)
+            np.asarray(numeric_half, dtype=np.float64)
+            - np.asarray(numeric_quarter, dtype=np.float64)
         )
         convergence[metric] = float(np.mean(paired_absolute_differences))
         sesoi_diagnostics[metric] = paired_discretization_sesoi(
-            dt_half,
-            dt_quarter,
+            numeric_half,
+            numeric_quarter,
             floor=1e-6,
         )
+
+    missing_convergence = sorted(set(required_metrics) - set(convergence))
+    if missing_convergence:
+        raise RuntimeError(
+            f"E0 dt-convergence is missing required metrics: {missing_convergence}"
+        )
+    if not convergence:
+        raise RuntimeError("E0 dt-convergence produced an empty metric set")
+
     sesoi = {
         metric: diagnostic["threshold"]
         for metric, diagnostic in sesoi_diagnostics.items()
@@ -1221,12 +1390,24 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         "equal_state_is_absorbing": equal_exchange_variance <= 1e-20,
     }
     stationarity_pass = all(bool(row["stationarity_pass"]) for row in rows)
+    precision_pass = precision_valid_for_rows(rows)
+    numerics_valid = all(core_checks.values())
     payload = {
         "experiment": "E0-NUMERICS",
-        "pass": all(core_checks.values()),
+        "scope": "flat-terrain-numerics",
+        "pass": numerics_valid,
         "core_checks": core_checks,
         "stationarity_pass": stationarity_pass,
         "stationarity_pending": not stationarity_pass,
+        # R12: split the gate verdict into explicit, independently-checkable
+        # layers instead of a single opaque `pass`.
+        "gate_layers": {
+            "execution_completed": True,
+            "numerics_valid": numerics_valid,
+            "stationarity_valid": stationarity_pass,
+            "precision_valid": precision_pass,
+            "claim_supported": numerics_valid and stationarity_pass and precision_pass,
+        },
         "gate_policy": (
             "Cycle 3 E0 gate is passed when the four deterministic numerical "
             "checks (conservation, non-negativity, dt-convergence, equal-state "
@@ -1239,6 +1420,9 @@ def aggregate_e0(rows: Sequence[Mapping[str, Any]], output_dir: Path) -> Dict[st
         "equal_exchange_max_wealth_variance": equal_exchange_variance,
         "sesoi_frozen_before_confirmatory_analysis": sesoi,
         "sesoi_diagnostics": sesoi_diagnostics,
+        "undefined_degenerate_metrics": undefined_degenerate,
+        "required_metrics": list(required_metrics),
+        "expected_degenerate_metrics": list(expected_degenerate_metrics),
         "sesoi_basis": (
             "Paired same-seed dt/2 versus dt/4 discretization differences. "
             "Each threshold is the maximum of the observed absolute envelope, "
@@ -1621,16 +1805,31 @@ def analyze_runs(
         for spec in run_specs
     ]
     write_metrics_csv(output_dir / "replicate_metrics.csv", rows)
+    # R01: stationarity report carries per-metric status/reason so undefined
+    # (constant-field) and invalid (corruption) metrics are distinguishable
+    # from genuine drift, and no raw NaN/Inf reaches JSON.
+    stationarity_valid = all(bool(row["stationarity_pass"]) for row in rows)
+    precision_valid = precision_valid_for_rows(rows)
     write_json(
         output_dir / "stationarity_report.json",
         {
             "experiment": experiment,
-            "pass": all(bool(row["stationarity_pass"]) for row in rows),
+            "pass": stationarity_valid,
+            "stationarity_valid": stationarity_valid,
+            "precision_valid": precision_valid,
             "runs": [
                 {
                     "run_id": row["run_id"],
                     "pass": row["stationarity_pass"],
                     "metrics": row["stationarity_diagnostics"],
+                    "metric_statuses": {
+                        name: {
+                            "value": status["value"],
+                            "status": status["status"],
+                            "reason": status["reason"],
+                        }
+                        for name, status in row["metric_statuses"].items()
+                    },
                 }
                 for row in rows
             ],
@@ -1686,7 +1885,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.experiment not in {"E0-NUMERICS", "B0-DYNAMICS-PILOT"}:
-        load_e0_calibration(config)
+        calibration = load_e0_calibration(config)
+        # R03: block before any expensive run if the calibration cannot cover
+        # this experiment's confirmatory metrics (e.g. flat-terrain calibration
+        # lacks spatial-correlation SESOI).
+        validate_calibration_coverage(
+            calibration,
+            confirmatory_metrics_for_experiment(args.experiment),
+        )
 
     execution_summary: Dict[str, Any] = {
         "executed": 0,

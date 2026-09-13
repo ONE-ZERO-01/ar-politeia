@@ -1,0 +1,59 @@
+{
+  "review_date": "2026-09-08",
+  "head": "d4373544461bfbb7cf0047086ae83a95eaac4eb1",
+  "scope": "uncommitted working tree; no numerical tests executed",
+  "files": [
+    {
+      "path": "research/src/experiments/landscape_study.py",
+      "sha256": "da60893794e8a4c1cfdbef5d42ada45bafe56962b2a42e59fb8e2484e33bd03a"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/core/config.cpp",
+      "sha256": "1d91e964c062c7ce11bae93e8d4dbd5f0e67dda7cf5f420081b261335cffa196"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/core/config.hpp",
+      "sha256": "698c0e6874e12448c04a3c2958ab0ddbdb5d99e88c8a25e6f3ca4eef4fbac20a"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/integrator/langevin_integrator.cpp",
+      "sha256": "48e2bb69bb5b287f925d988ed64a0d673274b5b3b09361eba37c7c779468f5b6"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/interaction/resource_exchange.cpp",
+      "sha256": "d91e6cd287cac0b5687a2c022e239820627c590e2a472224c8320caf45b67555"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/interaction/resource_exchange.hpp",
+      "sha256": "9bb93b03f4ff32ce0b139390a9ff2ed8786d2475ee8771a55a621f40ca79902b"
+    },
+    {
+      "path": "research/src/experiments/politeia/src/main.cpp",
+      "sha256": "ddd0092dc9ff7d93757677275f2a66af046e437634f08af4b003b33290b9a167"
+    },
+    {
+      "path": "research/src/experiments/politeia/tests/CMakeLists.txt",
+      "sha256": "307fca5f273198014f41071dc967a30b0b60b54321d960db0d5be1767321d79c"
+    },
+    {
+      "path": "research/src/experiments/politeia/tests/test_exchange_kernel.cpp",
+      "sha256": "3c04a0c5e3d57aa9e06e5398d7bf0cf0218f3a27ba1dc2ae23a487e7fd344c22"
+    },
+    {
+      "path": "research/src/experiments/run_landscape_study.py",
+      "sha256": "21b7be03e5da5cf4bf0ea6f26298d923b8e87f643fa006812c523337f758632d"
+    },
+    {
+      "path": "tests/test_landscape_study.py",
+      "sha256": "518aeccdf4da0e275f34f63086971332b8e92580a520a11bd140f8f9d812025a"
+    },
+    {
+      "path": "tests/test_run_landscape_study_gates.py",
+      "sha256": "3c584a081f4afdec16f10e8b717d3b626459df0e4a4ce2180928c68538db899a"
+    },
+    {
+      "path": "research/src/experiments/politeia/tests/test_integrator.cpp",
+      "sha256": "bfbe455147767eba7d5c89093bf650837c7ea4f30b9d0f5e9140e19c0c9dfabb"
+    }
+  ]
+}

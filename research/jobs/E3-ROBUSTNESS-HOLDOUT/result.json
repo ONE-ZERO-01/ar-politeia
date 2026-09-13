@@ -1,82 +1,31 @@
 {
   "experiment": "E3-ROBUSTNESS-HOLDOUT",
-  "status": "blocked",
+  "status": "incomplete",
   "pass": false,
   "execution_host": "umi",
-  "submitted_via": "jobctl",
-  "jobctl_exit_code": 1,
-  "jobctl_reconcile": "failed",
-  "reason": "Confirmatory E3 execution was not authorized. The parameter lock is not final and the E0 numerical calibration dependency did not pass, so the committed runner aborted before executing any E3 numerical run.",
-  "gates": {
-    "parameter_lock_final": false,
-    "parameter_lock_status": "candidate_pending_non_evidentiary_runtime_pilot_and_e0",
-    "e0_calibration_pass": false
+  "execution_version": "cycle-3",
+  "source_commit": "a757310",
+  "config_sha256": "7f0933812196f9d125634772d4447e56f9b3cae3a710ffa73bd7e5b256643a1e",
+  "observed_workspace_state_at": "2026-09-13",
+  "runs_planned": 240,
+  "runs_attempted": 71,
+  "runs_completed": 62,
+  "runs_failed": 9,
+  "runs_unattempted": 169,
+  "failure_summary": {
+    "timeout": 9,
+    "per_run_timeout_seconds": 10800
   },
-  "dependencies": {
-    "E0-NUMERICS": {
-      "result": "research/jobs/E0-NUMERICS/result.json",
-      "status": "completed",
-      "pass": false,
-      "runs_completed": 25,
-      "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
-      "calibration_checks": {
-        "wealth_conservation": true,
-        "wealth_nonnegative": true,
-        "dt_convergence": false,
-        "equal_state_is_absorbing": true,
-        "stationarity": false
-      }
-    },
-    "E1-MATCHED-LANDSCAPES": {
-      "result": "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
-      "status": "blocked",
-      "pass": false
-    },
-    "E2-CHANNEL-ABLATION": {
-      "result": "research/jobs/E2-CHANNEL-ABLATION/result.json",
-      "status": "blocked",
-      "pass": false
-    }
+  "aggregate_analysis_completed": false,
+  "claim_supported": false,
+  "reason": "The Cycle 3 execution stopped after a partial run set. Nine attempted runs timed out and the controller is no longer running. No replicate_metrics.csv, holdout_effects.json, or stationarity_report.json was produced.",
+  "evidence_boundary": "This is an execution-accounting correction, not a scientific null result. Completed partial runs are retained only as Cycle 3 provenance and cannot support C4-ROBUSTNESS.",
+  "supersession": {
+    "cycle": 4,
+    "reason": "Cycle 4 changes the simulator boundary behavior, random stream, numerical diagnostics, stationarity contract, and no-exchange control. The partial Cycle 3 run set must not be resumed or pooled with the remediated model.",
+    "resume_allowed": false
   },
-  "parameter_lock": {
-    "path": "research/parameter_lock.json",
-    "sha256": "0cebeee490f96cf88d886c243869d7efd5004afdc50e2ae8bf851ea4adf17352",
-    "confirmatory_execution_authorized": false
-  },
-  "e0_dependency": {
-    "result": "research/jobs/E0-NUMERICS/result.json",
-    "status": "completed",
-    "pass": false,
-    "runs_completed": 25,
-    "tracked_calibration_sha256": "f638e86ff20d962c48c153079f26ec87524d1e920eb167c867e859c8ffc0fa18",
-    "calibration_checks": {
-      "wealth_conservation": true,
-      "wealth_nonnegative": true,
-      "dt_convergence": false,
-      "equal_state_is_absorbing": true,
-      "stationarity": false
-    }
-  },
-  "declared_command": [
-    "python3",
-    "research/src/experiments/run_landscape_study.py",
-    "--experiment",
-    "E3-ROBUSTNESS-HOLDOUT",
-    "--config",
-    "research/jobs/E3-ROBUSTNESS-HOLDOUT/config.json",
-    "--output-dir",
-    "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace"
-  ],
-  "declared_artifacts": [
-    "result.json",
-    "replicate_metrics.csv",
-    "holdout_effects.json",
-    "matched_input_audit.json",
-    "stationarity_report.json",
-    "parameter_lock_audit.json",
-    "run_specs.json"
-  ],
-  "artifact_status": {
+  "artifacts_observed": {
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/run_specs.json": "exists",
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/matched_input_audit.json": "exists",
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/parameter_lock_audit.json": "exists",
@@ -84,13 +33,5 @@
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/holdout_effects.json": "missing",
     "research/jobs/E3-ROBUSTNESS-HOLDOUT/workspace/stationarity_report.json": "missing"
   },
-  "metrics": null,
-  "raw_metrics": null,
-  "deviation": "No E3 numerical runs were executed. This is a hard-blocked/inconclusive outcome caused by the non-final candidate parameter lock and the failed E0 calibration dependency, not a scientific null result.",
-  "jobctl_log": {
-    "stderr": "ERROR: E3-ROBUSTNESS-HOLDOUT execution requires a final parameter lock; current status is 'candidate_pending_non_evidentiary_runtime_pilot_and_e0'",
-    "handle": ".autoresearcher/jobs/E3-ROBUSTNESS-HOLDOUT/handle.json",
-    "result": ".autoresearcher/jobs/E3-ROBUSTNESS-HOLDOUT/result.json"
-  },
-  "config_sha256": "6978af7ea997348222e90156327a090ea9b066f708520edef72ea4d1bafca01e"
+  "provenance_note": "An earlier tracked result described the pre-authorization jobctl rejection and stated that zero runs were executed. A later authorized manual Cycle 3 launch created the partial workspace summarized here, but the tracked result was not updated at that time."
 }
