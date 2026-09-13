@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-13。状态：Cycle 4 代码级修复已通过本地非数值检查；待提交并在 umi 完成 OpenMP OFF/ON 双构建与 CTest。实验重跑与重新校准尚未开始。
+日期：2026-09-13。状态：Cycle 4 代码级修复已通过本地检查及 umi 的 OpenMP OFF/ON 双构建与 CTest；下一步为顺序敏感性和非平坦步长校准设计。确认性实验尚未开始。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
@@ -78,6 +78,8 @@
 下一 Gate：提交并 push 到 `umi`，随后在 `umi` 进行 OpenMP OFF/ON 双构建与 CTest。只有两套构建均通过，才进入非平坦 dt 校准设计和小规模数值验证。
 
 首次 V0（commit `78a742b`）在 umi 的 OpenMP OFF/ON 两套构建均成功，Python 141 tests 通过，两个 CTest 组合中均只有 `exchange_kernel` 失败。失败来自一个假设“多粒子原地交易应对存储重排逐粒子完全不变”的新增测试；实测表明稳定 GID 只固定随机抽样，不能消除非交换的顺序更新效应。这项要求超出了 S07 的单对随机流修复，也证明 S08 仍未完成。后续 V0B 保留单对 GID/seed 回归与所有不变量测试，把多粒子顺序效应移入 V1 的三级步长定量检查；在误差界冻结前不开展确认性实验。
+
+V0B 在 umi 完成：Python 141/141；OpenMP OFF CTest 7/7；OpenMP ON CTest 7/7；`jobctl reconcile` 返回 completed。V0B 关闭实现构建 Gate，但不关闭 S08，也不构成非平坦数值校准或科学证据。
 
 ### 4.3 Cycle 3 E3 证据纠正
 

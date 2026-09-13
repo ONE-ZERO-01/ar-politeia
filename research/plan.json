@@ -92,7 +92,8 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "ready_after_commit",
+      "status": "executed_passed",
+      "result": "Umi Python 141/141; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; jobctl reconcile completed.",
       "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
     },
     {

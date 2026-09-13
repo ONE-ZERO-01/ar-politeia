@@ -22,9 +22,11 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   checks, and `git diff --check`.
 - The Cycle 3 plan is archived under `research/versions/cycle-3/`; the new
   Cycle 4 plan limits current execution to implementation validation.
-- The next required step is to commit/push the remediation event and run
-  OpenMP OFF/ON CMake builds plus CTest on `umi`.
-- Non-flat timestep calibration and all new numerical evidence remain pending.
+- V0B implementation validation passed on umi: Python 141/141 and CTest 7/7
+  with OpenMP disabled and enabled; jobctl reconcile completed.
+- The next required step is V1 design: quantify serial exchange order
+  sensitivity and calibrate non-flat timestep error before any confirmatory run.
+- Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 
 ## Cycle 3 E3 correction

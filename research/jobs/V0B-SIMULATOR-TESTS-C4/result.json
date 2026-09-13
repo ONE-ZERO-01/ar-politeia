@@ -1,0 +1,48 @@
+{
+  "experiment": "V0B-SIMULATOR-TESTS-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "tested_code_commit": "fd682de39fb71ddbeb52497d499c9b1d449e0dd3",
+  "execution_checkout_commit": "4638655cc52def8ac5d2a281ad4a6b67261202ac",
+  "jobctl_reconcile": "completed",
+  "environment": {
+    "platform": "Linux-6.1.0-41-amd64-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "cmake": "3.25.1",
+    "compiler": "g++ 12.2.0",
+    "cpu_count": 48,
+    "working_tree_clean": true
+  },
+  "pytest": {
+    "pass": true,
+    "tests_passed": 141,
+    "elapsed_seconds": 7.779281100258231
+  },
+  "openmp_off": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": true,
+    "tests_passed": 7,
+    "tests_total": 7,
+    "ctest_elapsed_seconds": 0.32853333093225956
+  },
+  "openmp_on": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": true,
+    "tests_passed": 7,
+    "tests_total": 7,
+    "ctest_elapsed_seconds": 2.842304527759552
+  },
+  "validated_features": [
+    "exchange conservation, non-negativity, boundary and stable-ID/seed behavior covered by unit tests",
+    "invalid particle state rejection",
+    "no-noise friction regression with OpenMP disabled and enabled",
+    "I/O roundtrip and existing active-path/module invariants",
+    "Python metric-status, calibration-coverage, stationarity and result-layer contracts"
+  ],
+  "remaining_blocker": "Serial in-place multi-particle exchange is order dependent. V1 must quantify the sensitivity across dt before confirmatory execution.",
+  "evidence_boundary": "Implementation validation only; no scientific landscape-effect claim and no timestep calibration."
+}

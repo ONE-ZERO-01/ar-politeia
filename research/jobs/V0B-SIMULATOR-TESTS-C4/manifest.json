@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "mode": "server",
+  "artifacts": [
+    {
+      "path": "jobs/V0B-SIMULATOR-TESTS-C4/result.json",
+      "sha256": "4d391eecc2dab652a5a35adfb28f91b2ae598809de52095e8be3ddb9855880ce",
+      "size": 1702
+    }
+  ]
+}
