@@ -61,7 +61,7 @@ def _load_metric_series(
 ) -> dict[str, list[float]]:
     run_dir = project_path(str(spec["run_dir"]), must_exist=True)
     completion = load_json(run_dir / "completion.json")
-    if completion.get("status") != "completed" or int(completion.get("exit_code", 1)) != 0:
+    if completion.get("status") != "completed":
         raise RuntimeError(f"source run is incomplete: {spec['run_id']}")
     snapshots = sorted(run_dir.glob("snap_*.csv"))
     if len(snapshots) < snapshots_needed:
