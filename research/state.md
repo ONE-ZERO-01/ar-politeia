@@ -63,6 +63,9 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   window, and condition-ensemble stationarity/precision as the Gate unit. This
   aligns the Gate with the replicate-ensemble estimand while retaining per-run
   diagnostics and requires entirely new data.
+- V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
+  rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
+  8/8 and all execution prerequisites are now satisfied.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

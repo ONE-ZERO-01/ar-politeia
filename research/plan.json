@@ -115,8 +115,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "preregistered",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "Umi Python 148/148; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; rebuilt binary exactly matches V0C SHA-256; jobctl reconcile completed.",
       "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
     },
     {
@@ -183,7 +184,7 @@
       "mode": "server",
       "execution_host": "umi",
       "status": "preregistered",
-      "blocked_by": "V0D-SIMULATOR-TESTS-C4",
+      "blocked_by": "none; V0D passed, V1C preflight passes, and compute is authorized",
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "numerical_calibration.json", "result.json"]
     },
     {

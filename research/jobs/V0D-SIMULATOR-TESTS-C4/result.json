@@ -1,0 +1,16 @@
+{
+  "experiment": "V0D-SIMULATOR-TESTS-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "execution_checkout_commit": "168c0f06580e9fd1d02bf1b130c55b23ec0f3c31",
+  "python_tests": {"passed": 148, "failed": 0},
+  "openmp_off_ctest": {"passed": 7, "failed": 0},
+  "openmp_on_ctest": {"passed": 7, "failed": 0},
+  "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+  "binary_matches_v0c": true,
+  "jobctl_reconcile": "completed",
+  "workspace_result_sha256": "818b1584a0bf913a3b37f00d86ee6253ef71de9c60b07e9dd5d129a120b6c058",
+  "evidence_boundary": "Implementation validation only; no scientific claim or numerical calibration."
+}
