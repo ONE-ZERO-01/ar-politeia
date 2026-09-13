@@ -126,8 +126,8 @@
       "objective": "Measure timestep error on smooth non-flat, clustered, and shuffled landscapes with at least three timesteps at fixed physical duration; keep numerical tolerance separate from scientific relevance thresholds.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "ready_waiting_budget",
-      "blocked_by": "explicit authorization of the requested full-calibration compute budget (V0C, V1P, and preflight passed)",
+      "status": "authorized_ready",
+      "blocked_by": "none (V0C, V1P, preflight, and compute authorization passed)",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
     },
     {
@@ -170,21 +170,21 @@
     "change_control": "Any model, threshold, required-metric, or analysis change after outcome inspection creates a new lock/version and requires independent data."
   },
   "budget": {
-    "authorized_now": "Local static/unit checks, umi V0C OpenMP OFF/ON build plus CTest, and a V1P non-evidentiary runtime pilot capped at three short runs and 0.1 CPU-hour.",
-    "numerical_calibration": "V1P estimates 3.47 CPU-hours / 0.43 wall-hours at parallel=8 for 75 runs. Record explicit authorization before the complete V1 matrix executes.",
+    "authorized_now": "On 2026-09-13 the user authorized unrestricted project compute, including multi-process CPU and GPU execution. Scientific workflow gates and host/path rules still apply.",
+    "numerical_calibration": "V1P estimates 3.47 CPU-hours / 0.43 wall-hours at parallel=8 for 75 runs. Full V1 is authorized.",
     "requested_full_calibration": {
-      "status": "awaiting_human_authorization",
+      "status": "authorized",
       "runs": 75,
       "population_per_run": 1000,
       "physical_time_per_run": 1500.0,
       "estimated_cpu_hours_with_safety_factor": 3.467211327806581,
-      "requested_cpu_hour_cap": 5.0,
+      "cpu_hour_cap": null,
       "estimated_wall_hours_at_parallel_8": 0.4334014159758226,
-      "requested_wall_hour_cap": 1.0,
-      "gpu_hours": 0,
-      "on_cap_exceeded": "stop remaining submissions, preserve completed markers, and return to budget review"
+      "wall_hour_cap": null,
+      "gpu_hours_cap": null,
+      "execution_choice": "CPU, eight independent single-thread processes; the validated simulator has no GPU backend"
     },
-    "confirmatory_runs": "Not authorized by this plan revision.",
-    "gpu_hours": 0
+    "confirmatory_runs": "Compute is authorized subject to V1, parameter-lock, preflight, stationarity, and precision gates.",
+    "gpu_hours": "unrestricted_if_a_validated_gpu_method_is_available"
   }
 }

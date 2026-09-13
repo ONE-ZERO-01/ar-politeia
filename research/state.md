@@ -30,8 +30,10 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   V1P then completed three capped runtime profiles in 2.80 seconds. The frozen
   75-run target is estimated at 3.47 CPU-hours, or 0.43 wall-hours at eight-way
   parallelism with a 1.5 safety factor.
-- Full V1 is frozen and preflight passes 8/8. It awaits authorization for a
-  5 CPU-hour / 1 wall-hour hard cap; the point estimate is 3.47 / 0.43 hours.
+- Full V1 is frozen and preflight passes 8/8. On 2026-09-13 the user authorized
+  unrestricted project compute, including multi-process CPU and GPU resources.
+  V1 will use the validated CPU reference with eight single-thread processes;
+  its point estimate is 3.47 CPU-hours / 0.43 wall-hours.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

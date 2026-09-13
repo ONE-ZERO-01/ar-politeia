@@ -85,7 +85,7 @@ V0B 在 umi 完成：Python 141/141；OpenMP OFF CTest 7/7；OpenMP ON CTest 7/7
 
 V1 顺序层要求仅改变存储行序，因此 IC loader 新增可选 `gid,px,py` 显式相态输入并拒绝重复 GID；Python 输入生成器可生成 canonical/permuted 两份按 GID 完全相同的状态。V0C 在 umi 完成 Python 147/147、OpenMP OFF/ON CTest 各 7/7，`jobctl reconcile` 为 completed。
 
-V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非证据 profile，实际总运行 2.80 秒。对冻结的 75-run、每 run 物理时长 1500 的 V1 矩阵按 step 数线性外推并乘 1.5 安全系数，估计 3.47 CPU 小时、并发 8 时 0.43 墙钟小时。完整 V1 已声明且 preflight 8/8，但在 5 CPU 小时 / 1 墙钟小时预算获明确授权前不提交。
+V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非证据 profile，实际总运行 2.80 秒。对冻结的 75-run、每 run 物理时长 1500 的 V1 矩阵按 step 数线性外推并乘 1.5 安全系数，估计 3.47 CPU 小时、并发 8 时 0.43 墙钟小时。完整 V1 已声明且 preflight 8/8；用户于 2026-09-13 授权本项目计算资源不设限并允许多进程/GPU，V1 采用已验证的 CPU 参考实现并发 8 执行。
 
 ### 4.4 Cycle 3 E3 证据纠正
 
