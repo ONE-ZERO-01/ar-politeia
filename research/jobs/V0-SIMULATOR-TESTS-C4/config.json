@@ -1,0 +1,10 @@
+{
+  "experiment_id": "V0-SIMULATOR-TESTS-C4",
+  "source_commit": "11713a0f81f607dff157f98c04b03f25027d6593",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [false, true],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true
+}

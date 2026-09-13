@@ -1,0 +1,6 @@
+{
+  "approach": "Native CMake builds with the project compiler, once with OpenMP disabled and once enabled, followed by the complete CTest and Python contract-test suites.",
+  "evidence_role": "implementation_validation",
+  "evidence_boundary": "This task can validate build and test behavior only. It cannot support a landscape-effect or steady-state scientific claim.",
+  "supports_core_claim": false
+}
