@@ -1,0 +1,11 @@
+{
+  "experiment_id": "V0C-SIMULATOR-TESTS-C4",
+  "source_commit": "95e5e661f3df744fef946a77f4b216e34ba135cc",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [false, true],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true,
+  "test_scope": "V1 explicit GID/phase-state IC loading, input permutation controls, analysis contracts, and all prior simulator invariants."
+}

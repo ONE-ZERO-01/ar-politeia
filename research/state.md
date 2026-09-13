@@ -17,15 +17,16 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 
 ## Current status (2026-09-13)
 
-- The Cycle 4 local remediation implementation is present in the working tree.
-- Local non-numerical validation passes: 141 pytest tests, per-file C++ syntax
+- The Cycle 4 remediation and V1 validation infrastructure are committed.
+- Local non-numerical validation passes: 147 pytest tests, per-file C++ syntax
   checks, and `git diff --check`.
 - The Cycle 3 plan is archived under `research/versions/cycle-3/`; the new
   Cycle 4 plan limits current execution to implementation validation.
 - V0B implementation validation passed on umi: Python 141/141 and CTest 7/7
   with OpenMP disabled and enabled; jobctl reconcile completed.
-- The next required step is V1 design: quantify serial exchange order
-  sensitivity and calibrate non-flat timestep error before any confirmatory run.
+- V1 now has a registered two-layer design: non-flat weak timestep convergence
+  plus a deterministic, full-phase-state storage-order diagnostic. The next Gate
+  is V0C on umi, followed by a three-run runtime pilot before any full matrix.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

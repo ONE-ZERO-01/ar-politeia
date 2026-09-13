@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V1-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -97,13 +97,35 @@
       "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
     },
     {
+      "id": "V0C-SIMULATOR-TESTS-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Validate the explicit stable-GID/position/momentum IC path required to isolate storage-order sensitivity, plus the registered V1 matrix and analysis contracts, in umi OpenMP OFF/ON builds.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "declared",
+      "blocked_by": "none",
+      "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
+    },
+    {
+      "id": "V1P-RUNTIME-PILOT-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Run three short, non-evidentiary umi profiles at the target population/grid to estimate the complete V1 CPU and wall time with a 1.5 safety factor.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "design_after_v0c",
+      "blocked_by": "V0C-SIMULATOR-TESTS-C4",
+      "artifacts": ["run_specs.json", "runtime_estimate.json", "result.json"]
+    },
+    {
       "id": "V1-NONFLAT-CALIBRATION-C4",
       "claim_ids": ["C1-NUM-C4"],
       "objective": "Measure timestep error on smooth non-flat, clustered, and shuffled landscapes with at least three timesteps at fixed physical duration; keep numerical tolerance separate from scientific relevance thresholds.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "design_after_v0",
-      "blocked_by": "V0B-SIMULATOR-TESTS-C4, a registered multi-particle order-sensitivity design, and explicit runtime estimate",
+      "status": "designed_waiting_validation_and_budget",
+      "blocked_by": "V0C-SIMULATOR-TESTS-C4, V1P-RUNTIME-PILOT-C4, and an explicit full-calibration compute budget",
       "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
     },
     {
@@ -146,8 +168,8 @@
     "change_control": "Any model, threshold, required-metric, or analysis change after outcome inspection creates a new lock/version and requires independent data."
   },
   "budget": {
-    "authorized_now": "Local static/unit checks and umi OpenMP OFF/ON build plus CTest only.",
-    "numerical_calibration": "Estimate runtime after V0; request/record a new budget before execution.",
+    "authorized_now": "Local static/unit checks, umi V0C OpenMP OFF/ON build plus CTest, and a V1P non-evidentiary runtime pilot capped at three short runs and 0.1 CPU-hour.",
+    "numerical_calibration": "Use V1P to estimate runtime; request/record a new budget before the complete V1 matrix executes.",
     "confirmatory_runs": "Not authorized by this plan revision.",
     "gpu_hours": 0
   }

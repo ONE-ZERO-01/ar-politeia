@@ -1,0 +1,6 @@
+{
+  "approach": "Native CMake builds with OpenMP disabled and enabled, complete CTest in each build, and the Python contract-test suite.",
+  "evidence_role": "implementation_validation",
+  "evidence_boundary": "This task validates the new explicit phase-state input path and V1 analysis contracts. It does not estimate timestep or storage-order error.",
+  "supports_core_claim": false
+}
