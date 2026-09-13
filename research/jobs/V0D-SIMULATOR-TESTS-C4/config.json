@@ -1,0 +1,11 @@
+{
+  "experiment_id": "V0D-SIMULATOR-TESTS-C4",
+  "source_commit": "3e7c6c15af76e0a6fe6f1aabce476178882ff707",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [false, true],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true,
+  "test_scope": "Condition-ensemble stationarity Gate, V1C matrix validation, all Python contracts, and all prior simulator CTest invariants."
+}

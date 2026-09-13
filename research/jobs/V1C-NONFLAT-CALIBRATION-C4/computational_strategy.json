@@ -1,0 +1,8 @@
+{
+  "approach": "Execute the complete 15-condition matrix at 15 independent seeds with the validated CPU reference, one OpenMP thread per process and eight concurrent processes. Analyse the last 144 snapshots per run and gate stationarity/precision on each landscape-by-timestep ensemble mean while retaining all individual diagnostics.",
+  "runtime_basis": "Scaling V1B by three times the replicates and 1.2 times the duration estimates 52.16 CPU-hours. V1B's observed throughput implies about 8.2 wall-hours at parallel=8; the maximum single-run estimate is 3826 seconds and the declared timeout is 7200 seconds.",
+  "storage_estimate": "About 25 GB from V1B's observed 7.0 GB scaled by run count and duration; all heavy files remain in the ignored workspace.",
+  "evidence_role": "independent numerical recalibration",
+  "evidence_boundary": "V1C can validate numerical resolution and steady-estimand premises for later Cycle 4 experiments. It cannot support the landscape-effect claim itself.",
+  "supports_core_claim": false
+}
