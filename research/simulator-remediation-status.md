@@ -93,6 +93,8 @@ V1D 随后复用 75 个 V1 运行的最后 96 帧完成确定性诊断，24/1σ 
 
 V1B 在 umi 完成 75/75 runs、0 个运行失败，jobctl reconcile 通过，消耗 14.49 CPU 小时。延长时长把步长层 96/2σ 的稳态失败从 28/45 降至 8/45、精度失败从 26/45 降至 9/45，但仍未满足逐运行全合取 Gate；smooth 的 Spearman fine-vs-finest 两标准误上界为 `0.0279453`，超过冻结上限 `0.02`，其余步长单元、存储顺序界和不变量通过。V1B 是有效负结果，E1 继续阻塞；下一步 V1BD 将检查条件级 ensemble 稳态与独立重复数需求，不能事后改写 V1B。
 
+V1BD 精确复现 V1B 的逐运行计数，并显示最后 96 帧的 9 个条件 ensemble 全部通过稳态，支持把 Gate 单位对齐到重复总体估计量；6/9 条件的时间 ESS 仍低于 4。按失败 smooth-Spearman 单元的已观察均值与 paired SD，维持 `|mean|+2SE≤0.02` 需要约 14 个重复。V1C 因而在新数据前冻结 15 个新 seeds、`total_time=3000`、最后 144 帧和条件 ensemble Gate，逐运行诊断仍完整保留。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

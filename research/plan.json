@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -109,6 +109,17 @@
       "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
     },
     {
+      "id": "V0D-SIMULATOR-TESTS-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Validate the condition-ensemble Gate implementation and all existing Python/C++ contracts on umi before V1C.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "preregistered",
+      "blocked_by": "none",
+      "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
+    },
+    {
       "id": "V1P-RUNTIME-PILOT-C4",
       "claim_ids": ["C1-NUM-C4"],
       "objective": "Run three short, non-evidentiary umi profiles at the target population/grid to estimate the complete V1 CPU and wall time with a 1.5 safety factor.",
@@ -160,9 +171,20 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "designing",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "V1B run-wise counts reproduced exactly. All 9 tail-window condition ensembles passed stationarity; 6/9 remained below temporal ESS=4. The limiting numerical cell requires an estimated 14 replicates if observed moments persist.",
       "artifacts": ["ensemble_stationarity_diagnostic.json", "result.json"]
+    },
+    {
+      "id": "V1C-NONFLAT-CALIBRATION-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Independently repeat the complete non-flat timestep and storage-order calibration with 15 new seeds, a post-equilibration 144-snapshot window, and condition-ensemble stationarity and precision gates frozen from V1BD.",
+      "mode": "server",
+      "execution_host": "umi",
+      "status": "preregistered",
+      "blocked_by": "V0D-SIMULATOR-TESTS-C4",
+      "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "numerical_calibration.json", "result.json"]
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",

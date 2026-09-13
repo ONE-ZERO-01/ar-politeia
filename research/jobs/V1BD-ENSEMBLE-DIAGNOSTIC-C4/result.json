@@ -1,0 +1,30 @@
+{
+  "experiment": "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "baseline_reproduction": {
+    "pass": true,
+    "actual": {"stationarity_failed_runs": 8, "precision_failed_runs": 9, "drift": 9, "window_shape_reversal": 1, "precision": 11},
+    "expected": {"stationarity_failed_runs": 8, "precision_failed_runs": 9, "drift": 9, "window_shape_reversal": 1, "precision": 11}
+  },
+  "previous_window_summary": {
+    "condition_count": 9,
+    "stationarity_failed_conditions": 2,
+    "precision_failed_conditions": 6,
+    "stationarity_failure_count_by_metric": {"resource_density_spearman_rho": 2},
+    "precision_failure_count_by_metric": {"resource_density_spearman_rho": 6, "occupancy_entropy": 3, "wealth_variance": 2, "wealth_gini": 1}
+  },
+  "tail_window_summary": {
+    "condition_count": 9,
+    "stationarity_failed_conditions": 0,
+    "precision_failed_conditions": 6,
+    "stationarity_failure_count_by_metric": {},
+    "precision_failure_count_by_metric": {"occupancy_entropy": 3, "wealth_gini": 1, "wealth_variance": 2, "resource_density_spearman_rho": 2}
+  },
+  "maximum_estimated_required_replicates": 14,
+  "diagnostic_sha256": "6620635a4e67a88bfeed7d4a94aa9adf430853aec11b5c6a93a2b0960326f576",
+  "workspace_result_sha256": "262c793194d0f7619303d54b39c57da44809d5c839e04b38de48941121bc6ef0",
+  "conclusion": "The tail condition ensembles passed stationarity in all 9 timestep cells. Six cells remained below the temporal ESS threshold, and the observed timestep variance implies 14 replicates for the limiting smooth-Spearman cell. The next independent calibration uses 15 seeds and a longer stable window.",
+  "evidence_boundary": "Diagnostic result only; V1B remains failed and no landscape claim is supported."
+}

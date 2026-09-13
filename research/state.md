@@ -54,9 +54,15 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   are mostly isolated stochastic trajectories, including ESS values just below
   four, while requiring every metric in every replicate to pass creates a
   family-wise conjunction whose failure probability rises with sample size.
-- The next step is V1BD: deterministically compare individual-run and
-  condition-level ensemble stationarity on adjacent 96-snapshot windows and
-  calculate the independent-replicate requirement for the failed numerical cell.
+- V1BD completed on umi and jobctl reconcile passed. It exactly reproduced the
+  V1B run-wise failures. All 9 condition ensembles passed stationarity in the
+  final 96-snapshot window, whereas 6/9 remained below temporal ESS=4. The
+  limiting smooth-Spearman timestep cell needs an estimated 14 independent
+  replicates if its observed mean and variance persist.
+- V1C is being frozen with 15 unseen seeds, total_time=3000, a final 144-snapshot
+  window, and condition-ensemble stationarity/precision as the Gate unit. This
+  aligns the Gate with the replicate-ensemble estimand while retaining per-run
+  diagnostics and requires entirely new data.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 

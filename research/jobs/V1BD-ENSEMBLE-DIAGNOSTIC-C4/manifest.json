@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 238.30711059086025,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {"path": "workspace/ensemble_stationarity_diagnostic.json", "sha256": "6620635a4e67a88bfeed7d4a94aa9adf430853aec11b5c6a93a2b0960326f576", "valid": true},
+    {"path": "workspace/result.json", "sha256": "262c793194d0f7619303d54b39c57da44809d5c839e04b38de48941121bc6ef0", "valid": true}
+  ]
+}
