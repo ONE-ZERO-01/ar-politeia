@@ -70,6 +70,16 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   requirement, with all precision failures caused by ESS below four. E1 remains
   blocked while V1CD diagnoses equilibration drift versus temporal and
   between-replicate precision on the fixed V1C outputs.
+- V1CD completed and reconciled on umi. It reproduced the V1C tail verdict
+  exactly. The previous-to-tail comparison improved from 3/9 to 1/9
+  stationarity failures, and all 36 paired window-shift bounds were within the
+  pre-existing planning widths. Independent-seed precision passed 30/36 cells;
+  the six clustered Moran/entropy cells imply at most 20 seeds.
+- V1E is now design-frozen before new data: 20 unseen seeds, total_time=4500,
+  two adjacent 144-snapshot windows, temporal dynamics separated from
+  independent-seed precision, and the unchanged timestep/storage-order bounds.
+  Runner implementation and a V0E server Gate are the next work; E1 stays
+  blocked.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

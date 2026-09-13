@@ -97,6 +97,8 @@ V1BD 精确复现 V1B 的逐运行计数，并显示最后 96 帧的 9 个条件
 
 V1C 在 umi 完成 225/225 runs、0 个运行失败，jobctl reconcile 通过，消耗 45.38 CPU 小时 / 6.24 墙钟小时。财富不变量、全部非平坦步长单元和存储顺序误差界通过，四项数值分辨率上限收紧为 Spearman `0.00672590`、Moran's I `0.00997056`、occupancy entropy `0.00251510`、wealth Gini `0.00214101`。但 smooth、`dt=0.02` 的 Spearman ensemble 同时失败 drift 与 ESS，导致稳态为 8/9；另有 6/9 条件因时间 ESS 低于 4 未通过精度。该结果不能用事后改 Gate 挽救，E1 继续阻塞；下一步 V1CD 只复用固定输出，分离持续瞬态、时间自相关和独立 seed 精度，再决定新的独立校准设计。
 
+V1CD 在 umi 完成并通过 reconcile，精确复现 V1C 尾窗。相邻 144 帧窗口的稳态失败由 3/9 降至 1/9，36 个有界指标跨窗变化界全部低于预先存在的规划半宽；时间 ESS 失败仍为 6/9。把每 seed 尾窗均值视为独立样本后，30/36 个规划精度单元通过，clustered 的 Moran/entropy 六个单元估计最多需要 20 seeds。诊断支持将“尾窗动力学稳定”“相邻窗口稳定”和“独立 seed 精度”拆开；V1E 已按 20 个新 seeds、`total_time=4500` 和两段 144 帧窗口冻结设计，等待 runner 与 V0E Gate。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

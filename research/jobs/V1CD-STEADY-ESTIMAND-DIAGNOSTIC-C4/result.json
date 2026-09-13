@@ -1,0 +1,56 @@
+{
+  "experiment": "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "jobctl_reconcile": "completed",
+  "wall_seconds": 726.1450918260962,
+  "tail_baseline_reproduction": {
+    "pass": true,
+    "condition_count": 9,
+    "stationarity_failed_conditions": 1,
+    "precision_failed_conditions": 6,
+    "stationarity_failure_count_by_metric": {"resource_density_spearman_rho": 1},
+    "precision_failure_count_by_metric": {
+      "resource_density_spearman_rho": 6,
+      "density_morans_i": 2,
+      "occupancy_entropy": 3,
+      "wealth_gini": 3,
+      "wealth_variance": 4
+    }
+  },
+  "adjacent_window_comparison": {
+    "window_snapshots": 144,
+    "previous_stationarity_failed_conditions": 3,
+    "tail_stationarity_failed_conditions": 1,
+    "previous_temporal_precision_failed_conditions": 7,
+    "tail_temporal_precision_failed_conditions": 6,
+    "planning_width_comparisons": 36,
+    "planning_width_failures": 0,
+    "maximum_bound_to_width_ratio": 0.6847380061148353,
+    "maximum_ratio_cell": "smooth--dt-0.01/resource_density_spearman_rho"
+  },
+  "independent_replicate_precision": {
+    "replicates": 15,
+    "planning_width_comparisons": 36,
+    "planning_width_passes": 30,
+    "planning_width_failures": 6,
+    "failed_cells": [
+      "clustered--dt-0.02/density_morans_i",
+      "clustered--dt-0.01/density_morans_i",
+      "clustered--dt-0.005/density_morans_i",
+      "clustered--dt-0.02/occupancy_entropy",
+      "clustered--dt-0.01/occupancy_entropy",
+      "clustered--dt-0.005/occupancy_entropy"
+    ],
+    "maximum_estimated_required_replicates": 20
+  },
+  "workspace_artifact_sha256": {
+    "steady_estimand_diagnostic.json": "1e1719f2241e458a35bf254c7290d8b733727137839c535747cbde44516c1fd1",
+    "result.json": "d3e4cf0bdd833f15d28db0de33ccd1d6f19a0f8188d065e3691a83cace6a3781"
+  },
+  "conclusion": "Late-window stationarity improves from 6/9 to 8/9 conditions, and all 36 paired adjacent-window shifts are smaller than the planning widths. The persistent V1C failures are dominated by slow temporal autocorrelation rather than timestep or storage-order error. Fifteen independent seeds are slightly insufficient for clustered Moran and entropy precision; the observed variance requires at most 20 seeds.",
+  "next_action": "Freeze V1E with a later burn-in, two-window stability Gate, independent-seed precision, and 20 unseen seeds. V1C remains failed and E1 remains blocked.",
+  "evidence_boundary": "Deterministic diagnostic only; no Cycle 4 landscape-effect claim is supported."
+}

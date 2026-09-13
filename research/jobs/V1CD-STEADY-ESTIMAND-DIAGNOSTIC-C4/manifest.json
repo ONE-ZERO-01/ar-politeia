@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 726.1450918260962,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {"path": "workspace/steady_estimand_diagnostic.json", "sha256": "1e1719f2241e458a35bf254c7290d8b733727137839c535747cbde44516c1fd1", "valid": true},
+    {"path": "workspace/result.json", "sha256": "d3e4cf0bdd833f15d28db0de33ccd1d6f19a0f8188d065e3691a83cace6a3781", "valid": true}
+  ]
+}

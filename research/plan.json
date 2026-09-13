@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -195,9 +195,20 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "preregistered",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "The V1C tail baseline reproduced exactly. Stationarity failures improved from 3/9 in the previous window to 1/9 in the tail; all 36 adjacent-window shifts were within planning widths. Independent-seed precision passed 30/36 bounded-metric cells, with clustered Moran and entropy requiring at most 20 seeds.",
       "artifacts": ["steady_estimand_diagnostic.json", "result.json"]
+    },
+    {
+      "id": "V1E-NONFLAT-CALIBRATION-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Independently repeat the calibration with a later burn-in, adjacent-window stability, independent-seed precision, and 20 unseen seeds under the unchanged simulator and numerical-error ceilings.",
+      "mode": "server",
+      "execution_host": "umi",
+      "status": "design_frozen_pending_implementation",
+      "blocked_by": "V1E runner/tests and V0E implementation validation",
+      "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",
