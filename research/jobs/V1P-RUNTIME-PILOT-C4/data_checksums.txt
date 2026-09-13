@@ -1,0 +1,2 @@
+input_checksums=generated_on_umi_and_bound_in_matched_input_audit.json
+binary=bound_by_sha256_in_completion_markers

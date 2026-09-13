@@ -1,0 +1,6 @@
+{
+  "approach": "Three short single-rank CPU runs at the target population and grid, extrapolated linearly by target step count and multiplied by a 1.5 runtime safety factor.",
+  "evidence_role": "performance_profiling",
+  "evidence_boundary": "The pilot estimates compute cost only. It does not calibrate numerical error, establish stationarity, select outcomes, or support a scientific claim.",
+  "supports_core_claim": false
+}
