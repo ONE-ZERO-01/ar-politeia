@@ -949,6 +949,7 @@ def _stationarity_for_metric(
     *,
     max_normalized_drift: float,
     min_effective_samples: float,
+    reversal_span_sigma: float = 1.0,
 ) -> Dict[str, Any]:
     """Route a metric's snapshot series to a stationarity verdict (R01/R06).
 
@@ -976,6 +977,7 @@ def _stationarity_for_metric(
         max_normalized_drift=max_normalized_drift,
         min_effective_samples=min_effective_samples,
         absolute_drift_tolerance=absolute_drift_tolerance_for_metric(metric),
+        reversal_span_sigma=reversal_span_sigma,
     )
 
 
@@ -987,6 +989,7 @@ def mean_metrics_for_run(
     stationarity_max_drift: float,
     stationarity_min_ess: float,
     stationary_metrics: Sequence[str],
+    stationarity_reversal_span_sigma: float = 1.0,
 ) -> Dict[str, Any]:
     run_dir = project_path(spec["run_dir"], must_exist=True)
     snapshots = sorted(run_dir.glob("snap_*.csv"))
@@ -1022,6 +1025,7 @@ def mean_metrics_for_run(
             metric_statuses.get(metric, {"status": "valid"}),
             max_normalized_drift=stationarity_max_drift,
             min_effective_samples=stationarity_min_ess,
+            reversal_span_sigma=stationarity_reversal_span_sigma,
         )
         for metric in stationary_metrics
     }
@@ -1835,6 +1839,9 @@ def analyze_runs(
             ),
             stationarity_min_ess=float(config.get("stationarity_min_ess", 3.0)),
             stationary_metrics=stationary_metrics,
+            stationarity_reversal_span_sigma=float(
+                config.get("stationarity_reversal_span_sigma", 1.0)
+            ),
         )
         for spec in run_specs
     ]

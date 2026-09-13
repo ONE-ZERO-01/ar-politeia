@@ -296,6 +296,16 @@ def test_stationarity_rejects_nonmonotonic_ushape():
     assert diagnostic["monotonic_pass"] is False
     assert diagnostic["stationarity_pass"] is False
 
+    # A two-sigma reversal threshold still catches a pronounced U shape while
+    # reducing accidental reversal flags in noisy stationary windows.
+    stricter = landscape_study.stationarity_diagnostics(
+        ushape,
+        max_normalized_drift=0.1,
+        min_effective_samples=3.0,
+        reversal_span_sigma=2.0,
+    )
+    assert stricter["monotonic_pass"] is False
+
 
 def test_stationarity_reports_nan_as_undefined_not_slope():
     # R01: a non-finite observation is reported as undefined, never as a slope.

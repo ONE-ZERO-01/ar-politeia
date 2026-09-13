@@ -684,7 +684,9 @@ def metric_status(metric: str, value: Any) -> Dict[str, Any]:
     return {"value": None, "status": "invalid", "reason": "infinity"}
 
 
-def _window_monotonic_pass(data: np.ndarray) -> bool:
+def _window_monotonic_pass(
+    data: np.ndarray, *, reversal_span_sigma: float = 1.0
+) -> bool:
     """Detect a non-platform shape (rise-then-fall / oscillation) via halves.
 
     A steady platform must not show a systematic reversal — the first half
@@ -705,10 +707,12 @@ def _window_monotonic_pass(data: np.ndarray) -> bool:
     second_trend = float(np.polyfit(np.arange(second.size, dtype=np.float64), second, 1)[0])
     first_span = abs(first_trend) * (first.size - 1)
     second_span = abs(second_trend) * (second.size - 1)
+    if not math.isfinite(reversal_span_sigma) or reversal_span_sigma <= 0.0:
+        raise ValueError("reversal_span_sigma must be finite and positive")
     reversal = bool(
         first_trend * second_trend < 0.0
-        and first_span > pooled_std
-        and second_span > pooled_std
+        and first_span > reversal_span_sigma * pooled_std
+        and second_span > reversal_span_sigma * pooled_std
     )
     return not reversal
 
@@ -719,6 +723,7 @@ def stationarity_diagnostics(
     max_normalized_drift: float,
     min_effective_samples: float,
     absolute_drift_tolerance: Optional[float] = None,
+    reversal_span_sigma: float = 1.0,
 ) -> Dict[str, Any]:
     """Diagnose drift, autocorrelation and window shape (R01/R06).
 
@@ -770,7 +775,9 @@ def stationarity_diagnostics(
     if absolute_drift_tolerance is not None and absolute_drift <= absolute_drift_tolerance:
         drift_pass = True
 
-    monotonic_pass = _window_monotonic_pass(data)
+    monotonic_pass = _window_monotonic_pass(
+        data, reversal_span_sigma=reversal_span_sigma
+    )
     ess_pass = bool(effective_samples >= min_effective_samples)
     stationarity_pass = bool(drift_pass and monotonic_pass)
     precision_pass = ess_pass
@@ -788,6 +795,7 @@ def stationarity_diagnostics(
         "normalized_window_drift": normalized_drift,
         "absolute_drift": absolute_drift,
         "absolute_drift_tolerance": absolute_drift_tolerance,
+        "reversal_span_sigma": reversal_span_sigma,
         "integrated_autocorrelation_time": iat,
         "effective_samples": effective_samples,
         "max_normalized_drift": max_normalized_drift,
