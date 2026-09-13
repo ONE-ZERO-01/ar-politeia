@@ -1,0 +1,19 @@
+{
+  "experiment_id": "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
+  "source_experiment": "V1B-NONFLAT-CALIBRATION-C4",
+  "source_workspace": "research/jobs/V1B-NONFLAT-CALIBRATION-C4/workspace",
+  "expected_source_runs": 75,
+  "bounds": [0.0, 100.0, 0.0, 100.0],
+  "window_snapshots": 96,
+  "snapshot_time_interval": 5.0,
+  "reversal_span_sigma": 2.0,
+  "max_normalized_drift": 0.1,
+  "min_effective_samples": 4.0,
+  "expected_v1b_baseline": {
+    "stationarity_failed_runs": 8,
+    "precision_failed_runs": 9,
+    "drift": 9,
+    "window_shape_reversal": 1,
+    "precision": 11
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "approach": "Read the last 192 snapshots of each of the 45 V1B timestep runs once, reproduce the registered last-96 run-wise counts, and compare condition-level ensemble diagnostics on two adjacent non-overlapping 96-snapshot windows.",
+  "evidence_role": "estimand and sample-size diagnostic",
+  "evidence_boundary": "V1BD cannot change V1B. Any ensemble contract or replicate count selected from it must be frozen and evaluated on new independent simulations.",
+  "supports_core_claim": false
+}
