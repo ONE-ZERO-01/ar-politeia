@@ -103,8 +103,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "declared",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "Umi Python 147/147; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; jobctl reconcile completed.",
       "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
     },
     {
@@ -114,7 +115,7 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "design_after_v0c",
+      "status": "ready_after_v0c",
       "blocked_by": "V0C-SIMULATOR-TESTS-C4",
       "artifacts": ["run_specs.json", "runtime_estimate.json", "result.json"]
     },

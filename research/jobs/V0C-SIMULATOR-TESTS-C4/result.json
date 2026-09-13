@@ -1,0 +1,48 @@
+{
+  "experiment": "V0C-SIMULATOR-TESTS-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "tested_code_commit": "95e5e661f3df744fef946a77f4b216e34ba135cc",
+  "execution_checkout_commit": "030139d1812ede9b79880feb869e8841676dd53b",
+  "jobctl_reconcile": "completed",
+  "environment": {
+    "platform": "Linux-6.1.0-41-amd64-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "cmake": "3.25.1",
+    "compiler": "g++ 12.2.0",
+    "cpu_count": 48,
+    "working_tree_clean": true
+  },
+  "pytest": {
+    "pass": true,
+    "tests_passed": 147,
+    "elapsed_seconds": 8.028600310906768
+  },
+  "openmp_off": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": true,
+    "tests_passed": 7,
+    "tests_total": 7,
+    "ctest_elapsed_seconds": 0.35850173234939575
+  },
+  "openmp_on": {
+    "configure_pass": true,
+    "build_pass": true,
+    "ctest_pass": true,
+    "tests_passed": 7,
+    "tests_total": 7,
+    "ctest_elapsed_seconds": 2.776375949382782
+  },
+  "validated_features": [
+    "explicit stable GID, position and momentum loading",
+    "duplicate GID rejection and GID map construction",
+    "canonical/permuted initial states preserve all values by GID",
+    "smooth non-flat field generation and V1 matrix contracts",
+    "all prior simulator and Python analysis invariants"
+  ],
+  "remaining_blocker": "V1P must estimate full V1 runtime; complete V1 still requires a separately recorded compute budget.",
+  "evidence_boundary": "Implementation validation only; no timestep calibration or scientific landscape-effect claim."
+}

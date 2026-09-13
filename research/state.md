@@ -26,7 +26,8 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   with OpenMP disabled and enabled; jobctl reconcile completed.
 - V1 now has a registered two-layer design: non-flat weak timestep convergence
   plus a deterministic, full-phase-state storage-order diagnostic. The next Gate
-  is V0C on umi, followed by a three-run runtime pilot before any full matrix.
+  V0C passed on umi (Python 147/147 and both CTest builds 7/7). The next Gate
+  is a three-run runtime pilot before any full matrix.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 
