@@ -1,0 +1,71 @@
+{
+  "experiment": "V1C-NONFLAT-CALIBRATION-C4",
+  "status": "completed_failed_gate",
+  "pass": false,
+  "execution_completed": true,
+  "runs_planned": 225,
+  "runs_completed": 225,
+  "run_failures": 0,
+  "execution_host": "umi",
+  "source_commit": "3e7c6c15af76e0a6fe6f1aabce476178882ff707",
+  "elapsed_cpu_hours": 45.37955666044158,
+  "maximum_single_run_seconds": 3833.7939826045185,
+  "jobctl_wall_seconds": 22472.254386126995,
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": true,
+    "storage_order_sensitivity": true,
+    "stationarity": false,
+    "precision": false
+  },
+  "stationarity_gate_unit": "condition_ensemble",
+  "condition_ensemble_layer": {
+    "conditions": 9,
+    "replicates_per_condition": 15,
+    "stationarity_failed_conditions": 1,
+    "precision_failed_conditions": 6,
+    "stationarity_failure_count_by_metric": {
+      "resource_density_spearman_rho": 1
+    },
+    "precision_failure_count_by_metric": {
+      "resource_density_spearman_rho": 6,
+      "density_morans_i": 2,
+      "occupancy_entropy": 3,
+      "wealth_gini": 3,
+      "wealth_variance": 4
+    },
+    "stationarity_failed_cells": [
+      {
+        "condition": "smooth--dt-0.02",
+        "metric": "resource_density_spearman_rho",
+        "failed_components": ["drift", "effective_samples"]
+      }
+    ],
+    "precision_failure_component": "effective_samples_below_4"
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.006725896732191648,
+    "density_morans_i": 0.009970564501878186,
+    "occupancy_entropy": 0.0025151030054780905,
+    "wealth_gini": 0.0021410129644006824
+  },
+  "failed_timestep_cells": [],
+  "failed_storage_order_metrics": [],
+  "invariant_checks": {
+    "wealth_nonnegative": true,
+    "total_wealth_change_finite": true
+  },
+  "total_wealth_relative_drift_range": [-0.888515905765536, -0.444512274523616],
+  "workspace_artifact_sha256": {
+    "numerical_calibration.json": "551fec4d2bb26940a258ba1c61800137aa8e4cfa789a3040e91f3e050fc0341b",
+    "ensemble_stationarity_report.json": "370deac79253ccc07ac7ebe67bbcdd3f00a3f1ddb41608ead634dd7024f8e201",
+    "stationarity_report.json": "ee5a6ae1d8d7f20722cd2ea552a327cb127c47d96cff6d0c986554d7b22b4d88",
+    "replicate_metrics.csv": "65191b5fbc1f032c261c9a2ec843f95e6ecc1c5bc3e8fd037474d4b2b1da4056",
+    "run_specs.json": "9ad11ed59a7dc4153874c695cde68c29f46bacdb739e909cf617d47da1247176",
+    "matched_input_audit.json": "3be1caa72b7ed5aafed8cd918b25cb0a18cf7834ed99e506d0c75dcd1cf483ed",
+    "result.json": "a5b36f4869a8c520fdbf74d9386dccc699ec92866ac2e1ae74cc0f4430995ec6"
+  },
+  "conclusion": "The independently seeded calibration completed cleanly and passed invariants, all timestep bounds, and storage-order bounds. It remains a valid negative calibration because one of nine condition ensembles failed stationarity and six failed the frozen temporal-ESS precision requirement. E1 remains blocked.",
+  "next_action": "Run a deterministic V1CD diagnosis on the fixed V1C outputs to separate persistent equilibration drift from temporal-autocorrelation precision and independent-replicate precision; the diagnosis cannot rescue V1C.",
+  "evidence_boundary": "Negative numerical-calibration result; no Cycle 4 landscape-effect claim is supported."
+}

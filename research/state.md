@@ -15,7 +15,7 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 `research/simulator-review-and-repair-plan-2026-09-08.md`, and
 `research/simulator-remediation-status.md`.
 
-## Current status (2026-09-13)
+## Current status (2026-09-14)
 
 - The Cycle 4 remediation and V1 validation infrastructure are committed.
 - Local non-numerical validation passes: 147 pytest tests, per-file C++ syntax
@@ -59,15 +59,23 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   final 96-snapshot window, whereas 6/9 remained below temporal ESS=4. The
   limiting smooth-Spearman timestep cell needs an estimated 14 independent
   replicates if its observed mean and variance persist.
-- V1C is being frozen with 15 unseen seeds, total_time=3000, a final 144-snapshot
-  window, and condition-ensemble stationarity/precision as the Gate unit. This
-  aligns the Gate with the replicate-ensemble estimand while retaining per-run
-  diagnostics and requires entirely new data.
+- V1C completed 225/225 runs on umi without execution failure and jobctl
+  reconcile passed. It consumed 45.38 CPU-hours / 6.24 wall-hours. Invariants,
+  all non-flat timestep bounds, and all storage-order bounds passed; numerical
+  resolution limits are 0.00673 (Spearman), 0.00997 (Moran), 0.00252 (entropy),
+  and 0.00214 (Gini).
+- V1C is nevertheless a valid negative calibration. The smooth, dt=0.02
+  Spearman ensemble failed drift and ESS, so stationarity failed in 1/9
+  conditions. Six of nine conditions failed the frozen temporal ESS precision
+  requirement, with all precision failures caused by ESS below four. E1 remains
+  blocked while V1CD diagnoses equilibration drift versus temporal and
+  between-replicate precision on the fixed V1C outputs.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.
-- Non-flat timestep calibration and all new scientific evidence remain pending.
-  No Cycle 4 confirmatory claim is currently supported.
+- The numerical error bounds are now empirically resolved, but the steady-state
+  premise remains unvalidated. No Cycle 4 confirmatory claim is currently
+  supported.
 
 ## Cycle 3 E3 correction
 
