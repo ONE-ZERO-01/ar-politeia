@@ -24,7 +24,7 @@
     0.01,
     0.005
   ],
-  "total_time": 1500.0,
+  "total_time": 2500.0,
   "output_time_interval": 5.0,
   "steady_snapshots": 96,
   "stationarity_max_normalized_drift": 0.1,
@@ -51,7 +51,7 @@
   "mean_wealth": 5.0,
   "omp_threads": 1,
   "parallel": 8,
-  "per_run_timeout_seconds": 3600,
+  "per_run_timeout_seconds": 5400,
   "strict_numerics": true,
   "confirmative_mode": true,
   "conditions": [

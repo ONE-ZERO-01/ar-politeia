@@ -89,6 +89,8 @@ V1P 在目标人口 1000、64×64 网格上执行三条总物理时长 10 的非
 
 完整 V1 随后在 umi 完成 75/75 runs，0 个运行失败，累计 7.94 CPU 小时。财富非负/有限性、非平坦三级步长界和存储顺序界全部通过；四项数值分辨率上限分别为 Spearman `0.0199341`、Moran's I `0.0107394`、occupancy entropy `0.00298606`、wealth Gini `0.00438174`。但步长层 45 runs 中 19 个未通过稳态、7 个未通过精度，因此 V1 总 Gate 失败，E1 继续阻塞。失败以 reversal-shape 判据为主（18 个 metric-run），需先做窗口敏感性诊断，再以新 seed 执行 V1B；不得用事后窗口选择挽救 V1。
 
+V1D 随后复用 75 个 V1 运行的最后 96 帧完成确定性诊断，24/1σ 基线逐项复现旧计数，jobctl reconcile 通过。2σ 阈值将 24 帧形状反转从 18 降到 0，但 96/2σ 暴露 37 次漂移失败和 42 次精度失败，说明 `total_time=1500` 的长窗口仍包含瞬态。V1B 在产生任何自身结果前冻结为新 seeds、`total_time=2500`、最后 96 帧与 2σ 反转阈值的完整 75-run 重校准。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

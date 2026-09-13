@@ -138,8 +138,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "designing",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "Reanalysis of all 75 V1 runs reproduced the archived 24/1-sigma counts exactly. Raising the reversal threshold to 2 sigma removed nearly all shape flags, while 48/96-snapshot windows exposed increasing drift and autocorrelation; V1B therefore extends the horizon before applying the frozen 96/2-sigma contract.",
       "artifacts": ["window_sensitivity.json", "result.json"]
     },
     {
@@ -148,8 +149,9 @@
       "objective": "Independently revalidate non-flat timestep, storage-order, stationarity, and precision gates using new seeds and the stationarity contract frozen after V1D.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "deferred",
-      "blocked_by": "V1D design decision and a new config/preflight lock"
+      "status": "preregistered",
+      "blocked_by": "none; V1D passed, config is frozen, preflight passes, and compute is authorized",
+      "result": "Pending execution: 75 independent runs, total_time=2500, last-96-snapshot stationarity window, 2-sigma reversal threshold, and new seeds."
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",
@@ -192,7 +194,7 @@
   },
   "budget": {
     "authorized_now": "On 2026-09-13 the user authorized unrestricted project compute, including multi-process CPU and GPU execution. Scientific workflow gates and host/path rules still apply.",
-    "numerical_calibration": "V1P estimates 3.47 CPU-hours / 0.43 wall-hours at parallel=8 for 75 runs. Full V1 is authorized.",
+    "numerical_calibration": "V1 consumed 7.94 CPU-hours at total_time=1500. Duration-scaled V1B is estimated at 13.23 CPU-hours / 1.65 wall-hours at parallel=8 and is authorized.",
     "requested_full_calibration": {
       "status": "authorized",
       "runs": 75,

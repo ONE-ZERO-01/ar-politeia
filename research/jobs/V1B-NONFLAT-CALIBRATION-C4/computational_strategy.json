@@ -1,6 +1,6 @@
 {
-  "approach": "Repeat the complete 75-run V1 matrix with five independent seeds. Use the validated single-rank Release CPU binary, one OpenMP thread per process, eight concurrent processes, a 3600-second per-run timeout, and a last-96-snapshot stationarity window with a two-standard-deviation reversal threshold.",
-  "runtime_basis": "V1 observed 7.94 CPU-hours and a 1702.33-second maximum single-run time for the same population, grid, physical duration, output cadence, and matrix. V1B keeps parallel=8 and doubles the timeout margin.",
+  "approach": "Repeat the complete 75-run V1 matrix with five independent seeds. Use the validated single-rank Release CPU binary, one OpenMP thread per process, eight concurrent processes, a 5400-second per-run timeout, total_time=2500, and a last-96-snapshot stationarity window with a two-standard-deviation reversal threshold.",
+  "runtime_basis": "V1 observed 7.94 CPU-hours and a 1702.33-second maximum single-run time at total_time=1500. Linear duration scaling gives 13.23 CPU-hours, 1.65 wall-hours at parallel=8, and a 2837-second maximum estimate. The 5400-second per-run timeout leaves headroom for I/O variation.",
   "evidence_role": "independent numerical recalibration",
   "evidence_boundary": "V1B may validate numerical resolution and analysis premises for later Cycle 4 experiments. It cannot support the landscape-effect claim itself.",
   "supports_core_claim": false

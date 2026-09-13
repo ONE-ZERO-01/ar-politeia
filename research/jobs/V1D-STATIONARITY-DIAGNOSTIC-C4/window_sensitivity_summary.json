@@ -1,0 +1,18 @@
+{
+  "experiment": "V1D-STATIONARITY-DIAGNOSTIC-C4",
+  "source_experiment": "V1-NONFLAT-CALIBRATION-C4",
+  "source_runs": 75,
+  "wall_seconds": 260.4275156520307,
+  "baseline_reproduction_pass": true,
+  "timestep_layer": {
+    "window-24--sigma-1": {"stationarity_failed_runs": 19, "precision_failed_runs": 7, "shape_failures": 18, "drift_failures": 5, "precision_failures": 7},
+    "window-24--sigma-2": {"stationarity_failed_runs": 5, "precision_failed_runs": 7, "shape_failures": 0, "drift_failures": 5, "precision_failures": 7},
+    "window-48--sigma-1": {"stationarity_failed_runs": 21, "precision_failed_runs": 13, "shape_failures": 16, "drift_failures": 11, "precision_failures": 15},
+    "window-48--sigma-2": {"stationarity_failed_runs": 11, "precision_failed_runs": 13, "shape_failures": 1, "drift_failures": 11, "precision_failures": 15},
+    "window-96--sigma-1": {"stationarity_failed_runs": 29, "precision_failed_runs": 26, "shape_failures": 7, "drift_failures": 37, "precision_failures": 42},
+    "window-96--sigma-2": {"stationarity_failed_runs": 28, "precision_failed_runs": 26, "shape_failures": 1, "drift_failures": 37, "precision_failures": 42}
+  },
+  "interpretation": "The 2-sigma threshold removes almost all accidental shape-reversal flags, but longer windows expose genuine earlier drift and autocorrelation. At total_time=1500, the last 96 snapshots are not an acceptable steady window. V1B therefore retains the preregistered 96/2-sigma contract and extends total_time to 2500 before observing any V1B outcome.",
+  "workspace_window_sensitivity_sha256": "af478d8776474fd4e42b4b972af52d00fafd06fde34c5cbd1e2cc8b0f616c7f8",
+  "workspace_result_sha256": "3ca3d2e9586d43e0d72e598e807eaf6280ae9fa6a4645cbc6c87c77838442627"
+}

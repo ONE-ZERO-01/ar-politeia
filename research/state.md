@@ -38,8 +38,13 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   timestep convergence, and storage-order sensitivity passed, but stationarity
   failed in 19/45 timestep runs and precision failed in 7/45; the overall V1
   verdict is failed and E1 remains blocked.
-- The next step is V1D: diagnose window-length and reversal-shape behavior using
-  existing V1 snapshots, then freeze an independently seeded V1B design.
+- V1D completed on umi and jobctl reconcile passed. Its 24/1-sigma baseline
+  reproduced V1 exactly. A 2-sigma reversal rule removed almost all shape flags,
+  but longer windows exposed genuine earlier drift and autocorrelation: the
+  96/2-sigma timestep layer still failed stationarity in 28/45 runs and precision
+  in 26/45. V1B is now frozen with independent seeds, total_time=2500, and the
+  last-96-snapshot/2-sigma contract; its 75-run preflight passes.
+- The next step is to execute V1B on umi using eight single-thread CPU processes.
 - Non-flat timestep calibration and all new scientific evidence remain pending.
   No Cycle 4 confirmatory claim is currently supported.
 
