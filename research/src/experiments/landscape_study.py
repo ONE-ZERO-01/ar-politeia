@@ -90,6 +90,26 @@ def generate_correlated_random_resource(
     return field
 
 
+def generate_smooth_resource(shape: Tuple[int, int]) -> Array:
+    """Generate a deterministic, positive, non-flat field with mean one.
+
+    The field is deliberately smooth and seed independent.  V1 uses it as a
+    low-frequency calibration case, while the clustered and shuffled fields
+    exercise progressively rougher spatial structure.
+    """
+    rows, cols = shape
+    if rows < 2 or cols < 2:
+        raise ValueError("landscape dimensions must both be at least two")
+    yy, xx = np.mgrid[0.0:1.0:complex(rows), 0.0:1.0:complex(cols)]
+    field = 0.35 + 0.45 * xx + 0.20 * yy + 0.25 * np.cos(math.pi * xx) * np.cos(
+        math.pi * yy
+    )
+    if np.min(field) <= 0.0:
+        raise RuntimeError("smooth resource field must be strictly positive")
+    field /= float(field.mean())
+    return field
+
+
 def make_matched_landscapes(
     shape: Tuple[int, int],
     seed: int,
@@ -224,6 +244,9 @@ def write_initial_conditions(
     mean_wealth: float = 5.0,
     wealth_log_sigma: float = 0.01,
     epsilon_log_sigma: float = 0.0,
+    explicit_phase_state: bool = False,
+    row_order: str = "canonical",
+    momentum_temperature: float = 1.0,
 ) -> str:
     """Write paired initial conditions with a non-degenerate wealth perturbation.
 
@@ -241,6 +264,8 @@ def write_initial_conditions(
         raise ValueError("invalid wealth parameters")
     if epsilon_log_sigma < 0.0:
         raise ValueError("epsilon_log_sigma must be non-negative")
+    if momentum_temperature < 0.0 or not math.isfinite(momentum_temperature):
+        raise ValueError("momentum_temperature must be finite and non-negative")
 
     rng = np.random.default_rng(seed)
     x = rng.uniform(xmin, xmax, size=count)
@@ -258,20 +283,45 @@ def write_initial_conditions(
             size=count,
         )
 
+    if row_order not in {"canonical", "permuted"}:
+        raise ValueError("row_order must be 'canonical' or 'permuted'")
+    order = np.arange(count)
+    if row_order == "permuted":
+        order_rng = np.random.default_rng(seed + 3_000_017)
+        order_rng.shuffle(order)
+
+    momentum_rng = np.random.default_rng(seed + 2_000_011)
+    momentum_scale = math.sqrt(momentum_temperature)
+    px = momentum_rng.normal(0.0, momentum_scale, size=count)
+    py = momentum_rng.normal(0.0, momentum_scale, size=count)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["x", "y", "w", "eps", "age"])
-        for values in zip(x, y, wealth, epsilon):
-            writer.writerow(
-                [
-                    f"{values[0]:.17g}",
-                    f"{values[1]:.17g}",
-                    f"{values[2]:.17g}",
-                    f"{values[3]:.17g}",
-                    "20",
+        if explicit_phase_state:
+            writer.writerow(["gid", "x", "y", "px", "py", "w", "eps", "age"])
+        else:
+            writer.writerow(["x", "y", "w", "eps", "age"])
+        for index in order:
+            values = [
+                f"{x[index]:.17g}",
+                f"{y[index]:.17g}",
+                f"{wealth[index]:.17g}",
+                f"{epsilon[index]:.17g}",
+                "20",
+            ]
+            if explicit_phase_state:
+                values = [
+                    str(int(index)),
+                    values[0],
+                    values[1],
+                    f"{px[index]:.17g}",
+                    f"{py[index]:.17g}",
+                    values[2],
+                    values[3],
+                    values[4],
                 ]
-            )
+            writer.writerow(values)
     return sha256_file(path)
 
 

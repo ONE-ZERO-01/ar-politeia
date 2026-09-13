@@ -10,6 +10,7 @@
 #include <iostream>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace politeia {
 
@@ -69,10 +70,18 @@ Index load_initial_conditions(
 
     const int ix = col_idx["x"];
     const int iy = col_idx["y"];
+    const int igid = get_col("gid");
+    const int ipx = get_col("px");
+    const int ipy = get_col("py");
     const int iw = get_col("w");
     const int ieps = get_col("eps");
     const int iage = get_col("age");
     const int isex = get_col("sex");
+
+    if ((ipx >= 0) != (ipy >= 0)) {
+        throw std::runtime_error(
+            "Initial conditions CSV must provide both 'px' and 'py', or neither");
+    }
 
     std::vector<int> iculture;
     for (int d = 0; d < cfg.culture_dim; ++d) {
@@ -96,6 +105,7 @@ Index load_initial_conditions(
     };
 
     Index count = 0;
+    std::unordered_set<Id> seen_gids;
     std::string line;
     int lineno = 1;
 
@@ -126,8 +136,26 @@ Index load_initial_conditions(
         }
 
         Vec2 pos = {x, y};
-        Vec2 mom = {dist_p(rng), dist_p(rng)};
-        Index idx = particles.add_particle(pos, mom, w, eps, age);
+        Vec2 mom = (ipx >= 0 && ipx < static_cast<int>(fields.size()) &&
+                    ipy >= 0 && ipy < static_cast<int>(fields.size()))
+                     ? Vec2{std::stod(fields[ipx]), std::stod(fields[ipy])}
+                     : Vec2{dist_p(rng), dist_p(rng)};
+        Index idx;
+        if (igid >= 0 && igid < static_cast<int>(fields.size())) {
+            const Id gid = static_cast<Id>(std::stoll(fields[igid]));
+            if (gid < 0) {
+                throw std::runtime_error(
+                    "IC line " + std::to_string(lineno) + ": gid must be non-negative");
+            }
+            if (!seen_gids.insert(gid).second) {
+                throw std::runtime_error(
+                    "IC line " + std::to_string(lineno) + ": duplicate gid " +
+                    std::to_string(gid));
+            }
+            idx = particles.add_particle_with_gid(pos, mom, w, eps, age, gid);
+        } else {
+            idx = particles.add_particle(pos, mom, w, eps, age);
+        }
 
         if (cfg.gender_enabled) {
             if (isex >= 0 && isex < static_cast<int>(fields.size())) {

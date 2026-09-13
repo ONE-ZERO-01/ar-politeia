@@ -115,6 +115,7 @@ def main() -> int:
     if experiment_id not in {
         "V0-SIMULATOR-TESTS-C4",
         "V0B-SIMULATOR-TESTS-C4",
+        "V0C-SIMULATOR-TESTS-C4",
     }:
         raise ValueError("unexpected experiment_id")
     if platform.node() != "umi":

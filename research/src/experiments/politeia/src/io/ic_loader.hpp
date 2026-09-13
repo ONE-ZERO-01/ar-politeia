@@ -4,6 +4,8 @@
 ///
 /// CSV format (header required, order-independent):
 ///   x,y            — position (required)
+///   gid            — stable global ID (optional; unique and non-negative)
+///   px,py          — momentum pair (optional; both columns required together)
 ///   w              — wealth (optional, default = initial_wealth)
 ///   eps            — epsilon (optional, default = 1.0)
 ///   age            — age (optional, default = 20.0)

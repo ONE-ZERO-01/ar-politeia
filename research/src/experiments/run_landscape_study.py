@@ -29,6 +29,7 @@ from landscape_study import (
     audit_parameter_lock,
     canonical_payload_sha256,
     completion_marker_is_reusable,
+    generate_smooth_resource,
     holm_adjust,
     make_matched_landscapes,
     metric_status,
@@ -546,6 +547,7 @@ def prepare_inputs(
     for seed in seeds:
         seed_dir = inputs_dir / f"seed-{seed}"
         fields = make_matched_landscapes(shape, seed)
+        fields = {**fields, "smooth": generate_smooth_resource(shape)}
         audit = audit_matched_landscapes(fields["clustered"], fields["shuffled"])
         audit["seed"] = seed
         matching_audits.append(audit)
@@ -580,8 +582,17 @@ def prepare_inputs(
             run_id = f"seed-{seed}--{condition_name}"
             run_dir = runs_dir / run_id
             run_dir.mkdir(parents=True, exist_ok=True)
+            storage_order = str(condition.get("storage_order", "canonical"))
+            explicit_phase_state = bool(
+                condition.get("explicit_phase_state", storage_order != "canonical")
+            )
             ic_path = seed_dir / (
                 f"initial-sigma-{float(condition.get('wealth_log_sigma', 0.01)):.6g}"
+                f"-eps-{float(condition.get('epsilon_log_sigma', 0.0)):.6g}.csv"
+                if not explicit_phase_state
+                else
+                f"initial-explicit-{storage_order}"
+                f"-sigma-{float(condition.get('wealth_log_sigma', 0.01)):.6g}"
                 f"-eps-{float(condition.get('epsilon_log_sigma', 0.0)):.6g}.csv"
             )
             if not ic_path.exists():
@@ -593,6 +604,13 @@ def prepare_inputs(
                     mean_wealth=float(config.get("mean_wealth", 5.0)),
                     wealth_log_sigma=float(condition.get("wealth_log_sigma", 0.01)),
                     epsilon_log_sigma=float(condition.get("epsilon_log_sigma", 0.0)),
+                    explicit_phase_state=explicit_phase_state,
+                    row_order=storage_order,
+                    momentum_temperature=float(
+                        condition.get(
+                            "initial_temperature", config.get("temperature", 0.5)
+                        )
+                    ),
                 )
             else:
                 initial_checksum = sha256_file(ic_path)
@@ -612,6 +630,9 @@ def prepare_inputs(
             cpp_values.update(
                 {
                     "dt": dt,
+                    "temperature": float(
+                        condition.get("temperature", config.get("temperature", 0.5))
+                    ),
                     "random_seed": seed,
                     "initial_particles": population,
                     "initial_conditions_file": relative_to_project(ic_path),
@@ -637,6 +658,11 @@ def prepare_inputs(
                         )
                     ),
                     "exchange_enabled": bool(condition.get("exchange_enabled", True)),
+                    "base_production": float(
+                        condition.get(
+                            "base_production", config.get("base_production", 0.01)
+                        )
+                    ),
                     "output_dir": relative_to_project(run_dir),
                 }
             )
@@ -673,6 +699,14 @@ def prepare_inputs(
                         condition.get("epsilon_log_sigma", 0.0)
                     ),
                     "dt": float(condition.get("dt", config.get("dt", 0.01))),
+                    "temperature": float(
+                        condition.get("temperature", config.get("temperature", 0.5))
+                    ),
+                    "storage_order": storage_order,
+                    "explicit_phase_state": explicit_phase_state,
+                    "calibration_component": str(
+                        condition.get("calibration_component", "timestep")
+                    ),
                     "cpp_config": relative_to_project(cpp_config_path),
                     "run_dir": relative_to_project(run_dir),
                     "resource_npy": relative_to_project(resource_paths[landscape_name]),

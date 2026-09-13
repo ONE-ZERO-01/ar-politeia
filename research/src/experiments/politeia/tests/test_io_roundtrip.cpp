@@ -162,6 +162,51 @@ void test_initial_conditions_loader() {
     require(close(particles.culture(0, 1), -0.4), "IC loader culture mismatch");
 }
 
+void test_initial_conditions_loader_preserves_explicit_phase_state() {
+    const auto path = temp_path("politeia_ic_explicit_state.csv");
+    {
+        std::ofstream out(path);
+        out << "gid,x,y,px,py,w,eps,age\n"
+            << "200,4.0,5.0,-0.3,0.4,7.5,2.5,31.0\n"
+            << "100,1.0,2.0,0.1,-0.2,3.5,1.25,27.0\n";
+    }
+
+    politeia::SimConfig cfg;
+    cfg.initial_particles = 10;
+    politeia::ParticleData particles(0, 2);
+    std::mt19937_64 rng(7);
+    const auto loaded = politeia::load_initial_conditions(
+        path.string(), particles, cfg, rng, 0);
+    std::filesystem::remove(path);
+
+    require(loaded == 2, "explicit IC loader count mismatch");
+    require(particles.global_id(0) == 200, "explicit IC gid 0 mismatch");
+    require(particles.global_id(1) == 100, "explicit IC gid 1 mismatch");
+    require(close(particles.momentum(0)[0], -0.3), "explicit IC px mismatch");
+    require(close(particles.momentum(1)[1], -0.2), "explicit IC py mismatch");
+    require(particles.gid_to_local(100) == 1, "explicit IC gid map mismatch");
+}
+
+void test_initial_conditions_loader_rejects_duplicate_gid() {
+    const auto path = temp_path("politeia_ic_duplicate_gid.csv");
+    {
+        std::ofstream out(path);
+        out << "gid,x,y\n7,1.0,2.0\n7,3.0,4.0\n";
+    }
+    politeia::SimConfig cfg;
+    cfg.initial_particles = 10;
+    politeia::ParticleData particles(0, 2);
+    std::mt19937_64 rng(7);
+    bool threw = false;
+    try {
+        (void)politeia::load_initial_conditions(path.string(), particles, cfg, rng, 0);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+    std::filesystem::remove(path);
+    require(threw, "IC loader must reject duplicate gid");
+}
+
 void test_csv_writer_snapshot() {
     politeia::ParticleData particles(2, 2);
     (void)particles.add_particle({0.0, 0.0}, {0.1, 0.2}, 1.0, 1.0, 20.0);
@@ -198,6 +243,8 @@ int main() {
     test_river_ascii_roundtrip();
     test_river_ascii_single_band();
     test_initial_conditions_loader();
+    test_initial_conditions_loader_preserves_explicit_phase_state();
+    test_initial_conditions_loader_rejects_duplicate_gid();
     test_csv_writer_snapshot();
     test_domain_decomposition_serial_geometry();
     std::cout << "io roundtrip tests passed\n";

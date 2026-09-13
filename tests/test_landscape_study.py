@@ -52,6 +52,14 @@ def test_correlated_random_holdout_is_deterministic_and_matched():
     assert not np.array_equal(first["clustered"], gaussian["clustered"])
 
 
+def test_smooth_resource_is_positive_nonflat_and_normalized():
+    field = landscape_study.generate_smooth_resource((24, 32))
+    assert np.all(np.isfinite(field))
+    assert float(field.min()) > 0.0
+    assert float(field.std()) > 0.0
+    assert float(field.mean()) == pytest.approx(1.0)
+
+
 def test_resource_to_elevation_reconstructs_resource_contrast():
     resource = np.array([[0.0, 1.0], [2.0, 4.0]])
     elevation = landscape_study.resource_to_elevation(resource)
@@ -104,6 +112,34 @@ def test_write_esri_ascii_and_initial_conditions(tmp_path):
     assert float(np.mean(table["w"])) == pytest.approx(5.0)
     assert float(np.std(table["w"])) > 0.0
     assert len(ic_digest) == 64
+
+
+def test_explicit_phase_state_permutation_changes_only_row_order(tmp_path):
+    canonical_path = tmp_path / "canonical.csv"
+    permuted_path = tmp_path / "permuted.csv"
+    kwargs = {
+        "count": 50,
+        "seed": 321,
+        "bounds": (0.0, 10.0, 0.0, 10.0),
+        "explicit_phase_state": True,
+        "momentum_temperature": 0.5,
+    }
+    landscape_study.write_initial_conditions(
+        canonical_path, row_order="canonical", **kwargs
+    )
+    landscape_study.write_initial_conditions(
+        permuted_path, row_order="permuted", **kwargs
+    )
+    canonical = np.genfromtxt(canonical_path, delimiter=",", names=True)
+    permuted = np.genfromtxt(permuted_path, delimiter=",", names=True)
+    assert set(canonical.dtype.names or ()) == {
+        "gid", "x", "y", "px", "py", "w", "eps", "age"
+    }
+    assert not np.array_equal(canonical["gid"], permuted["gid"])
+    by_gid_canonical = np.sort(canonical, order="gid")
+    by_gid_permuted = np.sort(permuted, order="gid")
+    for name in canonical.dtype.names or ():
+        assert np.array_equal(by_gid_canonical[name], by_gid_permuted[name])
 
 
 def test_completion_marker_requires_matching_fingerprint_and_snapshot(tmp_path):
