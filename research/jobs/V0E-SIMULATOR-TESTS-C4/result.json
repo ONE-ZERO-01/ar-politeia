@@ -1,0 +1,23 @@
+{
+  "experiment": "V0E-SIMULATOR-TESTS-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "validated_analysis_commit": "a7321d2009dd2bd57e639e4d51bb0b865e89b89b",
+  "checkout_commit": "937085e780557ccb4bacfb7e45a540ca10db7fef",
+  "working_tree_clean": true,
+  "python_tests": {"passed": 152, "failed": 0},
+  "ctest": {
+    "openmp_off": {"passed": 7, "failed": 0},
+    "openmp_on": {"passed": 7, "failed": 0}
+  },
+  "binary_sha256": {
+    "openmp_off": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+    "openmp_on": "de81932d7193a6cdd801f2cc4d91fa6240a18ffb288d13dab0f0382aa800ae34"
+  },
+  "jobctl_reconcile": "completed",
+  "wall_seconds": 61.028955940157175,
+  "conclusion": "The V1E two-window and independent-seed Gate implementation passed the complete Python suite and both OpenMP OFF/ON simulator builds and CTest suites. V1E implementation blocking is cleared.",
+  "evidence_boundary": "Implementation validation only; no scientific claim or numerical calibration."
+}

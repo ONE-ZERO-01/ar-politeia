@@ -99,6 +99,8 @@ V1C 在 umi 完成 225/225 runs、0 个运行失败，jobctl reconcile 通过，
 
 V1CD 在 umi 完成并通过 reconcile，精确复现 V1C 尾窗。相邻 144 帧窗口的稳态失败由 3/9 降至 1/9，36 个有界指标跨窗变化界全部低于预先存在的规划半宽；时间 ESS 失败仍为 6/9。把每 seed 尾窗均值视为独立样本后，30/36 个规划精度单元通过，clustered 的 Moran/entropy 六个单元估计最多需要 20 seeds。诊断支持将“尾窗动力学稳定”“相邻窗口稳定”和“独立 seed 精度”拆开；V1E 已按 20 个新 seeds、`total_time=4500` 和两段 144 帧窗口冻结设计，等待 runner 与 V0E Gate。
 
+V0E 在 umi 完成 Python 152/152、OpenMP OFF/ON CTest 各 7/7，jobctl reconcile 通过。V1E 的两窗口稳态、跨窗口配对界和独立 seed 精度实现 Gate 已关闭；OpenMP OFF reference 二进制 SHA-256 为 `87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3`。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

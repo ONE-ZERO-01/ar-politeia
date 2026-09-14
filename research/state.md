@@ -78,8 +78,9 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - V1E is now design-frozen before new data: 20 unseen seeds, total_time=4500,
   two adjacent 144-snapshot windows, temporal dynamics separated from
   independent-seed precision, and the unchanged timestep/storage-order bounds.
-  Runner implementation and a V0E server Gate are the next work; E1 stays
-  blocked.
+  The runner is implemented and V0E passed on umi: Python 152/152 and OpenMP
+  OFF/ON CTest 7/7. Jobctl reconcile completed, so V1E is ready to execute; E1
+  stays blocked until its result passes every Gate.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.
