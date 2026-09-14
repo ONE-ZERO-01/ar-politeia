@@ -218,8 +218,9 @@
       "objective": "Independently repeat the calibration with a later burn-in, adjacent-window stability, independent-seed precision, and 20 unseen seeds under the unchanged simulator and numerical-error ceilings.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "preregistered_ready",
+      "status": "running",
       "blocked_by": "none; V0E passed, V1E preflight passes, and compute is authorized",
+      "execution": "Submitted on umi via jobctl with pid 1914738, parallel=8, OMP_NUM_THREADS=1, and overall timeout 129600 seconds.",
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {
