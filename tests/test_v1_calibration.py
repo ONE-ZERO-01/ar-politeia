@@ -98,6 +98,61 @@ def test_validate_full_matrix_rejects_unknown_stationarity_gate_unit():
         )
 
 
+def test_validate_full_matrix_accepts_two_window_independent_precision_contract():
+    run_v1.validate_full_matrix(
+        {
+            "experiment_id": "V1E-NONFLAT-CALIBRATION-C4",
+            "seeds": [101, 211, 307],
+            "timesteps": [0.02, 0.01, 0.005],
+            "conditions": full_conditions(),
+            "stationarity_gate_unit": "condition_ensemble_two_window",
+            "steady_snapshots": 144,
+            "output_time_interval": 5.0,
+            "total_time": 3000.0,
+            "independent_precision_absolute_half_widths": {
+                "resource_density_spearman_rho": 0.05,
+                "density_morans_i": 0.05,
+                "occupancy_entropy": 0.025,
+                "wealth_gini": 0.025,
+                "zero_wealth_fraction": 0.01,
+            },
+            "independent_precision_relative_half_widths": {"wealth_variance": 0.2},
+            "adjacent_window_absolute_bounds": {
+                "resource_density_spearman_rho": 0.05,
+                "density_morans_i": 0.05,
+                "occupancy_entropy": 0.025,
+                "wealth_gini": 0.025,
+                "zero_wealth_fraction": 0.01,
+            },
+            "adjacent_window_relative_bounds": {"wealth_variance": 0.1},
+        }
+    )
+
+
+def test_independent_precision_separates_absolute_and_relative_bounds():
+    absolute = run_v1._independent_precision_summary(
+        [1.0, 2.0, 3.0], absolute_half_width=2.0
+    )
+    relative = run_v1._independent_precision_summary(
+        [1.0, 2.0, 3.0], relative_half_width=0.6
+    )
+    assert absolute["two_se_half_width"] == pytest.approx(2.0 / 3.0**0.5)
+    assert absolute["pass"] is True
+    assert relative["observed_bound"] == pytest.approx(1.0 / 3.0**0.5)
+    assert relative["pass"] is True
+
+
+def test_adjacent_window_gate_uses_paired_two_se_bound():
+    report = run_v1._adjacent_window_summary(
+        [1.0, 2.0, 3.0],
+        [1.1, 2.1, 3.1],
+        absolute_bound=0.11,
+    )
+    assert report["absolute_mean_difference"] == pytest.approx(0.1)
+    assert report["two_se_bound"] == pytest.approx(0.1)
+    assert report["pass"] is True
+
+
 def test_order_condition_requires_noise_isolation_and_explicit_state():
     bad = condition(
         "bad-order",

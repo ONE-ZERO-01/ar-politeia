@@ -42,7 +42,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4"]
+      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V0E-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4"]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -199,6 +199,17 @@
       "blocked_by": "none",
       "result": "The V1C tail baseline reproduced exactly. Stationarity failures improved from 3/9 in the previous window to 1/9 in the tail; all 36 adjacent-window shifts were within planning widths. Independent-seed precision passed 30/36 bounded-metric cells, with clustered Moran and entropy requiring at most 20 seeds.",
       "artifacts": ["steady_estimand_diagnostic.json", "result.json"]
+    },
+    {
+      "id": "V0E-SIMULATOR-TESTS-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Validate the V1E two-window steady-estimand and independent-seed precision implementation plus all existing Python and C++ contracts on umi before numerical execution.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "preregistered",
+      "blocked_by": "none",
+      "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
     },
     {
       "id": "V1E-NONFLAT-CALIBRATION-C4",

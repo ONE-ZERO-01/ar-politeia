@@ -1,0 +1,11 @@
+{
+  "experiment_id": "V0E-SIMULATOR-TESTS-C4",
+  "source_commit": "pending_freeze_commit",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [false, true],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true,
+  "test_scope": "V1E two-window stationarity, adjacent-window stability, independent-seed precision, matrix validation, all Python contracts, and all simulator CTest invariants."
+}

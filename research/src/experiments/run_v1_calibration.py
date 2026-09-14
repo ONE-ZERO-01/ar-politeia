@@ -111,8 +111,55 @@ def validate_full_matrix(config: Mapping[str, Any]) -> None:
     }
     if order_cells != expected_order:
         raise ValueError("order matrix must be clustered x dt(3) x storage_order(2) exactly")
-    if config.get("stationarity_gate_unit", "run") not in {"run", "condition_ensemble"}:
-        raise ValueError("stationarity_gate_unit must be run or condition_ensemble")
+    gate_unit = config.get("stationarity_gate_unit", "run")
+    if gate_unit not in {
+        "run",
+        "condition_ensemble",
+        "condition_ensemble_two_window",
+    }:
+        raise ValueError(
+            "stationarity_gate_unit must be run, condition_ensemble, or "
+            "condition_ensemble_two_window"
+        )
+    if gate_unit == "condition_ensemble_two_window":
+        _validate_two_window_contract(config)
+
+
+def _validate_two_window_contract(config: Mapping[str, Any]) -> None:
+    window = int(config.get("steady_snapshots", 0))
+    if window < 3:
+        raise ValueError("two-window gate requires steady_snapshots >= 3")
+    output_interval = float(config.get("output_time_interval", 0.0))
+    total_time = float(config.get("total_time", 0.0))
+    if output_interval <= 0.0 or total_time / output_interval < 2 * window:
+        raise ValueError("two-window gate requires at least 2*steady_snapshots outputs")
+    stationary_metrics = stationary_metrics_for_experiment(str(config["experiment_id"]))
+    absolute = config.get("independent_precision_absolute_half_widths")
+    relative = config.get("independent_precision_relative_half_widths")
+    adjacent_absolute = config.get("adjacent_window_absolute_bounds")
+    adjacent_relative = config.get("adjacent_window_relative_bounds")
+    for name, value in (
+        ("independent_precision_absolute_half_widths", absolute),
+        ("independent_precision_relative_half_widths", relative),
+        ("adjacent_window_absolute_bounds", adjacent_absolute),
+        ("adjacent_window_relative_bounds", adjacent_relative),
+    ):
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{name} must be an object")
+        for metric, threshold in value.items():
+            if metric not in stationary_metrics:
+                raise ValueError(f"{name} contains unsupported metric {metric}")
+            numeric = float(threshold)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{name}.{metric} must be finite and positive")
+    if set(absolute) & set(relative):
+        raise ValueError("independent precision metric cannot have both absolute and relative bounds")
+    if set(adjacent_absolute) & set(adjacent_relative):
+        raise ValueError("adjacent-window metric cannot have both absolute and relative bounds")
+    if set(absolute) | set(relative) != set(stationary_metrics):
+        raise ValueError("independent precision bounds must cover every stationary metric")
+    if set(adjacent_absolute) | set(adjacent_relative) != set(stationary_metrics):
+        raise ValueError("adjacent-window bounds must cover every stationary metric")
 
 
 def aggregate_condition_ensemble_stationarity(
@@ -212,11 +259,243 @@ def _weak_bound(values_a: Sequence[float], values_b: Sequence[float]) -> dict[st
     }
 
 
+def _independent_precision_summary(
+    values: Sequence[float],
+    *,
+    absolute_half_width: float | None = None,
+    relative_half_width: float | None = None,
+) -> dict[str, Any]:
+    data = np.asarray(values, dtype=np.float64)
+    if data.ndim != 1 or data.size < 3 or not np.all(np.isfinite(data)):
+        raise ValueError("independent precision requires >=3 finite replicate values")
+    if (absolute_half_width is None) == (relative_half_width is None):
+        raise ValueError("independent precision requires exactly one bound type")
+    mean = float(np.mean(data))
+    sample_sd = float(np.std(data, ddof=1))
+    standard_error = sample_sd / math.sqrt(float(data.size))
+    two_se_half_width = 2.0 * standard_error
+    if absolute_half_width is not None:
+        threshold = float(absolute_half_width)
+        observed = two_se_half_width
+        kind = "absolute"
+    else:
+        threshold = float(relative_half_width)
+        observed = two_se_half_width / max(abs(mean), 1e-12)
+        kind = "relative_to_absolute_mean"
+    return {
+        "replicates": int(data.size),
+        "mean": mean,
+        "sample_sd": sample_sd,
+        "standard_error": standard_error,
+        "two_se_half_width": two_se_half_width,
+        "bound_kind": kind,
+        "observed_bound": observed,
+        "threshold": threshold,
+        "pass": bool(observed <= threshold),
+    }
+
+
+def _adjacent_window_summary(
+    previous: Sequence[float],
+    tail: Sequence[float],
+    *,
+    absolute_bound: float | None = None,
+    relative_bound: float | None = None,
+) -> dict[str, Any]:
+    if (absolute_bound is None) == (relative_bound is None):
+        raise ValueError("adjacent-window stability requires exactly one bound type")
+    weak = _weak_bound(tail, previous)
+    if absolute_bound is not None:
+        threshold = float(absolute_bound)
+        observed = float(weak["two_se_bound"])
+        kind = "absolute"
+    else:
+        previous_mean = abs(float(np.mean(np.asarray(previous, dtype=np.float64))))
+        tail_mean = abs(float(np.mean(np.asarray(tail, dtype=np.float64))))
+        threshold = float(relative_bound)
+        observed = float(weak["two_se_bound"]) / max(previous_mean, tail_mean, 1e-12)
+        kind = "relative_to_larger_window_mean"
+    return {
+        **weak,
+        "bound_kind": kind,
+        "observed_bound": observed,
+        "threshold": threshold,
+        "pass": bool(observed <= threshold),
+    }
+
+
+def aggregate_two_window_steady_estimand(
+    specs: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Gate late-window dynamics separately from independent-seed precision."""
+    _validate_two_window_contract(config)
+    timestep_specs = [spec for spec in specs if spec["calibration_component"] == "timestep"]
+    grouped: dict[tuple[str, float], list[Mapping[str, Any]]] = defaultdict(list)
+    for spec in timestep_specs:
+        grouped[(str(spec["landscape"]), float(spec["dt"]))].append(spec)
+    expected_replicates = len(config["seeds"])
+    if len(grouped) != 9 or any(len(items) != expected_replicates for items in grouped.values()):
+        raise RuntimeError("two-window gate requires a complete 3x3 timestep matrix")
+
+    window = int(config["steady_snapshots"])
+    bounds = tuple(float(value) for value in config["bounds"])
+    metrics = stationary_metrics_for_experiment(str(config["experiment_id"]))
+    precision_absolute = config["independent_precision_absolute_half_widths"]
+    precision_relative = config["independent_precision_relative_half_widths"]
+    adjacent_absolute = config["adjacent_window_absolute_bounds"]
+    adjacent_relative = config["adjacent_window_relative_bounds"]
+    conditions: dict[str, Any] = {}
+
+    for (landscape, dt), condition_specs in sorted(grouped.items()):
+        replicate_series: dict[str, list[list[float]]] = {metric: [] for metric in metrics}
+        for spec in condition_specs:
+            run_dir = project_path(spec["run_dir"], must_exist=True)
+            snapshots = sorted(run_dir.glob("snap_*.csv"))
+            if len(snapshots) < 2 * window:
+                raise RuntimeError(f"{spec['run_id']} has fewer than {2 * window} snapshots")
+            resource = np.load(project_path(spec["resource_npy"], must_exist=True), allow_pickle=False)
+            rows = [
+                snapshot_metrics(read_snapshot_csv(path), resource, bounds)
+                for path in snapshots[-2 * window :]
+            ]
+            for metric in metrics:
+                replicate_series[metric].append([float(row[metric]) for row in rows])
+
+        metric_reports: dict[str, Any] = {}
+        for metric, raw_series in replicate_series.items():
+            arrays = np.asarray(raw_series, dtype=np.float64)
+            previous_arrays = arrays[:, :window]
+            tail_arrays = arrays[:, window:]
+            previous_run_means = previous_arrays.mean(axis=1)
+            tail_run_means = tail_arrays.mean(axis=1)
+            tail_ensemble = tail_arrays.mean(axis=0)
+            status = metric_status(metric, float(np.mean(tail_ensemble)))
+            temporal = _stationarity_for_metric(
+                metric,
+                tail_ensemble,
+                status,
+                max_normalized_drift=float(config["stationarity_max_normalized_drift"]),
+                min_effective_samples=float(config["stationarity_min_ess"]),
+                reversal_span_sigma=float(config.get("stationarity_reversal_span_sigma", 1.0)),
+            )
+            precision = _independent_precision_summary(
+                tail_run_means,
+                absolute_half_width=(
+                    float(precision_absolute[metric]) if metric in precision_absolute else None
+                ),
+                relative_half_width=(
+                    float(precision_relative[metric]) if metric in precision_relative else None
+                ),
+            )
+            adjacent = _adjacent_window_summary(
+                previous_run_means,
+                tail_run_means,
+                absolute_bound=(
+                    float(adjacent_absolute[metric]) if metric in adjacent_absolute else None
+                ),
+                relative_bound=(
+                    float(adjacent_relative[metric]) if metric in adjacent_relative else None
+                ),
+            )
+            metric_reports[metric] = {
+                "tail_temporal_diagnostic": temporal,
+                "adjacent_window_stability": adjacent,
+                "independent_replicate_precision": precision,
+            }
+
+        tail_stationarity_pass = all(
+            bool(item["tail_temporal_diagnostic"].get("stationarity_pass", False))
+            for item in metric_reports.values()
+        )
+        temporal_ess_pass = all(
+            bool(item["tail_temporal_diagnostic"].get("precision_pass", False))
+            for item in metric_reports.values()
+        )
+        adjacent_pass = all(
+            bool(item["adjacent_window_stability"]["pass"])
+            for item in metric_reports.values()
+        )
+        precision_pass = all(
+            bool(item["independent_replicate_precision"]["pass"])
+            for item in metric_reports.values()
+        )
+        conditions[f"{landscape}--dt-{dt:.17g}"] = {
+            "landscape": landscape,
+            "dt": dt,
+            "replicates": len(condition_specs),
+            "tail_stationarity_pass": tail_stationarity_pass,
+            "adjacent_window_stability_pass": adjacent_pass,
+            "independent_replicate_precision_pass": precision_pass,
+            "temporal_ess_diagnostic_pass": temporal_ess_pass,
+            "metrics": metric_reports,
+        }
+
+    tail_stationarity_valid = all(
+        item["tail_stationarity_pass"] for item in conditions.values()
+    )
+    adjacent_valid = all(
+        item["adjacent_window_stability_pass"] for item in conditions.values()
+    )
+    precision_valid = all(
+        item["independent_replicate_precision_pass"] for item in conditions.values()
+    )
+    temporal_ess_valid = all(
+        item["temporal_ess_diagnostic_pass"] for item in conditions.values()
+    )
+    payload = {
+        "experiment": config["experiment_id"],
+        "gate_unit": "condition_ensemble_two_window",
+        "window_snapshots": window,
+        "replicates_per_condition": expected_replicates,
+        "tail_stationarity_valid": tail_stationarity_valid,
+        "adjacent_window_stability_valid": adjacent_valid,
+        "independent_replicate_precision_valid": precision_valid,
+        "temporal_ess_diagnostic_valid": temporal_ess_valid,
+        "conditions": conditions,
+        "pass": bool(tail_stationarity_valid and adjacent_valid and precision_valid),
+        "temporal_ess_policy": (
+            "Reported as a dynamical autocorrelation diagnostic. Precision of the "
+            "condition estimand is gated on independent seed-level window means."
+        ),
+    }
+    write_json(output_dir / "steady_estimand_report.json", payload)
+
+    legacy_conditions: dict[str, Any] = {}
+    for key, item in conditions.items():
+        legacy_conditions[key] = {
+            "landscape": item["landscape"],
+            "dt": item["dt"],
+            "replicates": item["replicates"],
+            "stationarity_pass": item["tail_stationarity_pass"],
+            "precision_pass": item["temporal_ess_diagnostic_pass"],
+            "metrics": {
+                metric: report["tail_temporal_diagnostic"]
+                for metric, report in item["metrics"].items()
+            },
+        }
+    legacy = {
+        "experiment": config["experiment_id"],
+        "gate_unit": "condition_ensemble_temporal_diagnostic",
+        "window_snapshots": window,
+        "replicates_per_condition": expected_replicates,
+        "stationarity_valid": tail_stationarity_valid,
+        "precision_valid": temporal_ess_valid,
+        "conditions": legacy_conditions,
+        "pass": bool(tail_stationarity_valid and temporal_ess_valid),
+        "gate_role": "diagnostic_only_for_condition_ensemble_two_window",
+    }
+    write_json(output_dir / "ensemble_stationarity_report.json", legacy)
+    return payload
+
+
 def aggregate_v1(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
     output_dir: Path,
     ensemble_stationarity: Mapping[str, Any] | None = None,
+    steady_estimand: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply the preregistered weak-convergence and storage-order gates."""
     dts = sorted((float(value) for value in config["timesteps"]), reverse=True)
@@ -314,7 +593,17 @@ def aggregate_v1(
     }
     timestep_rows = [row for row in rows if row["calibration_component"] == "timestep"]
     stationarity_gate_unit = str(config.get("stationarity_gate_unit", "run"))
-    if stationarity_gate_unit == "condition_ensemble":
+    adjacent_window_pass: bool | None = None
+    if stationarity_gate_unit == "condition_ensemble_two_window":
+        if steady_estimand is None:
+            raise ValueError("condition_ensemble_two_window gate requires a steady report")
+        stationarity_pass = bool(
+            steady_estimand["tail_stationarity_valid"]
+            and steady_estimand["adjacent_window_stability_valid"]
+        )
+        adjacent_window_pass = bool(steady_estimand["adjacent_window_stability_valid"])
+        precision_pass = bool(steady_estimand["independent_replicate_precision_valid"])
+    elif stationarity_gate_unit == "condition_ensemble":
         if ensemble_stationarity is None:
             raise ValueError("condition_ensemble gate requires an ensemble report")
         stationarity_pass = bool(ensemble_stationarity["stationarity_valid"])
@@ -344,6 +633,7 @@ def aggregate_v1(
             "storage_order_sensitivity": order_pass,
             "stationarity": stationarity_pass,
             "precision": precision_pass,
+            "adjacent_window_stability": adjacent_window_pass,
         },
         "stationarity_gate_unit": stationarity_gate_unit,
         "invariant_checks": invariant_checks,
@@ -446,6 +736,7 @@ def main() -> int:
         "V1-NONFLAT-CALIBRATION-C4",
         "V1B-NONFLAT-CALIBRATION-C4",
         "V1C-NONFLAT-CALIBRATION-C4",
+        "V1E-NONFLAT-CALIBRATION-C4",
     }:
         raise ValueError("unexpected experiment_id")
     _validate_conditions(config.get("conditions"))
@@ -465,12 +756,22 @@ def main() -> int:
     else:
         rows = analyze_runs(experiment, config, output_dir, specs)
         ensemble_stationarity = None
-        if config.get("stationarity_gate_unit", "run") == "condition_ensemble":
+        steady_estimand = None
+        gate_unit = config.get("stationarity_gate_unit", "run")
+        if gate_unit == "condition_ensemble":
             ensemble_stationarity = aggregate_condition_ensemble_stationarity(
                 specs, config, output_dir
             )
+        elif gate_unit == "condition_ensemble_two_window":
+            steady_estimand = aggregate_two_window_steady_estimand(
+                specs, config, output_dir
+            )
         payload = aggregate_v1(
-            rows, config, output_dir, ensemble_stationarity=ensemble_stationarity
+            rows,
+            config,
+            output_dir,
+            ensemble_stationarity=ensemble_stationarity,
+            steady_estimand=steady_estimand,
         )
         payload = {
             "experiment": experiment,
