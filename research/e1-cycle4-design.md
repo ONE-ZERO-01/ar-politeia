@@ -83,8 +83,10 @@ V1E 最细步长 clustered/shuffled 的 40 个参考 run 平均 1,042 秒，线�
 线性估计 E1 workspace 约 21 GB。计算资源已授权，但只有在以下顺序全部完成后才能提交：
 
 1. V1F 960/960 完成、reconcile 且所有 Gate 通过；
-2. 归档 V1F 数值校准并生成最终 Cycle 4 参数锁；
-3. 生成 E1-C4 job config/声明并核对本文件的 64 seeds；
-4. V0G 在 umi 通过 Python 全套测试和 OpenMP OFF/ON CTest；
-5. E1-C4 preflight 8/8。
-
+2. 归档 V1F 数值校准，使用 `prepare_cycle4_confirmation.py prepare` 确定性生成不授权执行的
+   candidate 参数锁、V0G 声明和 E1-C4 声明，并核对本文件的 64 seeds；
+3. 提交并推送 candidate 声明，使 V0G 在干净的 umi checkout 上运行；
+4. V0G 在 umi 通过 Python 全套测试和 OpenMP OFF/ON CTest，产出新的 OpenMP-OFF reference binary；
+5. 使用 `prepare_cycle4_confirmation.py finalize` 校验 V0G host、clean checkout、Python/CTest
+   两种构建结果并绑定 reference binary SHA-256，随后才把锁改为 final 并授权 E1-C4；
+6. E1-C4 在 umi 通过 `--prepare-only` 锁/校准/输入审查和 preflight 8/8。

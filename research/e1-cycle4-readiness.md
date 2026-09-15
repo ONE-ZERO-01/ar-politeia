@@ -22,8 +22,16 @@ Cycle 4 已改变模拟器、必需稳态指标、稳态 Gate 单位、物理时
    C4 主确认应先使用已校准尺度；`N=2000/128×128` 应进入 E3 的独立尺度稳健性设计。
 5. **旧四条件已经拆分。** C4 E1 主确认矩阵只含 matched clustered/shuffled；flat 与
    no-exchange 不参与主效应 Gate，通道语义留给 E2-C4。
+6. **promotion 已确定化。** `prepare_cycle4_confirmation.py` 分为 `prepare` 和 `finalize`
+   两阶段：前者只接受完整通过且哈希一致的 V1F，生成不可执行的 candidate 锁；后者只接受
+   umi 干净 checkout 上 Python 与 OpenMP OFF/ON CTest 全过的 V0G，并把新 reference binary
+   SHA-256 写入 final 锁与 E1 config。检测到 E1 outcome、已 final 的锁、项目外路径、哈希不符
+   或不完整 Gate 时均拒绝重写。
+7. **binary 执行绑定已补齐。** E1-C4 runner 在任何数值执行前强制核对 64 位
+   `binary_sha256`；缺失或不匹配立即失败，Cycle 3 历史任务的执行接口保持不变。
 
-本轮新增 5 项契约测试，总测试为 158/158。尚未关闭的启动缺口是：V1F 必须整体通过、生成并
+此前新增 5 项 E1-C4 契约测试；本轮再新增 5 项 promotion/binary 绑定测试，总测试为 163/163。
+尚未关闭的启动缺口是：V1F 必须整体通过、生成并
 绑定最终 C4 参数锁，以及在 umi 执行新的 V0G 实现 Gate。样本量和 64 个未见 seeds 已在
 `e1-cycle4-design.md` 冻结；它们排除 Cycle 1–3 和所有 Cycle 4 校准 seeds，并禁止
 outcome-dependent replacement。
@@ -61,7 +69,9 @@ V1F 通过后，新参数锁至少包含：
 
 1. V1ED 已冻结 64-seed 保守校准样本量；V1F 已通过 preflight 并正在 umi 执行；
 2. E1-C4 runner/tests 已完成本地实现，保持不读取 V1F 的中间科学指标；
-3. V1F 全过后，生成只读 C4 参数锁候选及 SHA-256，并绑定最终数值分辨率；
-4. 使用已冻结的 64 个 E1 seeds 生成 job 声明；
-5. 在 umi 执行 V0G 实现 Gate，随后冻结参数锁为 final；
-6. E1-C4 通过 preflight 后才提交确认性作业。
+3. V1F 全过后执行 promotion `prepare`，一次生成只读 C4 candidate 锁、V0G 声明和带 64 个
+   冻结 seeds 的 E1 job 声明；candidate 明确 `confirmatory_execution_authorized=false`；
+4. 提交 candidate 研究事件并 push umi，使 V0G 运行于干净 checkout；
+5. 在 umi 执行 V0G 实现 Gate，随后由 promotion `finalize` 绑定 V0G result 与 binary 哈希，
+   冻结参数锁为 final；
+6. E1-C4 在 umi 通过 `--prepare-only` 和 preflight 后才提交确认性作业。

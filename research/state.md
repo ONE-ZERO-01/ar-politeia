@@ -105,6 +105,13 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   +08:00 under jobctl pid 2647912. All run directories were created, eight
   single-thread simulator processes entered execution, and the startup check
   found zero non-empty stderr files. The overall timeout is 72 hours.
+- The Cycle 4 promotion path is now deterministic and outcome-guarded.
+  `prepare_cycle4_confirmation.py prepare` accepts only a hash-bound passing
+  960-run V1F result and emits a non-authorizing candidate lock plus V0G/E1-C4
+  declarations. `finalize` requires a clean umi V0G run with Python and OpenMP
+  OFF/ON CTest passing, then binds the rebuilt reference binary SHA-256 and
+  authorizes E1. The E1-C4 runner now rejects a missing or mismatched binary
+  checksum before numerical execution; the full local suite is 163/163.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

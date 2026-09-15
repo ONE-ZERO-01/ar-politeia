@@ -262,12 +262,12 @@
     {
       "id": "V0G-SIMULATOR-TESTS-C4",
       "claim_ids": ["C2-LANDSCAPE-C4"],
-      "objective": "Validate the final E1-C4 parameter-lock binding, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi.",
+      "objective": "Validate the Cycle 4 promotion and binary-binding contracts, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi; produce the final reference binary.",
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
       "status": "preregistered_blocked",
-      "blocked_by": "V1F must pass and the final Cycle 4 parameter lock plus E1-C4 job declaration must exist."
+      "blocked_by": "V1F must pass and promotion prepare must create a committed candidate Cycle 4 lock plus V0G/E1-C4 declarations."
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",
@@ -276,7 +276,7 @@
       "mode": "server",
       "execution_host": "umi",
       "status": "implementation_ready",
-      "blocked_by": "V1F must pass, then freeze the final Cycle 4 parameter lock and pass the new V0G implementation gate; compute is authorized.",
+      "blocked_by": "V1F must pass; promotion prepare must create the non-authorizing candidate; V0G must pass; promotion finalize must bind the reference binary and freeze the final Cycle 4 lock; compute is authorized.",
       "design": "research/e1-cycle4-design.md"
     },
     {

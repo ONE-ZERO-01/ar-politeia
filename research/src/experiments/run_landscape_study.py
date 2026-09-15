@@ -87,6 +87,26 @@ def load_json(path: Path) -> Dict[str, Any]:
     return payload
 
 
+def validate_reference_binary(config: Mapping[str, Any]) -> Path:
+    """Resolve and checksum-bind the simulator before a numerical execution."""
+    binary_value = config.get("binary")
+    if not isinstance(binary_value, str) or not binary_value:
+        raise ValueError("numerical execution requires binary")
+    binary = project_path(binary_value, must_exist=True)
+    declared_sha256 = config.get("binary_sha256")
+    if not isinstance(declared_sha256, str) or len(declared_sha256) != 64:
+        raise RuntimeError(
+            "numerical execution requires a frozen 64-character binary_sha256"
+        )
+    actual_sha256 = sha256_file(binary)
+    if actual_sha256 != declared_sha256:
+        raise RuntimeError(
+            f"reference binary checksum mismatch: expected {declared_sha256}, "
+            f"got {actual_sha256}"
+        )
+    return binary
+
+
 def validate_parameter_lock(
     experiment: str,
     config: Mapping[str, Any],
@@ -2512,7 +2532,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "elapsed_seconds_executed": 0.0,
     }
     if not args.analyze_only:
-        binary = project_path(config["binary"], must_exist=True)
+        binary = (
+            validate_reference_binary(config)
+            if args.experiment == E1_C4_EXPERIMENT
+            else project_path(config["binary"], must_exist=True)
+        )
         execution_summary = execute_runs(
             run_specs,
             binary,

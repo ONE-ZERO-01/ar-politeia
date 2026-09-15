@@ -392,6 +392,25 @@ def test_e1_c4_conditions_are_only_the_matched_confirmatory_pair():
     assert all(condition["terrain_production_enabled"] for condition in conditions)
 
 
+def test_reference_binary_requires_exact_frozen_checksum(tmp_path, monkeypatch):
+    binary = tmp_path / "politeia"
+    binary.write_bytes(b"validated simulator")
+    monkeypatch.setattr(run_landscape_study, "PROJECT_ROOT", tmp_path)
+    checksum = run_landscape_study.sha256_file(binary)
+
+    resolved = run_landscape_study.validate_reference_binary(
+        {"binary": "politeia", "binary_sha256": checksum}
+    )
+    assert resolved == binary
+
+    with pytest.raises(RuntimeError, match="reference binary checksum mismatch"):
+        run_landscape_study.validate_reference_binary(
+            {"binary": "politeia", "binary_sha256": "0" * 64}
+        )
+    with pytest.raises(RuntimeError, match="requires a frozen"):
+        run_landscape_study.validate_reference_binary({"binary": "politeia"})
+
+
 def test_c4_calibration_keeps_numerical_and_scientific_thresholds_separate():
     calibration = {
         "experiment": "V1F-NONFLAT-CALIBRATION-C4",

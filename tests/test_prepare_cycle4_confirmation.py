@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+
+MODULE_PATH = (
+    Path(__file__).parents[1]
+    / "research"
+    / "src"
+    / "experiments"
+    / "prepare_cycle4_confirmation.py"
+)
+SPEC = importlib.util.spec_from_file_location("prepare_cycle4_confirmation", MODULE_PATH)
+assert SPEC and SPEC.loader
+promotion = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(promotion)
+
+SOURCE_COMMIT = "a" * 40
+V0G_COMMIT = "b" * 40
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _v1f_inputs(root: Path) -> tuple[Path, Path, Path]:
+    calibration_path = root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json"
+    calibration = {
+        "experiment": promotion.V1F_ID,
+        "pass": True,
+        "gate_layers": {
+            "invariants": True,
+            "timestep_convergence": True,
+            "storage_order_sensitivity": True,
+            "stationarity": True,
+            "precision": True,
+            "adjacent_window_stability": True,
+        },
+        "numerical_resolution_limits": {
+            metric: 0.001 for metric in promotion.EFFECT_METRICS
+        },
+    }
+    _write_json(calibration_path, calibration)
+    config_path = root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/config.json"
+    config = {
+        "experiment_id": promotion.V1F_ID,
+        "seeds": list(range(64)),
+        "conditions": [
+            {"name": f"{landscape}-dt-{dt}"}
+            for landscape in ("smooth", "clustered", "shuffled")
+            for dt in ("0.02", "0.01", "0.005")
+        ] + [
+            {"name": f"order-{order}-dt-{dt}"}
+            for order in ("canonical", "permuted")
+            for dt in ("0.02", "0.01", "0.005")
+        ],
+        "timesteps": [0.02, 0.01, 0.005],
+        "population": 1000,
+        "grid_shape": [64, 64],
+        "total_time": 4500.0,
+        "output_time_interval": 5.0,
+        "steady_snapshots": 144,
+        "omp_threads": 1,
+        "parallel": 8,
+        "per_run_timeout_seconds": 10800,
+        **{
+            key: value
+            for key, value in promotion.MODEL_PARAMETERS.items()
+            if key != "dt"
+        },
+        "independent_precision_absolute_half_widths": promotion.ABSOLUTE_GATE_BOUNDS,
+        "independent_precision_relative_half_widths": {"wealth_variance": 0.2},
+        "adjacent_window_absolute_bounds": promotion.ABSOLUTE_GATE_BOUNDS,
+        "adjacent_window_relative_bounds": {"wealth_variance": 0.1},
+    }
+    _write_json(config_path, config)
+    result_path = root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/result.json"
+    _write_json(
+        result_path,
+        {
+            "experiment": promotion.V1F_ID,
+            "status": "completed",
+            "pass": True,
+            "execution_completed": True,
+            "runs_completed": 960,
+            "run_failures": 0,
+            "calibration_sha256": _sha256(calibration_path),
+            "config_sha256": _sha256(config_path),
+        },
+    )
+    return calibration_path, result_path, config_path
+
+
+def test_prepare_creates_deterministic_non_authorizing_candidate(tmp_path):
+    calibration, result, config = _v1f_inputs(tmp_path)
+    promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+    lock_path = tmp_path / "research/parameter_lock.cycle4.json"
+    first_lock = lock_path.read_bytes()
+    lock = json.loads(first_lock)
+    e1_config = json.loads(
+        (tmp_path / f"research/jobs/{promotion.E1_ID}/config.json").read_text()
+    )
+    assert lock["status"] == "candidate"
+    assert lock["confirmatory_execution_authorized"] is False
+    assert lock["authorized_experiments"] == []
+    assert lock["promotion_base_commit"] == SOURCE_COMMIT
+    assert lock["source_commit"] == "pending clean V0G checkout"
+    assert e1_config["seeds"] == list(promotion.E1_SEEDS)
+    assert "binary_sha256" not in e1_config
+    assert e1_config["numerical_calibration_sha256"] == _sha256(calibration)
+    assert len(set(e1_config["seeds"])) == 64
+
+    promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+    assert lock_path.read_bytes() == first_lock
+
+
+def test_prepare_rejects_failed_or_incomplete_v1f(tmp_path):
+    calibration, result, config = _v1f_inputs(tmp_path)
+    payload = json.loads(calibration.read_text())
+    payload["gate_layers"]["precision"] = False
+    _write_json(calibration, payload)
+    result_payload = json.loads(result.read_text())
+    result_payload["calibration_sha256"] = _sha256(calibration)
+    _write_json(result, result_payload)
+    with pytest.raises(RuntimeError, match="did not pass every"):
+        promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+
+def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path):
+    calibration, result, config = _v1f_inputs(tmp_path)
+    promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+    v0g_result = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/result.json"
+    _write_json(
+        v0g_result,
+        {
+            "experiment": promotion.V0G_ID,
+            "status": "completed",
+            "pass": True,
+            "environment": {
+                "host": "umi",
+                "working_tree_clean": True,
+                "source_commit": V0G_COMMIT,
+            },
+            "pytest": {"returncode": 0},
+            "builds": [
+                {"openmp": False, "pass": True},
+                {"openmp": True, "pass": True},
+            ],
+        },
+    )
+    binary = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/build-off/src/politeia"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_bytes(b"cycle4 reference executable")
+    promotion.finalize(tmp_path, v0g_result, binary)
+
+    lock = json.loads((tmp_path / "research/parameter_lock.cycle4.json").read_text())
+    e1_config = json.loads(
+        (tmp_path / f"research/jobs/{promotion.E1_ID}/config.json").read_text()
+    )
+    assert lock["status"] == "final"
+    assert lock["confirmatory_execution_authorized"] is True
+    assert lock["authorized_experiments"] == [promotion.E1_ID]
+    assert lock["source_commit"] == V0G_COMMIT
+    assert lock["simulator_validation"]["binary_sha256"] == _sha256(binary)
+    assert e1_config["binary_sha256"] == _sha256(binary)
+    assert e1_config["parameter_lock_sha256"] == _sha256(
+        tmp_path / "research/parameter_lock.cycle4.json"
+    )
+
+    with pytest.raises(RuntimeError, match="final Cycle 4 parameter lock"):
+        promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+
+def test_promotion_refuses_to_rewrite_after_e1_outcomes_exist(tmp_path):
+    calibration, result, config = _v1f_inputs(tmp_path)
+    outcome = tmp_path / f"research/jobs/{promotion.E1_ID}/workspace/result.json"
+    _write_json(outcome, {"experiment": promotion.E1_ID})
+    with pytest.raises(RuntimeError, match="after E1 outcomes exist"):
+        promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
