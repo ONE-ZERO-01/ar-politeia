@@ -243,8 +243,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "preregistered",
+      "status": "executed_passed",
       "blocked_by": "none",
+      "result": "Umi Python 153/153; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; rebuilt reference binary retained the validated SHA-256; jobctl reconcile completed.",
       "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
     },
     {
@@ -253,8 +254,8 @@
       "objective": "Independently repeat the unchanged V1E calibration with 64 unseen seeds selected by the conservative V1ED upper-SD rule.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "preregistered",
-      "blocked_by": "V0F implementation validation",
+      "status": "preregistered_ready",
+      "blocked_by": "none; V0F passed, V1F preflight is required, and compute is authorized",
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {

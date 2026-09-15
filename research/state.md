@@ -97,6 +97,9 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   maximum point requirement is 38 seeds; a one-sided 90% upper-SD calculation
   gives 61, so the frozen next-power-of-two policy selects 64. V1F is now
   design-frozen with 64 unseen seeds and the unchanged V1E process.
+- V0F passed on umi: Python 153/153 and OpenMP OFF/ON CTest 7/7. The rebuilt
+  CPU reference retained SHA-256 `87eafa4e...ddee3`, clearing V1F's
+  implementation block.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

@@ -1,0 +1,20 @@
+{
+  "experiment": "V0F-SIMULATOR-TESTS-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "validated_commit": "48ad02a79dd6b1807fdec12b315e948ba549a2a8",
+  "checkout_commit": "07dda02d79fa2566c8210ee32bd1227daf7c0f9c",
+  "working_tree_clean": true,
+  "python_tests": {"passed": 153, "failed": 0},
+  "ctest": {
+    "openmp_off": {"passed": 7, "failed": 0},
+    "openmp_on": {"passed": 7, "failed": 0}
+  },
+  "binary_sha256": {"openmp_off": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3"},
+  "jobctl_reconcile": "completed",
+  "wall_seconds": 70.68341817334294,
+  "conclusion": "V1F registration and all inherited V1E Gate contracts passed the complete Python and OpenMP OFF/ON CTest suites. V1F implementation blocking is cleared.",
+  "evidence_boundary": "Implementation validation only; no scientific claim or numerical calibration."
+}
