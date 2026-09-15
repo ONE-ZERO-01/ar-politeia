@@ -103,6 +103,8 @@ V0E 在 umi 完成 Python 152/152、OpenMP OFF/ON CTest 各 7/7，jobctl reconci
 
 V1E 在 umi 完成 300/300 runs、0 个运行失败并通过 reconcile，消耗 103.51 CPU 小时 / 14.64 墙钟小时。财富不变量、非平坦三级步长、存储顺序、尾窗稳态和相邻窗口稳定性全部通过，数值分辨率上限为 Spearman `0.00971292`、Moran's I `0.00615936`、occupancy entropy `0.00161097`、wealth Gini `0.00242933`。独立 seed 精度仍在 6/9 条件、12 个 metric cells 失败，点估计最大需要 38 seeds；V1ED 将在固定输出上评估样本量不确定性，E1 继续阻塞。
 
+V1ED 在 umi 完成并通过 reconcile，精确复现 V1E Gate。点估计最大需要 38 seeds；对样本 SD 取单侧 90% 上界后最大需要 61，按预定上取 2 的幂政策选择 64。V1F 已冻结为 64 个新 seeds、960 runs 和不变的 V1E Gate，预计 331.23 CPU 小时 / 41.40 墙钟小时。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

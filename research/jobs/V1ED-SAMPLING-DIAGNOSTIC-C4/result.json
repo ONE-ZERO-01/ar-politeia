@@ -1,0 +1,34 @@
+{
+  "experiment": "V1ED-SAMPLING-DIAGNOSTIC-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "execution_host": "umi",
+  "jobctl_reconcile": "completed",
+  "wall_seconds": 4.639387717470527,
+  "baseline_reproduction": {
+    "pass": true,
+    "tail_stationarity_valid": true,
+    "adjacent_window_stability_valid": true,
+    "independent_replicate_precision_valid": false,
+    "temporal_ess_diagnostic_valid": false
+  },
+  "failed_precision_cells": 12,
+  "maximum_point_estimate": 38,
+  "maximum_conservative_estimate": 61,
+  "recommended_independent_replicates": 64,
+  "limiting_cell": "shuffled--dt-0.005/wealth_variance",
+  "paired_finest_dt_conservative_requirements": {
+    "resource_density_spearman_rho": 14,
+    "density_morans_i": 17,
+    "occupancy_entropy": 12,
+    "wealth_gini": 3
+  },
+  "workspace_artifact_sha256": {
+    "sampling_diagnostic.json": "8a80ba50c3e0382b0cedbd4f7c3a7a9b5bb27b1d81d6967af730213c50c65b9c",
+    "result.json": "4fff804967b138216ed89a84a58752640f351ccb7e4c0d6ef3dc02af72d71643"
+  },
+  "conclusion": "The V1E Gate reproduced exactly. The largest point requirement is 38 replicates; a one-sided 90% upper-SD calculation raises the maximum to 61, so the preregistered next-power-of-two policy selects 64 independent replicates. Paired clustered/shuffled primary metrics require at most 17 replicates under the same conservative rule.",
+  "next_action": "Freeze V1F at 64 unseen seeds with the unchanged V1E horizon, simulator, and Gates. V1E remains failed and E1 remains blocked.",
+  "evidence_boundary": "Sampling diagnostic only; no Cycle 4 landscape-effect claim is supported."
+}

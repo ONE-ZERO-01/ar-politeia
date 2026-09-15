@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 4.639387717470527,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {"path": "workspace/sampling_diagnostic.json", "sha256": "8a80ba50c3e0382b0cedbd4f7c3a7a9b5bb27b1d81d6967af730213c50c65b9c", "valid": true},
+    {"path": "workspace/result.json", "sha256": "4fff804967b138216ed89a84a58752640f351ccb7e4c0d6ef3dc02af72d71643", "valid": true}
+  ]
+}

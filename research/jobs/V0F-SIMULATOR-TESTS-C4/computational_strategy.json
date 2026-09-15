@@ -1,0 +1,6 @@
+{
+  "approach": "Run the full Python suite and rebuild/test the C++ reference with OpenMP OFF and ON on umi before launching V1F.",
+  "evidence_role": "implementation validation",
+  "evidence_boundary": "V0F validates code paths only and produces no scientific or numerical-calibration evidence.",
+  "supports_core_claim": false
+}

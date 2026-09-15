@@ -118,6 +118,7 @@ def main() -> int:
         "V0C-SIMULATOR-TESTS-C4",
         "V0D-SIMULATOR-TESTS-C4",
         "V0E-SIMULATOR-TESTS-C4",
+        "V0F-SIMULATOR-TESTS-C4",
     }:
         raise ValueError("unexpected experiment_id")
     if platform.node() != "umi":

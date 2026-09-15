@@ -737,6 +737,7 @@ def main() -> int:
         "V1B-NONFLAT-CALIBRATION-C4",
         "V1C-NONFLAT-CALIBRATION-C4",
         "V1E-NONFLAT-CALIBRATION-C4",
+        "V1F-NONFLAT-CALIBRATION-C4",
     }:
         raise ValueError("unexpected experiment_id")
     _validate_conditions(config.get("conditions"))

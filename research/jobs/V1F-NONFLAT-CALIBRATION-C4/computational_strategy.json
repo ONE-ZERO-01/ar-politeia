@@ -1,0 +1,8 @@
+{
+  "approach": "Execute the unchanged V1E 15-condition matrix for 64 independent seeds using eight OMP=1 CPU reference processes. The sample size is the next power of two above V1ED's one-sided 90% upper-SD requirement of 61.",
+  "runtime_basis": "Scaling V1E's 103.51 CPU-hours and 14.64 wall-hours by 64/20 estimates 331.23 CPU-hours and 46.85 wall-hours at the same observed throughput; the design-time ideal estimate is 41.40 wall-hours.",
+  "storage_estimate": "Approximately 160 GB; umi /home had about 13 TB free at freeze time and all heavy artifacts remain under the ignored workspace.",
+  "evidence_role": "independent numerical recalibration",
+  "evidence_boundary": "V1F can validate calibration premises only and cannot support a landscape-effect claim.",
+  "supports_core_claim": false
+}
