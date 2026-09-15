@@ -46,6 +46,14 @@ from landscape_study import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+E1_C4_EXPERIMENT = "E1-MATCHED-LANDSCAPES-C4"
+C4_CALIBRATION_EXPERIMENT = "V1F-NONFLAT-CALIBRATION-C4"
+C4_EFFECT_METRICS = (
+    "resource_density_spearman_rho",
+    "density_morans_i",
+    "occupancy_entropy",
+    "wealth_gini",
+)
 
 
 def require_umi() -> None:
@@ -203,6 +211,24 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "epsilon_log_sigma": epsilon_log_sigma,
                 "dt": dt,
             }
+        ]
+    if experiment == E1_C4_EXPERIMENT:
+        # Cycle 4 isolates the confirmatory landscape contrast. Flat and
+        # no-exchange conditions belong to separate diagnostics and must not
+        # consume or alter the matched-effect family.
+        return [
+            {
+                "name": landscape,
+                "landscape": landscape,
+                "terrain_force_enabled": True,
+                "terrain_production_enabled": True,
+                "exchange_rate": exchange_rate,
+                "exchange_noise_strength": noise_strength,
+                "wealth_log_sigma": 0.01,
+                "epsilon_log_sigma": epsilon_log_sigma,
+                "dt": dt,
+            }
+            for landscape in ("clustered", "shuffled")
         ]
     if experiment == "E1-MATCHED-LANDSCAPES":
         return [
@@ -1111,13 +1137,85 @@ def load_e0_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
     return calibration
 
 
+def validate_c4_calibration_coverage(
+    calibration: Mapping[str, Any],
+    scientific_sesoi: Mapping[str, Any],
+    required_metrics: Sequence[str] = C4_EFFECT_METRICS,
+) -> Dict[str, Dict[str, float]]:
+    """Keep numerical resolution and scientific relevance thresholds separate."""
+    if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:
+        raise RuntimeError(
+            f"Cycle 4 requires {C4_CALIBRATION_EXPERIMENT} calibration"
+        )
+    if calibration.get("pass") is not True:
+        raise RuntimeError("Cycle 4 numerical calibration did not pass")
+    numerical = calibration.get("numerical_resolution_limits")
+    if not isinstance(numerical, Mapping):
+        raise RuntimeError("Cycle 4 calibration has no numerical resolution limits")
+    if not isinstance(scientific_sesoi, Mapping):
+        raise RuntimeError("Cycle 4 config has no scientific_sesoi")
+
+    thresholds: Dict[str, Dict[str, float]] = {}
+    for metric in required_metrics:
+        if metric not in numerical:
+            raise RuntimeError(f"Cycle 4 calibration is missing {metric}")
+        if metric not in scientific_sesoi:
+            raise RuntimeError(f"Cycle 4 scientific_sesoi is missing {metric}")
+        numerical_value = float(numerical[metric])
+        scientific_value = float(scientific_sesoi[metric])
+        if not math.isfinite(numerical_value) or numerical_value < 0.0:
+            raise RuntimeError(f"Cycle 4 numerical limit for {metric} is invalid")
+        if not math.isfinite(scientific_value) or scientific_value < 0.0:
+            raise RuntimeError(f"Cycle 4 scientific SESOI for {metric} is invalid")
+        thresholds[metric] = {
+            "numerical_resolution_limit": numerical_value,
+            "scientific_sesoi": scientific_value,
+            "effective_claim_threshold": max(numerical_value, scientific_value),
+        }
+    return thresholds
+
+
+def load_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+    relative = config.get("numerical_calibration")
+    if not isinstance(relative, str) or not relative:
+        raise ValueError("Cycle 4 confirmatory analysis requires numerical_calibration")
+    calibration_path = project_path(relative, must_exist=True)
+    declared_sha256 = config.get("numerical_calibration_sha256")
+    if not isinstance(declared_sha256, str) or len(declared_sha256) != 64:
+        raise RuntimeError(
+            "Cycle 4 confirmatory analysis requires a frozen 64-character "
+            "numerical_calibration_sha256"
+        )
+    actual_sha256 = sha256_file(calibration_path)
+    if actual_sha256 != declared_sha256:
+        raise RuntimeError(
+            f"Cycle 4 calibration checksum mismatch: expected {declared_sha256}, "
+            f"got {actual_sha256}"
+        )
+    calibration = load_json(calibration_path)
+    validate_c4_calibration_coverage(
+        calibration,
+        config.get("scientific_sesoi", {}),
+    )
+    return calibration
+
+
+def load_confirmatory_calibration(
+    experiment: str, config: Mapping[str, Any]
+) -> Dict[str, Any]:
+    if experiment == E1_C4_EXPERIMENT:
+        return load_c4_calibration(config)
+    return load_e0_calibration(config)
+
+
 def confirmatory_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
     """Metrics a confirmatory analysis indexes against the frozen SESOI (R03).
 
     These must each have a finite SESOI threshold in the loaded calibration;
     otherwise the analysis would KeyError after expensive runs complete.
     """
-    if experiment in {"E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION",
+    if experiment in {"E1-MATCHED-LANDSCAPES", E1_C4_EXPERIMENT,
+                      "E2-CHANNEL-ABLATION",
                       "E3-ROBUSTNESS-HOLDOUT"}:
         return (
             "resource_density_spearman_rho",
@@ -1185,6 +1283,300 @@ def apply_holm_and_sesoi(
         )
         for key, interval in intervals.items()
     }
+
+
+def _independent_precision_summary(
+    values: Sequence[float],
+    *,
+    absolute_half_width: float | None = None,
+    relative_half_width: float | None = None,
+) -> Dict[str, Any]:
+    data = np.asarray(values, dtype=np.float64)
+    if data.ndim != 1 or data.size < 3 or not np.all(np.isfinite(data)):
+        raise ValueError("independent precision requires >=3 finite replicate values")
+    if (absolute_half_width is None) == (relative_half_width is None):
+        raise ValueError("independent precision requires exactly one bound type")
+    mean = float(np.mean(data))
+    sample_sd = float(np.std(data, ddof=1))
+    standard_error = sample_sd / math.sqrt(float(data.size))
+    two_se_half_width = 2.0 * standard_error
+    if absolute_half_width is not None:
+        observed = two_se_half_width
+        threshold = float(absolute_half_width)
+        kind = "absolute"
+    else:
+        observed = two_se_half_width / max(abs(mean), 1e-12)
+        threshold = float(relative_half_width)
+        kind = "relative_to_absolute_mean"
+    return {
+        "replicates": int(data.size),
+        "mean": mean,
+        "sample_sd": sample_sd,
+        "standard_error": standard_error,
+        "two_se_half_width": two_se_half_width,
+        "bound_kind": kind,
+        "observed_bound": observed,
+        "threshold": threshold,
+        "pass": bool(observed <= threshold),
+    }
+
+
+def _adjacent_window_summary(
+    previous: Sequence[float],
+    tail: Sequence[float],
+    *,
+    absolute_bound: float | None = None,
+    relative_bound: float | None = None,
+) -> Dict[str, Any]:
+    if (absolute_bound is None) == (relative_bound is None):
+        raise ValueError("adjacent-window stability requires exactly one bound type")
+    earlier = np.asarray(previous, dtype=np.float64)
+    later = np.asarray(tail, dtype=np.float64)
+    if earlier.shape != later.shape or earlier.ndim != 1 or earlier.size < 3:
+        raise ValueError("adjacent-window stability requires >=3 paired replicates")
+    if not np.all(np.isfinite(earlier)) or not np.all(np.isfinite(later)):
+        raise ValueError("adjacent-window stability contains a non-finite metric")
+    differences = later - earlier
+    mean_difference = float(np.mean(differences))
+    sample_sd = float(np.std(differences, ddof=1))
+    standard_error = sample_sd / math.sqrt(float(differences.size))
+    two_se_bound = abs(mean_difference) + 2.0 * standard_error
+    if absolute_bound is not None:
+        observed = two_se_bound
+        threshold = float(absolute_bound)
+        kind = "absolute"
+    else:
+        scale = max(abs(float(np.mean(earlier))), abs(float(np.mean(later))), 1e-12)
+        observed = two_se_bound / scale
+        threshold = float(relative_bound)
+        kind = "relative_to_larger_window_mean"
+    return {
+        "replicates": int(differences.size),
+        "signed_mean_difference": mean_difference,
+        "absolute_mean_difference": abs(mean_difference),
+        "paired_sample_sd": sample_sd,
+        "standard_error": standard_error,
+        "two_se_bound": two_se_bound,
+        "bound_kind": kind,
+        "observed_bound": observed,
+        "threshold": threshold,
+        "pass": bool(observed <= threshold),
+    }
+
+
+def _validate_c4_steady_contract(config: Mapping[str, Any]) -> None:
+    if config.get("stationarity_gate_unit") != "condition_ensemble_two_window":
+        raise ValueError("E1-C4 requires condition_ensemble_two_window stationarity")
+    window = int(config.get("steady_snapshots", 0))
+    output_interval = float(config.get("output_time_interval", 0.0))
+    total_time = float(config.get("total_time", 0.0))
+    if window < 3 or output_interval <= 0.0 or total_time / output_interval < 2 * window:
+        raise ValueError("E1-C4 requires two complete adjacent steady windows")
+    metrics = set(stationary_metrics_for_experiment(E1_C4_EXPERIMENT))
+    precision_absolute = config.get("independent_precision_absolute_half_widths")
+    precision_relative = config.get("independent_precision_relative_half_widths")
+    adjacent_absolute = config.get("adjacent_window_absolute_bounds")
+    adjacent_relative = config.get("adjacent_window_relative_bounds")
+    for name, value in (
+        ("independent_precision_absolute_half_widths", precision_absolute),
+        ("independent_precision_relative_half_widths", precision_relative),
+        ("adjacent_window_absolute_bounds", adjacent_absolute),
+        ("adjacent_window_relative_bounds", adjacent_relative),
+    ):
+        if not isinstance(value, Mapping):
+            raise ValueError(f"E1-C4 {name} must be an object")
+        for metric, threshold in value.items():
+            if metric not in metrics:
+                raise ValueError(f"E1-C4 {name} contains unsupported metric {metric}")
+            if not math.isfinite(float(threshold)) or float(threshold) <= 0.0:
+                raise ValueError(f"E1-C4 {name}.{metric} must be finite and positive")
+    if set(precision_absolute) & set(precision_relative):
+        raise ValueError("E1-C4 precision bounds overlap")
+    if set(adjacent_absolute) & set(adjacent_relative):
+        raise ValueError("E1-C4 adjacent-window bounds overlap")
+    if set(precision_absolute) | set(precision_relative) != metrics:
+        raise ValueError("E1-C4 precision bounds must cover every steady metric")
+    if set(adjacent_absolute) | set(adjacent_relative) != metrics:
+        raise ValueError("E1-C4 adjacent-window bounds must cover every steady metric")
+
+
+def aggregate_e1_c4_steady_estimand(
+    specs: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+) -> Dict[str, Any]:
+    """Gate E1-C4 dynamics and seed precision on the matched two-condition ensemble."""
+    _validate_c4_steady_contract(config)
+    expected_seeds = {int(seed) for seed in config.get("seeds", [])}
+    if len(expected_seeds) < 3:
+        raise ValueError("E1-C4 requires at least three distinct seeds")
+    grouped: Dict[str, List[Mapping[str, Any]]] = defaultdict(list)
+    for spec in specs:
+        grouped[str(spec["condition"])].append(spec)
+    if set(grouped) != {"clustered", "shuffled"}:
+        raise RuntimeError("E1-C4 steady gate requires only clustered and shuffled")
+    for condition, condition_specs in grouped.items():
+        seeds = [int(spec["seed"]) for spec in condition_specs]
+        if len(seeds) != len(set(seeds)) or set(seeds) != expected_seeds:
+            raise RuntimeError(f"E1-C4 {condition} does not contain the exact seed set")
+
+    window = int(config["steady_snapshots"])
+    bounds = tuple(float(value) for value in config["bounds"])
+    metrics = stationary_metrics_for_experiment(E1_C4_EXPERIMENT)
+    precision_absolute = config["independent_precision_absolute_half_widths"]
+    precision_relative = config["independent_precision_relative_half_widths"]
+    adjacent_absolute = config["adjacent_window_absolute_bounds"]
+    adjacent_relative = config["adjacent_window_relative_bounds"]
+    conditions: Dict[str, Any] = {}
+
+    for condition, condition_specs in sorted(grouped.items()):
+        replicate_series: Dict[str, List[List[float]]] = {
+            metric: [] for metric in metrics
+        }
+        for spec in sorted(condition_specs, key=lambda item: int(item["seed"])):
+            run_dir = project_path(spec["run_dir"], must_exist=True)
+            snapshots = sorted(run_dir.glob("snap_*.csv"))
+            if len(snapshots) < 2 * window:
+                raise RuntimeError(f"{spec['run_id']} has fewer than {2 * window} snapshots")
+            resource = np.load(
+                project_path(spec["resource_npy"], must_exist=True), allow_pickle=False
+            )
+            metric_rows = [
+                snapshot_metrics(read_snapshot_csv(path), resource, bounds)
+                for path in snapshots[-2 * window :]
+            ]
+            for metric in metrics:
+                replicate_series[metric].append(
+                    [float(row[metric]) for row in metric_rows]
+                )
+
+        reports: Dict[str, Any] = {}
+        for metric, raw_series in replicate_series.items():
+            arrays = np.asarray(raw_series, dtype=np.float64)
+            previous = arrays[:, :window]
+            tail = arrays[:, window:]
+            previous_means = previous.mean(axis=1)
+            tail_means = tail.mean(axis=1)
+            tail_ensemble = tail.mean(axis=0)
+            temporal = _stationarity_for_metric(
+                metric,
+                tail_ensemble,
+                metric_status(metric, float(np.mean(tail_ensemble))),
+                max_normalized_drift=float(config["stationarity_max_normalized_drift"]),
+                min_effective_samples=float(config["stationarity_min_ess"]),
+                reversal_span_sigma=float(
+                    config.get("stationarity_reversal_span_sigma", 1.0)
+                ),
+            )
+            reports[metric] = {
+                "tail_temporal_diagnostic": temporal,
+                "adjacent_window_stability": _adjacent_window_summary(
+                    previous_means,
+                    tail_means,
+                    absolute_bound=(
+                        float(adjacent_absolute[metric])
+                        if metric in adjacent_absolute
+                        else None
+                    ),
+                    relative_bound=(
+                        float(adjacent_relative[metric])
+                        if metric in adjacent_relative
+                        else None
+                    ),
+                ),
+                "independent_replicate_precision": _independent_precision_summary(
+                    tail_means,
+                    absolute_half_width=(
+                        float(precision_absolute[metric])
+                        if metric in precision_absolute
+                        else None
+                    ),
+                    relative_half_width=(
+                        float(precision_relative[metric])
+                        if metric in precision_relative
+                        else None
+                    ),
+                ),
+            }
+        conditions[condition] = {
+            "condition": condition,
+            "replicates": len(condition_specs),
+            "tail_stationarity_pass": all(
+                bool(report["tail_temporal_diagnostic"].get("stationarity_pass", False))
+                for report in reports.values()
+            ),
+            "adjacent_window_stability_pass": all(
+                bool(report["adjacent_window_stability"]["pass"])
+                for report in reports.values()
+            ),
+            "independent_replicate_precision_pass": all(
+                bool(report["independent_replicate_precision"]["pass"])
+                for report in reports.values()
+            ),
+            "temporal_ess_diagnostic_pass": all(
+                bool(report["tail_temporal_diagnostic"].get("precision_pass", False))
+                for report in reports.values()
+            ),
+            "metrics": reports,
+        }
+
+    tail_stationarity = all(
+        condition["tail_stationarity_pass"] for condition in conditions.values()
+    )
+    adjacent = all(
+        condition["adjacent_window_stability_pass"] for condition in conditions.values()
+    )
+    precision = all(
+        condition["independent_replicate_precision_pass"]
+        for condition in conditions.values()
+    )
+    temporal_ess = all(
+        condition["temporal_ess_diagnostic_pass"] for condition in conditions.values()
+    )
+    payload = {
+        "experiment": E1_C4_EXPERIMENT,
+        "gate_unit": "condition_ensemble_two_window",
+        "window_snapshots": window,
+        "replicates_per_condition": len(expected_seeds),
+        "tail_stationarity_valid": tail_stationarity,
+        "adjacent_window_stability_valid": adjacent,
+        "independent_replicate_precision_valid": precision,
+        "temporal_ess_diagnostic_valid": temporal_ess,
+        "conditions": conditions,
+        "pass": bool(tail_stationarity and adjacent and precision),
+        "temporal_ess_policy": (
+            "Reported as a dynamical autocorrelation diagnostic; the effect estimand "
+            "is gated on independent seed-level window means."
+        ),
+    }
+    write_json(output_dir / "steady_estimand_report.json", payload)
+    write_json(
+        output_dir / "ensemble_stationarity_report.json",
+        {
+            "experiment": E1_C4_EXPERIMENT,
+            "gate_unit": "condition_ensemble_temporal_diagnostic",
+            "window_snapshots": window,
+            "replicates_per_condition": len(expected_seeds),
+            "stationarity_valid": tail_stationarity,
+            "precision_valid": temporal_ess,
+            "pass": bool(tail_stationarity and temporal_ess),
+            "gate_role": "diagnostic_only_for_condition_ensemble_two_window",
+            "conditions": {
+                name: {
+                    "condition": name,
+                    "replicates": item["replicates"],
+                    "stationarity_pass": item["tail_stationarity_pass"],
+                    "precision_pass": item["temporal_ess_diagnostic_pass"],
+                    "metrics": {
+                        metric: report["tail_temporal_diagnostic"]
+                        for metric, report in item["metrics"].items()
+                    },
+                }
+                for name, item in conditions.items()
+            },
+        },
+    )
+    return payload
 
 
 def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
@@ -1325,6 +1717,122 @@ def aggregate_e1(
         "confirmatory_spatial_family": primary,
         "secondary_wealth_family": wealth,
         "multiplicity": "Holm family-wise correction",
+    }
+    write_json(output_dir / "paired_effects.json", payload)
+    return payload
+
+
+def aggregate_e1_c4(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+    steady_estimand: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Analyze the Cycle 4 matched contrast under its separately frozen gates."""
+    expected_seeds = {int(seed) for seed in config.get("seeds", [])}
+    if len(expected_seeds) < 3:
+        raise ValueError("E1-C4 requires at least three distinct seeds")
+    by_seed: Dict[int, Dict[str, Mapping[str, Any]]] = defaultdict(dict)
+    for row in rows:
+        seed = int(row["seed"])
+        condition = str(row["condition"])
+        if seed not in expected_seeds:
+            raise RuntimeError(f"E1-C4 contains undeclared seed {seed}")
+        if condition not in {"clustered", "shuffled"}:
+            raise RuntimeError(f"E1-C4 contains undeclared condition {condition}")
+        if condition in by_seed[seed]:
+            raise RuntimeError(f"E1-C4 duplicates {condition} for seed {seed}")
+        by_seed[seed][condition] = row
+    if set(by_seed) != expected_seeds:
+        raise RuntimeError("E1-C4 rows do not contain the exact declared seed set")
+    for seed, condition_rows in by_seed.items():
+        if set(condition_rows) != {"clustered", "shuffled"}:
+            raise RuntimeError(f"E1-C4 seed {seed} lacks a matched condition")
+
+    calibration = load_c4_calibration(config)
+    threshold_components = validate_c4_calibration_coverage(
+        calibration,
+        config.get("scientific_sesoi", {}),
+    )
+    raw_intervals: Dict[str, Dict[str, float]] = {}
+    for metric in C4_EFFECT_METRICS:
+        clustered = [
+            float(by_seed[seed]["clustered"][metric]) for seed in sorted(by_seed)
+        ]
+        shuffled = [
+            float(by_seed[seed]["shuffled"][metric]) for seed in sorted(by_seed)
+        ]
+        if not np.all(np.isfinite(clustered)) or not np.all(np.isfinite(shuffled)):
+            raise RuntimeError(f"E1-C4 {metric} contains a non-finite value")
+        raw_intervals[metric] = paired_bootstrap_mean_difference(
+            clustered,
+            shuffled,
+            seed=int(config.get("analysis_seed", 9173)),
+            samples=int(config.get("bootstrap_samples", 10_000)),
+        )
+
+    effective_thresholds = {
+        metric: values["effective_claim_threshold"]
+        for metric, values in threshold_components.items()
+    }
+    primary_metrics = C4_EFFECT_METRICS[:3]
+    primary = apply_holm_and_sesoi(
+        {metric: raw_intervals[metric] for metric in primary_metrics},
+        effective_thresholds,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key={metric: metric for metric in primary_metrics},
+    )
+    secondary = apply_holm_and_sesoi(
+        {"wealth_gini": raw_intervals["wealth_gini"]},
+        effective_thresholds,
+        alpha=float(config.get("familywise_alpha", 0.05)),
+        metric_for_key={"wealth_gini": "wealth_gini"},
+    )
+    for metric, result in {**primary, **secondary}.items():
+        result["threshold_components"] = threshold_components[metric]
+
+    matched_input_pass = bool(
+        load_json(output_dir / "matched_input_audit.json").get("pass", False)
+    )
+    gate_pass = bool(steady_estimand.get("pass", False) and matched_input_pass)
+    payload: Dict[str, Any] = {
+        "experiment": E1_C4_EXPERIMENT,
+        "comparison": "clustered-minus-shuffled",
+        "analysis_gate_pass": gate_pass,
+        "claim_supported": bool(
+            gate_pass
+            and any(result["claim_threshold_pass"] for result in primary.values())
+        ),
+        "valid_null_or_equivalence": bool(
+            gate_pass
+            and not any(result["claim_threshold_pass"] for result in primary.values())
+        ),
+        "gates": {
+            "v1f_numerical_calibration": True,
+            "matched_inputs": matched_input_pass,
+            "tail_stationarity": bool(
+                steady_estimand.get("tail_stationarity_valid", False)
+            ),
+            "adjacent_window_stability": bool(
+                steady_estimand.get("adjacent_window_stability_valid", False)
+            ),
+            "independent_replicate_precision": bool(
+                steady_estimand.get("independent_replicate_precision_valid", False)
+            ),
+        },
+        "temporal_ess_diagnostic_pass": bool(
+            steady_estimand.get("temporal_ess_diagnostic_valid", False)
+        ),
+        "confirmatory_spatial_family": primary,
+        "secondary_wealth_family": secondary,
+        "threshold_policy": (
+            "Each claim uses max(V1F numerical resolution limit, independently "
+            "frozen scientific SESOI)."
+        ),
+        "multiplicity": (
+            "Holm FWER 0.05 across the three primary spatial metrics; wealth Gini "
+            "is a separate secondary family."
+        ),
     }
     write_json(output_dir / "paired_effects.json", payload)
     return payload
@@ -1851,31 +2359,33 @@ def analyze_runs(
     # from genuine drift, and no raw NaN/Inf reaches JSON.
     stationarity_valid = all(bool(row["stationarity_pass"]) for row in rows)
     precision_valid = precision_valid_for_rows(rows)
-    write_json(
-        output_dir / "stationarity_report.json",
-        {
-            "experiment": experiment,
-            "pass": stationarity_valid,
-            "stationarity_valid": stationarity_valid,
-            "precision_valid": precision_valid,
-            "runs": [
-                {
-                    "run_id": row["run_id"],
-                    "pass": row["stationarity_pass"],
-                    "metrics": row["stationarity_diagnostics"],
-                    "metric_statuses": {
-                        name: {
-                            "value": status["value"],
-                            "status": status["status"],
-                            "reason": status["reason"],
-                        }
-                        for name, status in row["metric_statuses"].items()
-                    },
-                }
-                for row in rows
-            ],
-        },
-    )
+    stationarity_payload = {
+        "experiment": experiment,
+        "pass": stationarity_valid,
+        "stationarity_valid": stationarity_valid,
+        "precision_valid": precision_valid,
+        "runs": [
+            {
+                "run_id": row["run_id"],
+                "pass": row["stationarity_pass"],
+                "metrics": row["stationarity_diagnostics"],
+                "metric_statuses": {
+                    name: {
+                        "value": status["value"],
+                        "status": status["status"],
+                        "reason": status["reason"],
+                    }
+                    for name, status in row["metric_statuses"].items()
+                },
+            }
+            for row in rows
+        ],
+    }
+    if experiment == E1_C4_EXPERIMENT:
+        stationarity_payload["gate_role"] = (
+            "per_run_diagnostic_only; the confirmatory gate is steady_estimand_report.json"
+        )
+    write_json(output_dir / "stationarity_report.json", stationarity_payload)
     if experiment == "E0-NUMERICS":
         calibration = aggregate_e0(rows, output_dir)
         tracked_calibration = config.get("calibration_result")
@@ -1886,6 +2396,11 @@ def analyze_runs(
         aggregate_b0(rows, config, output_dir)
     elif experiment == "E1-MATCHED-LANDSCAPES":
         aggregate_e1(rows, config, output_dir)
+    elif experiment == E1_C4_EXPERIMENT:
+        steady_estimand = aggregate_e1_c4_steady_estimand(
+            run_specs, config, output_dir
+        )
+        aggregate_e1_c4(rows, config, output_dir, steady_estimand)
     elif experiment == "E2-CHANNEL-ABLATION":
         aggregate_e2(rows, config, output_dir)
     elif experiment == "E3-ROBUSTNESS-HOLDOUT":
@@ -1926,14 +2441,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.experiment not in {"E0-NUMERICS", "B0-DYNAMICS-PILOT"}:
-        calibration = load_e0_calibration(config)
+        calibration = load_confirmatory_calibration(args.experiment, config)
         # R03: block before any expensive run if the calibration cannot cover
         # this experiment's confirmatory metrics (e.g. flat-terrain calibration
         # lacks spatial-correlation SESOI).
-        validate_calibration_coverage(
-            calibration,
-            confirmatory_metrics_for_experiment(args.experiment),
-        )
+        if args.experiment == E1_C4_EXPERIMENT:
+            validate_c4_calibration_coverage(
+                calibration,
+                config.get("scientific_sesoi", {}),
+                confirmatory_metrics_for_experiment(args.experiment),
+            )
+        else:
+            validate_calibration_coverage(
+                calibration,
+                confirmatory_metrics_for_experiment(args.experiment),
+            )
 
     execution_summary: Dict[str, Any] = {
         "executed": 0,
@@ -1975,6 +2497,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.experiment == "B0-DYNAMICS-PILOT":
         job_pass = bool(load_json(output_dir / "pilot_health.json")["pass"])
     elif args.experiment == "E1-MATCHED-LANDSCAPES":
+        job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
+    elif args.experiment == E1_C4_EXPERIMENT:
         job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
     elif args.experiment == "E2-CHANNEL-ABLATION":
         job_pass = bool(load_json(output_dir / "channel_effects.json")["analysis_gate_pass"])

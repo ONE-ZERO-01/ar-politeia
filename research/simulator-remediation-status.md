@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-14。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1C 的稳态/精度 Gate 仍失败。确认性实验尚未开始。
+日期：2026-09-15。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行。确认性实验尚未开始。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
@@ -43,6 +43,8 @@
 - S05：`main.cpp` 温控触发计数/最大修正。
 - S04：`landscape_study.py` 退化相关标 NaN、SESOI 排除退化指标。
 - S03：`run_landscape_study.py` 恢复 Moran's I / wealth_variance、新增 zero_wealth_fraction。
+- E1-C4：新增独立实验 ID、matched 两条件矩阵、V1F 校准 schema、两窗口 ensemble Gate、
+  独立 seed 精度和 `max(numerical limit, scientific SESOI)` 判定；Cycle 3 分支不变。
 
 ## 4. 复审修复（R01–R12 · 阶段 A+B 本地，2026-09-08）
 
@@ -104,6 +106,11 @@ V0E 在 umi 完成 Python 152/152、OpenMP OFF/ON CTest 各 7/7，jobctl reconci
 V1E 在 umi 完成 300/300 runs、0 个运行失败并通过 reconcile，消耗 103.51 CPU 小时 / 14.64 墙钟小时。财富不变量、非平坦三级步长、存储顺序、尾窗稳态和相邻窗口稳定性全部通过，数值分辨率上限为 Spearman `0.00971292`、Moran's I `0.00615936`、occupancy entropy `0.00161097`、wealth Gini `0.00242933`。独立 seed 精度仍在 6/9 条件、12 个 metric cells 失败，点估计最大需要 38 seeds；V1ED 将在固定输出上评估样本量不确定性，E1 继续阻塞。
 
 V1ED 在 umi 完成并通过 reconcile，精确复现 V1E Gate。点估计最大需要 38 seeds；对样本 SD 取单侧 90% 上界后最大需要 61，按预定上取 2 的幂政策选择 64。V1F 已冻结为 64 个新 seeds、960 runs 和不变的 V1E Gate，预计 331.23 CPU 小时 / 41.40 墙钟小时。
+
+V0F 随后在 umi 完成 Python 153/153、OpenMP OFF/ON CTest 各 7/7，reference binary
+SHA-256 与 V0E 完全一致。V1F preflight 8/8 后于 2026-09-15 10:01:13 +08:00 提交，
+使用 8 个 OMP=1 CPU reference 进程。运行期间同步完成 E1-C4 独立 runner 和 4 项契约测试；
+本地全套测试为 158/158。最终参数锁、E1 seeds 和 V0G 仍须等待 V1F 完整结果。
 
 ### 4.4 Cycle 3 E3 证据纠正
 

@@ -68,7 +68,7 @@
       "type": "robustness",
       "priority": "P2",
       "status": "deferred",
-      "blocked_by": "C1-NUM-C4 and C2-LANDSCAPE-C4 plus a separate compute-budget decision.",
+      "blocked_by": "C1-NUM-C4 and C2-LANDSCAPE-C4; compute is authorized.",
       "falsification": "Effect direction reverses, falls inside the frozen equivalence region, or depends on conflated scale/density/grid changes.",
       "experiments": ["E3-ROBUSTNESS-C4"]
     }
@@ -265,8 +265,8 @@
       "objective": "Independently rerun the clustered-versus-shuffled comparison using new seeds, the remediated simulator, the frozen non-flat calibration, and required stationarity plus precision gates.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "deferred",
-      "blocked_by": "V1 calibration, new final parameter lock, and compute budget"
+      "status": "implementation_ready",
+      "blocked_by": "V1F must pass, then freeze the final Cycle 4 parameter lock and pass the new V0G implementation gate; compute is authorized."
     },
     {
       "id": "E2-CHANNEL-SEMANTICS-C4",

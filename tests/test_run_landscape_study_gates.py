@@ -372,3 +372,218 @@ def test_no_exchange_conditions_disable_reversion_and_enabled():
     e1_ne = next(c for c in e1 if c["name"] == "clustered-no-exchange")
     assert e1_ne["exchange_reversion_rate"] == 0.0
     assert e1_ne["exchange_enabled"] is False
+
+
+def test_e1_c4_conditions_are_only_the_matched_confirmatory_pair():
+    conditions = run_landscape_study.default_conditions(
+        "E1-MATCHED-LANDSCAPES-C4",
+        {
+            "exchange_rate": 0.5,
+            "exchange_noise_strength": 0.05,
+            "epsilon_log_sigma": 0.5,
+            "dt": 0.005,
+        },
+    )
+    assert [condition["name"] for condition in conditions] == [
+        "clustered",
+        "shuffled",
+    ]
+    assert all(condition["terrain_force_enabled"] for condition in conditions)
+    assert all(condition["terrain_production_enabled"] for condition in conditions)
+
+
+def test_c4_calibration_keeps_numerical_and_scientific_thresholds_separate():
+    calibration = {
+        "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+        "pass": True,
+        "numerical_resolution_limits": {
+            "resource_density_spearman_rho": 0.06,
+            "density_morans_i": 0.01,
+            "occupancy_entropy": 0.002,
+            "wealth_gini": 0.003,
+        },
+    }
+    scientific = {
+        "resource_density_spearman_rho": 0.05,
+        "density_morans_i": 0.05,
+        "occupancy_entropy": 0.025,
+        "wealth_gini": 0.025,
+    }
+    thresholds = run_landscape_study.validate_c4_calibration_coverage(
+        calibration, scientific
+    )
+    assert thresholds["resource_density_spearman_rho"] == {
+        "numerical_resolution_limit": 0.06,
+        "scientific_sesoi": 0.05,
+        "effective_claim_threshold": 0.06,
+    }
+    assert thresholds["occupancy_entropy"]["effective_claim_threshold"] == 0.025
+
+    failed = {**calibration, "pass": False}
+    with pytest.raises(RuntimeError, match="did not pass"):
+        run_landscape_study.validate_c4_calibration_coverage(failed, scientific)
+    with pytest.raises(RuntimeError, match="scientific_sesoi is missing wealth_gini"):
+        run_landscape_study.validate_c4_calibration_coverage(
+            calibration, {key: value for key, value in scientific.items() if key != "wealth_gini"}
+        )
+
+
+def test_e1_c4_steady_contract_requires_complete_disjoint_bounds():
+    metrics = run_landscape_study.stationary_metrics_for_experiment(
+        "E1-MATCHED-LANDSCAPES-C4"
+    )
+    config = {
+        "stationarity_gate_unit": "condition_ensemble_two_window",
+        "steady_snapshots": 144,
+        "output_time_interval": 5.0,
+        "total_time": 4500.0,
+        "independent_precision_absolute_half_widths": {
+            metric: 0.05 for metric in metrics if metric != "wealth_variance"
+        },
+        "independent_precision_relative_half_widths": {"wealth_variance": 0.2},
+        "adjacent_window_absolute_bounds": {
+            metric: 0.05 for metric in metrics if metric != "wealth_variance"
+        },
+        "adjacent_window_relative_bounds": {"wealth_variance": 0.1},
+    }
+    run_landscape_study._validate_c4_steady_contract(config)
+    config["adjacent_window_absolute_bounds"].pop("wealth_gini")
+    with pytest.raises(ValueError, match="must cover every steady metric"):
+        run_landscape_study._validate_c4_steady_contract(config)
+
+
+def test_aggregate_e1_c4_uses_effective_threshold_and_valid_null_policy(
+    tmp_path, monkeypatch
+):
+    calibration = {
+        "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+        "pass": True,
+        "numerical_resolution_limits": {
+            "resource_density_spearman_rho": 0.06,
+            "density_morans_i": 0.01,
+            "occupancy_entropy": 0.002,
+            "wealth_gini": 0.003,
+        },
+    }
+    monkeypatch.setattr(
+        run_landscape_study, "load_c4_calibration", lambda _config: calibration
+    )
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    rows = []
+    for seed in range(1, 9):
+        for condition, offset in (("clustered", 0.2), ("shuffled", 0.0)):
+            rows.append(
+                {
+                    "seed": seed,
+                    "condition": condition,
+                    "resource_density_spearman_rho": offset,
+                    "density_morans_i": offset,
+                    "occupancy_entropy": 0.5 + offset,
+                    "wealth_gini": 0.3 + offset,
+                }
+            )
+    config = {
+        "seeds": list(range(1, 9)),
+        "familywise_alpha": 0.05,
+        "bootstrap_samples": 1000,
+        "scientific_sesoi": {
+            "resource_density_spearman_rho": 0.05,
+            "density_morans_i": 0.05,
+            "occupancy_entropy": 0.025,
+            "wealth_gini": 0.025,
+        },
+    }
+    steady = {
+        "pass": True,
+        "tail_stationarity_valid": True,
+        "adjacent_window_stability_valid": True,
+        "independent_replicate_precision_valid": True,
+        "temporal_ess_diagnostic_valid": False,
+    }
+    payload = run_landscape_study.aggregate_e1_c4(
+        rows, config, tmp_path, steady
+    )
+    assert payload["analysis_gate_pass"] is True
+    assert payload["claim_supported"] is True
+    assert payload["valid_null_or_equivalence"] is False
+    assert payload["temporal_ess_diagnostic_pass"] is False
+    spearman = payload["confirmatory_spatial_family"][
+        "resource_density_spearman_rho"
+    ]
+    assert spearman["sesoi"] == 0.06
+    assert spearman["threshold_components"]["scientific_sesoi"] == 0.05
+
+
+def test_e1_c4_two_window_gate_uses_condition_ensembles(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        run_landscape_study,
+        "project_path",
+        lambda value, must_exist=False: Path(value),
+    )
+    monkeypatch.setattr(run_landscape_study, "read_snapshot_csv", lambda _path: {})
+    monkeypatch.setattr(
+        run_landscape_study,
+        "snapshot_metrics",
+        lambda _snapshot, _resource, _bounds: {
+            "resource_density_spearman_rho": 0.2,
+            "density_morans_i": 0.3,
+            "occupancy_entropy": 0.7,
+            "wealth_gini": 0.4,
+            "wealth_variance": 1.5,
+            "zero_wealth_fraction": 0.0,
+            "minimum_wealth": 0.1,
+            "particle_count": 1000.0,
+        },
+    )
+    resource = tmp_path / "resource.npy"
+    import numpy as np
+
+    np.save(resource, np.ones((2, 2)), allow_pickle=False)
+    specs = []
+    for condition in ("clustered", "shuffled"):
+        for seed in (1, 2, 3):
+            run_dir = tmp_path / f"{condition}-{seed}"
+            run_dir.mkdir()
+            for index in range(6):
+                (run_dir / f"snap_{index:08d}.csv").write_text("stub\n")
+            specs.append(
+                {
+                    "run_id": f"{condition}-{seed}",
+                    "condition": condition,
+                    "seed": seed,
+                    "run_dir": str(run_dir),
+                    "resource_npy": str(resource),
+                }
+            )
+    bounded = {
+        "resource_density_spearman_rho": 0.05,
+        "density_morans_i": 0.05,
+        "occupancy_entropy": 0.025,
+        "wealth_gini": 0.025,
+        "zero_wealth_fraction": 0.01,
+    }
+    config = {
+        "seeds": [1, 2, 3],
+        "bounds": [0.0, 1.0, 0.0, 1.0],
+        "stationarity_gate_unit": "condition_ensemble_two_window",
+        "steady_snapshots": 3,
+        "output_time_interval": 5.0,
+        "total_time": 30.0,
+        "stationarity_max_normalized_drift": 0.1,
+        "stationarity_min_ess": 3.0,
+        "stationarity_reversal_span_sigma": 2.0,
+        "independent_precision_absolute_half_widths": bounded,
+        "independent_precision_relative_half_widths": {"wealth_variance": 0.2},
+        "adjacent_window_absolute_bounds": bounded,
+        "adjacent_window_relative_bounds": {"wealth_variance": 0.1},
+    }
+    payload = run_landscape_study.aggregate_e1_c4_steady_estimand(
+        specs, config, tmp_path
+    )
+    assert payload["pass"] is True
+    assert payload["replicates_per_condition"] == 3
+    assert set(payload["conditions"]) == {"clustered", "shuffled"}
+    assert (tmp_path / "steady_estimand_report.json").is_file()
+    assert (tmp_path / "ensemble_stationarity_report.json").is_file()
