@@ -1,6 +1,6 @@
 {
   "experiment_id": "V0F-SIMULATOR-TESTS-C4",
-  "source_commit": "pending_freeze_commit",
+  "source_commit": "48ad02a79dd6b1807fdec12b315e948ba549a2a8",
   "execution_host": "umi",
   "build_jobs": 4,
   "openmp_modes": [false, true],
