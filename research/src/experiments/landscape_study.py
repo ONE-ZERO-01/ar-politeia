@@ -146,17 +146,36 @@ def audit_matched_landscapes(clustered: Array, shuffled: Array) -> Dict[str, Any
         and np.min(clustered) >= 0.0
         and np.min(shuffled) >= 0.0
     )
+    # Terrain barriers are disabled in the confirmatory process, so equal grid
+    # shape gives equal physically accessible area. Track positive resource
+    # support separately; exact histogram equality should preserve it too.
+    accessible_cells_clustered = int(clustered.size)
+    accessible_cells_shuffled = int(shuffled.size)
+    accessible_area_match = bool(same_shape)
+    positive_resource_cells_clustered = int(np.count_nonzero(clustered > 0.0))
+    positive_resource_cells_shuffled = int(np.count_nonzero(shuffled > 0.0))
+    positive_resource_support_match = bool(
+        positive_resource_cells_clustered == positive_resource_cells_shuffled
+    )
     passed = bool(
         same_shape
         and exact_histogram
         and total_difference <= 1e-12 * max(1.0, abs(total_clustered))
         and finite_nonnegative
+        and accessible_area_match
+        and positive_resource_support_match
     )
     return {
         "pass": passed,
         "same_shape": same_shape,
         "exact_histogram": exact_histogram,
         "finite_nonnegative": finite_nonnegative,
+        "accessible_area_match": accessible_area_match,
+        "accessible_cells_clustered": accessible_cells_clustered,
+        "accessible_cells_shuffled": accessible_cells_shuffled,
+        "positive_resource_support_match": positive_resource_support_match,
+        "positive_resource_cells_clustered": positive_resource_cells_clustered,
+        "positive_resource_cells_shuffled": positive_resource_cells_shuffled,
         "total_clustered": total_clustered,
         "total_shuffled": total_shuffled,
         "total_absolute_difference": total_difference,

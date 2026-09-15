@@ -51,7 +51,7 @@
       "priority": "P0",
       "status": "pending",
       "falsification": "After a valid non-flat calibration, paired effects are within the frozen numerical equivalence region, fail multiplicity control, or required runs fail stationarity/precision requirements.",
-      "experiments": ["E1-MATCHED-LANDSCAPES-C4"]
+      "experiments": ["V0G-SIMULATOR-TESTS-C4", "E1-MATCHED-LANDSCAPES-C4"]
     },
     {
       "id": "C3-CHANNELS-C4",
@@ -260,13 +260,24 @@
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {
+      "id": "V0G-SIMULATOR-TESTS-C4",
+      "claim_ids": ["C2-LANDSCAPE-C4"],
+      "objective": "Validate the final E1-C4 parameter-lock binding, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "preregistered_blocked",
+      "blocked_by": "V1F must pass and the final Cycle 4 parameter lock plus E1-C4 job declaration must exist."
+    },
+    {
       "id": "E1-MATCHED-LANDSCAPES-C4",
       "claim_ids": ["C2-LANDSCAPE-C4"],
       "objective": "Independently rerun the clustered-versus-shuffled comparison using new seeds, the remediated simulator, the frozen non-flat calibration, and required stationarity plus precision gates.",
       "mode": "server",
       "execution_host": "umi",
       "status": "implementation_ready",
-      "blocked_by": "V1F must pass, then freeze the final Cycle 4 parameter lock and pass the new V0G implementation gate; compute is authorized."
+      "blocked_by": "V1F must pass, then freeze the final Cycle 4 parameter lock and pass the new V0G implementation gate; compute is authorized.",
+      "design": "research/e1-cycle4-design.md"
     },
     {
       "id": "E2-CHANNEL-SEMANTICS-C4",

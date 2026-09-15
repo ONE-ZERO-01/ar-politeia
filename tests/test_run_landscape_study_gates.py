@@ -482,10 +482,15 @@ def test_aggregate_e1_c4_uses_effective_threshold_and_valid_null_policy(
                     "density_morans_i": offset,
                     "occupancy_entropy": 0.5 + offset,
                     "wealth_gini": 0.3 + offset,
+                    "minimum_wealth": 0.0,
+                    "minimum_wealth_observed": 0.0,
+                    "particle_count": 1000.0,
+                    "total_wealth_relative_drift": -0.5,
                 }
             )
     config = {
         "seeds": list(range(1, 9)),
+        "population": 1000,
         "familywise_alpha": 0.05,
         "bootstrap_samples": 1000,
         "scientific_sesoi": {

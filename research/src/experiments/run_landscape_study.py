@@ -584,6 +584,7 @@ def prepare_inputs(
         resource_paths: Dict[str, Path] = {}
         landscape_checksums: Dict[str, str] = {}
         resource_checksums: Dict[str, str] = {}
+        initial_checksums_by_condition: Dict[str, str] = {}
         cellsize = (bounds[1] - bounds[0]) / shape[1]
         for name, field in fields.items():
             grid_path = seed_dir / f"{name}.asc"
@@ -640,6 +641,7 @@ def prepare_inputs(
                 )
             else:
                 initial_checksum = sha256_file(ic_path)
+            initial_checksums_by_condition[condition_name] = initial_checksum
 
             cpp_values = common_cpp_config(config)
             dt = float(condition.get("dt", config.get("dt", 0.01)))
@@ -742,6 +744,26 @@ def prepare_inputs(
                     "initial_conditions_sha256": initial_checksum,
                 }
             )
+
+        if experiment == E1_C4_EXPERIMENT:
+            initial_match = bool(
+                initial_checksums_by_condition.get("clustered")
+                == initial_checksums_by_condition.get("shuffled")
+            )
+            audit["initial_state_match"] = initial_match
+            audit["initial_state_sha256_by_condition"] = {
+                condition: initial_checksums_by_condition[condition]
+                for condition in ("clustered", "shuffled")
+            }
+            audit["initial_state_fields"] = [
+                "gid",
+                "position",
+                "momentum",
+                "wealth",
+                "ability",
+                "age",
+            ]
+            audit["pass"] = bool(audit["pass"] and initial_match)
 
         input_checksums.append(
             {
@@ -1044,6 +1066,14 @@ def mean_metrics_for_run(
         name: status["value"] for name, status in metric_statuses.items()
     }
     means["minimum_wealth"] = min(float(row["minimum_wealth"]) for row in rows)
+    health_path = run_dir / "health.json"
+    if health_path.is_file():
+        health = load_json(health_path)
+        means["minimum_wealth_observed"] = float(
+            health.get("min_wealth_observed", means["minimum_wealth"])
+        )
+    else:
+        means["minimum_wealth_observed"] = means["minimum_wealth"]
     diagnostics = {
         metric: _stationarity_for_metric(
             metric,
@@ -1794,7 +1824,23 @@ def aggregate_e1_c4(
     matched_input_pass = bool(
         load_json(output_dir / "matched_input_audit.json").get("pass", False)
     )
-    gate_pass = bool(steady_estimand.get("pass", False) and matched_input_pass)
+    population = int(config.get("population", 0))
+    execution_invariants = {
+        "wealth_nonnegative": all(
+            float(row.get("minimum_wealth_observed", row["minimum_wealth"])) >= -1e-12
+            for row in rows
+        ),
+        "population_preserved": population > 0
+        and all(float(row["particle_count"]) == float(population) for row in rows),
+        "total_wealth_change_finite": all(
+            math.isfinite(float(row["total_wealth_relative_drift"])) for row in rows
+        ),
+    }
+    gate_pass = bool(
+        steady_estimand.get("pass", False)
+        and matched_input_pass
+        and all(execution_invariants.values())
+    )
     payload: Dict[str, Any] = {
         "experiment": E1_C4_EXPERIMENT,
         "comparison": "clustered-minus-shuffled",
@@ -1810,6 +1856,7 @@ def aggregate_e1_c4(
         "gates": {
             "v1f_numerical_calibration": True,
             "matched_inputs": matched_input_pass,
+            "execution_invariants": all(execution_invariants.values()),
             "tail_stationarity": bool(
                 steady_estimand.get("tail_stationarity_valid", False)
             ),
@@ -1823,6 +1870,7 @@ def aggregate_e1_c4(
         "temporal_ess_diagnostic_pass": bool(
             steady_estimand.get("temporal_ess_diagnostic_valid", False)
         ),
+        "execution_invariant_checks": execution_invariants,
         "confirmatory_spatial_family": primary,
         "secondary_wealth_family": secondary,
         "threshold_policy": (

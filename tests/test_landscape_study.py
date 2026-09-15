@@ -27,6 +27,9 @@ def test_matched_landscapes_preserve_exact_histogram_and_total():
         fields["clustered"], fields["shuffled"]
     )
     assert audit["pass"] is True
+    assert audit["accessible_area_match"] is True
+    assert audit["accessible_cells_clustered"] == audit["accessible_cells_shuffled"]
+    assert audit["positive_resource_support_match"] is True
     assert np.array_equal(
         np.sort(fields["clustered"], axis=None),
         np.sort(fields["shuffled"], axis=None),
