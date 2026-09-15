@@ -100,6 +100,11 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - V0F passed on umi: Python 153/153 and OpenMP OFF/ON CTest 7/7. The rebuilt
   CPU reference retained SHA-256 `87eafa4e...ddee3`, clearing V1F's
   implementation block.
+- V1F preflight passed 8/8 with no warning, and its V0F CPU reference checksum
+  was verified. The 960-run job was submitted on umi at 2026-09-15 10:01:13
+  +08:00 under jobctl pid 2647912. All run directories were created, eight
+  single-thread simulator processes entered execution, and the startup check
+  found zero non-empty stderr files. The overall timeout is 72 hours.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

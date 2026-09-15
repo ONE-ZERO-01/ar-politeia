@@ -1,6 +1,6 @@
 # V1F 保守样本量独立校准设计
 
-日期：2026-09-15。状态：**设计冻结，V0F 已通过**。V1F 只解决 V1E 的独立 seed 精度失败，不改变 V1E
+日期：2026-09-15。状态：**运行中**。V1F 只解决 V1E 的独立 seed 精度失败，不改变 V1E
 负结论，也不使用 E1 效应方向或大小。
 
 ## 样本量依据
@@ -16,11 +16,20 @@ matched clustered/shuffled 四项有界指标的配对精度保守需求最大�
 - timestep：3 landscapes × 3 dt × 64 = 576 runs；
 - storage order：clustered × 2 orders × 3 dt × 64 = 384 runs；总计 960 runs；
 - `N=1000`、`64×64`、`total_time=4500`、输出间隔 5、两个相邻 144 帧窗口；
-- 模型参数、V0E CPU reference、数值误差上限、尾窗稳态、相邻窗口稳定性与独立 seed 精度
+- 模型参数、V0F CPU reference、数值误差上限、尾窗稳态、相邻窗口稳定性与独立 seed 精度
   阈值全部原样继承 V1E；时间 ESS 仍只报告；
 - 8 个 OMP=1 进程并行，单 run 超时 10,800 秒，整体 timeout 259,200 秒；
-- 按 V1E 实测缩放预计 331.23 CPU 小时、41.40 墙钟小时、约 160 GB ignored workspace；
+- 按 V1E 实测缩放预计 331.23 CPU 小时；8 路理想墙钟 41.40 小时，按 V1E 实际吞吐量约
+  46.85 小时；预计约 160 GB ignored workspace；
   umi 当前 `/home` 可用约 13 TB。
 
 V1F 必须整体独立执行并通过所有 Gate 才能解除 C1 数值校准阻塞。任何失败都作为有效负结果归档，
 不得与 V1E seeds 合并后宣称通过。
+
+## 提交记录
+
+- V0F：Python 153/153、OpenMP OFF/ON CTest 各 7/7，`jobctl reconcile` 完成；
+- CPU reference SHA-256：`87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3`；
+- V1F preflight：8/8，无 warning；
+- 2026-09-15 10:01:13 +08:00 提交到 umi，jobctl pid `2647912`，整体 timeout 259,200 秒；
+- 启动检查：960 个 run 目录完整创建，8 个 OMP=1 simulator 进程在运行，非空 `stderr.txt` 为 0。

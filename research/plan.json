@@ -254,8 +254,9 @@
       "objective": "Independently repeat the unchanged V1E calibration with 64 unseen seeds selected by the conservative V1ED upper-SD rule.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "preregistered_ready",
-      "blocked_by": "none; V0F passed, V1F preflight is required, and compute is authorized",
+      "status": "running",
+      "blocked_by": "none; V0F and preflight passed",
+      "execution": "Submitted on umi at 2026-09-15T10:01:13+08:00 under jobctl pid 2647912; 960 run directories were created and eight single-thread simulator processes entered execution with zero startup stderr failures.",
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {
