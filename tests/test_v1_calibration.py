@@ -23,6 +23,14 @@ assert V1CD_SPEC and V1CD_SPEC.loader
 run_v1cd = importlib.util.module_from_spec(V1CD_SPEC)
 V1CD_SPEC.loader.exec_module(run_v1cd)
 
+V1ED_MODULE_PATH = EXPERIMENTS / "run_v1e_sampling_diagnostic.py"
+V1ED_SPEC = importlib.util.spec_from_file_location(
+    "run_v1e_sampling_diagnostic", V1ED_MODULE_PATH
+)
+assert V1ED_SPEC and V1ED_SPEC.loader
+run_v1ed = importlib.util.module_from_spec(V1ED_SPEC)
+V1ED_SPEC.loader.exec_module(run_v1ed)
+
 
 def condition(name, landscape, dt, component, **extra):
     return {
@@ -197,3 +205,17 @@ def test_v1cd_precision_uses_independent_run_window_means():
     assert metric["two_se_half_width"] == pytest.approx(2.0)
     assert metric["planning_width_pass"] is True
     assert metric["estimated_replicates_for_planning_width"] == 3
+
+
+def test_v1ed_replicate_requirement_adds_upper_sd_margin():
+    requirement = run_v1ed._required_replicates(
+        sample_sd=1.0,
+        threshold=1.0,
+        mean=None,
+        bound_kind="absolute",
+        current_replicates=20,
+        upper_sd_alpha=0.1,
+    )
+    assert requirement["point_estimate"] == 4
+    assert requirement["conservative_estimate"] > requirement["point_estimate"]
+    assert run_v1ed._next_power_of_two(requirement["conservative_estimate"]) in {8, 16}

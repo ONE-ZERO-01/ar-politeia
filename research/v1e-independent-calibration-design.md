@@ -1,6 +1,6 @@
 # V1E 独立稳态数值校准设计
 
-日期：2026-09-14。状态：**V0E 已通过，V1E 正在 umi 执行**。V1E 使用全新 seeds，
+日期：2026-09-15。状态：**V1E 已完成并在独立 seed 精度 Gate 失败**。V1E 使用全新 seeds，
 不能改变 V1C 的负结论。设计只依据 V1CD 的稳态、方差和运行成本诊断，不使用任何 E1 科学效应。
 
 ## 诊断依据
@@ -38,3 +38,10 @@ Moran 和 entropy 上略宽，观察方差对应的最大需求为 20 seeds。
 
 这些 Gate 已在产生 V1E 数据前写入 runner、测试和最终 config。任一失败均归档为新的有效负结果，
 不得删除指标、替换 seed、缩窗或放宽阈值。V1E 全过后才允许生成 Cycle 4 最终参数锁；E1 当前仍阻塞。
+
+## 执行结果
+
+300/300 runs 完成且无运行失败，jobctl reconcile 通过。财富不变量、三级步长、存储顺序、9/9
+尾窗稳态和 9/9 相邻窗口稳定性全部通过；时间 ESS 继续按设计仅作诊断。独立 seed 精度在 6/9
+条件、12 个 metric cells 失败，涉及 clustered 的 Moran/entropy/wealth variance 与 shuffled 的
+wealth variance。按点估计最大需要 38 seeds。该负结果不作事后挽救，下一步是 V1ED 固定输出采样诊断。

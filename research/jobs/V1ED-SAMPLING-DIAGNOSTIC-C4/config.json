@@ -1,0 +1,24 @@
+{
+  "experiment_id": "V1ED-SAMPLING-DIAGNOSTIC-C4",
+  "source_experiment": "V1E-NONFLAT-CALIBRATION-C4",
+  "source_workspace": "research/jobs/V1E-NONFLAT-CALIBRATION-C4/workspace",
+  "source_sha256": {
+    "steady_estimand_report": "94b5bc52b06fd846edc4c9528943a3cbd0891cdda9fdb3344cf7ca55c49ae233",
+    "replicate_metrics": "06cd547e37849b5811bf6251bc12e0ac55a2dcaa74be3ad96ddbde970918ea20",
+    "numerical_calibration": "64a799a857c325e93ff77686ba8856460cc3ecda8363dc25992fc908d1a6722b"
+  },
+  "expected_v1e_gate": {
+    "tail_stationarity_valid": true,
+    "adjacent_window_stability_valid": true,
+    "independent_replicate_precision_valid": false,
+    "temporal_ess_diagnostic_valid": false
+  },
+  "upper_sd_alpha": 0.1,
+  "finest_dt": 0.005,
+  "paired_precision_widths": {
+    "resource_density_spearman_rho": 0.05,
+    "density_morans_i": 0.05,
+    "occupancy_entropy": 0.025,
+    "wealth_gini": 0.025
+  }
+}

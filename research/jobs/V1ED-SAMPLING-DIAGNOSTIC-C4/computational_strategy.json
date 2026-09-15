@@ -1,0 +1,6 @@
+{
+  "approach": "Read the fixed V1E steady-estimand report and replicate table, reproduce the frozen Gate, calculate point and one-sided 90% upper-SD replicate requirements, and report matched clustered/shuffled paired variance without using effect direction or magnitude.",
+  "evidence_role": "sampling diagnostic",
+  "evidence_boundary": "V1ED cannot change V1E. Its conservative sample size may only be tested with new independent simulations.",
+  "supports_core_claim": false
+}

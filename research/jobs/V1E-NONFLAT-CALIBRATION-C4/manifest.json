@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 52710.15586244315,
+  "jobctl_reconcile": "completed",
+  "workspace_size": "50G",
+  "artifacts": [
+    {"path": "workspace/run_specs.json", "sha256": "c134f2524162da0825fa696079e8f55474ee3d09ee7d8917b38ad6e7fdf06e98", "valid": true},
+    {"path": "workspace/matched_input_audit.json", "sha256": "f0d8378ee5fee73bc6cd4003eb8b654860f631afcd19f2fb1cb5d1ba2d237e2a", "valid": true},
+    {"path": "workspace/replicate_metrics.csv", "sha256": "06cd547e37849b5811bf6251bc12e0ac55a2dcaa74be3ad96ddbde970918ea20", "valid": true},
+    {"path": "workspace/stationarity_report.json", "sha256": "2ba1c33542349e750881539b5f7d92a5751ed3ca05760638fa9fee3ea31ab39c", "valid": true},
+    {"path": "workspace/ensemble_stationarity_report.json", "sha256": "4476fcd7f4782e2a3074ffa3534b660c7e858b9e71276fb45113918bc218e6d1", "valid": true},
+    {"path": "workspace/steady_estimand_report.json", "sha256": "94b5bc52b06fd846edc4c9528943a3cbd0891cdda9fdb3344cf7ca55c49ae233", "valid": true},
+    {"path": "workspace/numerical_calibration.json", "sha256": "64a799a857c325e93ff77686ba8856460cc3ecda8363dc25992fc908d1a6722b", "valid": true},
+    {"path": "workspace/result.json", "sha256": "d581b780b8418466dd213b1eea1dfc4b283af9355e257407e90fdd383c225dfa", "valid": true}
+  ]
+}

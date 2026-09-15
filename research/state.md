@@ -82,9 +82,17 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   OFF/ON CTest 7/7. Jobctl reconcile completed, so V1E is ready to execute; E1
   stays blocked until its result passes every Gate.
 - V1E preflight passed 8/8, its V0E reference binary checksum was verified, and
-  the 300-run job is now running on umi under jobctl pid 1914738 with eight
-  single-thread processes. The expected workload is about 90.76 CPU-hours and
-  11.35 wall-hours; the overall timeout is 36 hours.
+  the 300-run job was submitted on umi under jobctl pid 1914738 with eight
+  single-thread processes and a 36-hour overall timeout.
+- V1E completed 300/300 runs on umi with no execution failure and reconciled
+  successfully. It consumed 103.51 CPU-hours / 14.64 wall-hours. Invariants,
+  timestep convergence, storage-order sensitivity, all 9 tail-stationarity
+  cells, and all 9 adjacent-window cells passed.
+- V1E remains a valid negative calibration: independent-seed precision failed
+  in 6/9 conditions and 12 metric cells (clustered Moran/entropy/wealth
+  variance and shuffled wealth variance). The limiting observed cell requires
+  38 replicates if its moments persist. V1ED must quantify sampling uncertainty
+  before a new independent design; E1 remains blocked.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

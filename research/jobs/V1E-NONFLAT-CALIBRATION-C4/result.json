@@ -1,0 +1,56 @@
+{
+  "experiment": "V1E-NONFLAT-CALIBRATION-C4",
+  "status": "completed_failed_gate",
+  "pass": false,
+  "execution_completed": true,
+  "runs_planned": 300,
+  "runs_completed": 300,
+  "run_failures": 0,
+  "execution_host": "umi",
+  "source_commit": "a7321d2009dd2bd57e639e4d51bb0b865e89b89b",
+  "elapsed_cpu_hours": 103.50819598146662,
+  "maximum_single_run_seconds": 6174.034016575664,
+  "jobctl_wall_seconds": 52710.15586244315,
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": true,
+    "storage_order_sensitivity": true,
+    "tail_stationarity": true,
+    "adjacent_window_stability": true,
+    "independent_replicate_precision": false
+  },
+  "temporal_ess_diagnostic_valid": false,
+  "steady_estimand_layer": {
+    "conditions": 9,
+    "replicates_per_condition": 20,
+    "tail_stationarity_failed_conditions": 0,
+    "adjacent_window_failed_conditions": 0,
+    "independent_precision_failed_conditions": 6,
+    "temporal_ess_diagnostic_failed_conditions": 5,
+    "independent_precision_failed_metric_cells": 12,
+    "failed_precision_metrics": {"density_morans_i": 3, "occupancy_entropy": 3, "wealth_variance": 6},
+    "maximum_estimated_replicates_if_moments_persist": 38,
+    "limiting_cell": "shuffled--dt-0.005/wealth_variance"
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.009712920213375848,
+    "density_morans_i": 0.006159362920827935,
+    "occupancy_entropy": 0.001610965679429824,
+    "wealth_gini": 0.0024293319910262904
+  },
+  "failed_timestep_cells": [],
+  "failed_storage_order_metrics": [],
+  "workspace_artifact_sha256": {
+    "numerical_calibration.json": "64a799a857c325e93ff77686ba8856460cc3ecda8363dc25992fc908d1a6722b",
+    "steady_estimand_report.json": "94b5bc52b06fd846edc4c9528943a3cbd0891cdda9fdb3344cf7ca55c49ae233",
+    "ensemble_stationarity_report.json": "4476fcd7f4782e2a3074ffa3534b660c7e858b9e71276fb45113918bc218e6d1",
+    "stationarity_report.json": "2ba1c33542349e750881539b5f7d92a5751ed3ca05760638fa9fee3ea31ab39c",
+    "replicate_metrics.csv": "06cd547e37849b5811bf6251bc12e0ac55a2dcaa74be3ad96ddbde970918ea20",
+    "run_specs.json": "c134f2524162da0825fa696079e8f55474ee3d09ee7d8917b38ad6e7fdf06e98",
+    "matched_input_audit.json": "f0d8378ee5fee73bc6cd4003eb8b654860f631afcd19f2fb1cb5d1ba2d237e2a",
+    "result.json": "d581b780b8418466dd213b1eea1dfc4b283af9355e257407e90fdd383c225dfa"
+  },
+  "conclusion": "The 300-run calibration passed invariants, all timestep and storage-order bounds, tail stationarity in 9/9 conditions, and adjacent-window stability in 9/9 conditions. It remains a valid negative calibration because independent-seed precision failed in six conditions across 12 metric cells.",
+  "next_action": "Run the deterministic V1ED sampling diagnostic on fixed V1E outputs. V1E cannot be rescued and E1 remains blocked.",
+  "evidence_boundary": "Negative numerical-calibration result; no Cycle 4 landscape-effect claim is supported."
+}

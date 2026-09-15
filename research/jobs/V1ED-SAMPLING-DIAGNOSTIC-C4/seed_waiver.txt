@@ -1,0 +1,1 @@
+V1ED is a deterministic reanalysis of the 20 V1E seeds and draws no new random values.
