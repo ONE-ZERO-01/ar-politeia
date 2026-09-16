@@ -29,7 +29,7 @@
 | S06 | P1 | A | OpenMP 无噪声分支遗漏摩擦 | 修复 + 回归 | 本轮 | 无 |
 | S07 | P1 | A/C | 交换噪声不含 seed、用数组下标 | 稳定 GID + base_seed 子流 | 本轮 | 重排不变性需 umi 实测 |
 | S08 | P1 | A/C | 固定顺序原地交换 | 三级步长 × 完整相态重排量化 | V1/V1B/V1C 顺序界均通过 | 当前参数域内已受数值误差界约束；扩大参数域需重校准 |
-| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象（"生产—衰减组合通道"，非纯生产） | 已完成（`research/model-specification-c4.md` §5.6，2026-09-16） | 纯生产/纯衰减分离设计仍未开展 |
+| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象（"生产—衰减组合通道"，非纯生产）+ 隔离设计 | 已完成（`model-specification-c4.md` §5.6 命名；`e2-cycle4-channel-design.md` 设计，2026-09-16） | E2-C4 未实施；旧 E2 三效应字段必须按新设计重解释 |
 | S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
 
@@ -148,3 +148,23 @@ V1F 运行期间完成了两项不依赖其结果的 WP0 工作。
 `seed` 字段做全量扫描，E1-C4 的 64 个冻结 seeds（`11657`–`12241`）与 Cycle 1–3 全部任务、
 以及 `V1`/`V1B`/`V1C`/`V1E`/`V1F`/`V1P` 的**交集均为 0**，`e1-cycle4-design.md` §2 的冻结声明成立。
 复核方法为纯记账比对，不执行任何模拟器或实验脚本。
+
+**S09 的可识别性缺陷已定位，E2-C4 设计已冻结。** 新建
+[research/e2-cycle4-channel-design.md](e2-cycle4-channel-design.md)。对 Cycle 3 E2 的 160 个
+归档 run 做结构核对（只看"因子动了什么"，不看效应大小）后确认四条事实：
+
+1. E2 的 `production` 因子同时切换 `terrain_production_enabled` 与 `wealth_decay_rate`
+   （`run_landscape_study.py:299`），所以它是 source–sink bundle；
+2. `prod=关` 单元不是可比对照，而是退化态：decay 为 0 时总财富守恒、平均财富恰为 5.0，
+   `prod=开` 单元则被压到 `min wealth ≈ 1e−07…1e−06`；由方差与 Gini 反推的平均财富约为
+   0.27（force 关）与 0.97（force 开），即 `w/w_ref ≈ 0.05` 与 `0.19`，交换核工作点完全不同；
+3. 在每个 `(seed, force)` 上，`prod` 关/开两单元的三个空间指标**字符串完全相等**
+   （20/20 seeds，差值 > 1e−12 计数为 0）。所以"production 对空间结构零效应"是代码因果结构的
+   **恒等验证**，不是科学发现，`identified_channels` 的语义必须更正；
+4. 四个单元 `stationarity_pass` 全为 1.00 —— 逐运行稳态 Gate 结构上无法发现单元间不可比。
+
+设计给出三条识别约束（非退化、平衡水平匹配、结构隔离按恒等检查执行），并据此把"生产/衰减"
+落实为 P2 源的空间组织消融（`ρ = 1`，依据是资源场按构造均值为 1）与 P3 沿 `s/d` 常数的汇速率
+匹配响应（同时构成模型尺度不变性的可证伪检验），配 P1 恒等护栏与 P4 强制可比性 Gate。
+所需代码改动为新增 `uniform_production` 键与四个可比性指标列，并重写 `aggregate_e2`。
+E2-C4 仍为 `deferred`，须等 V1F 与最终 Cycle 4 参数锁。

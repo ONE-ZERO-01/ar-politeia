@@ -146,9 +146,25 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   intersection with all Cycle 1-3 jobs and with V1/V1B/V1C/V1E/V1F/V1P.
 - V1F is still running on umi under jobctl pid 2647912. At 2026-09-16 13:17
   +08:00 it had completed 640/960 runs with zero non-empty stderr files and zero
-  thermostat triggers, consistent with the 41.4 wall-hour estimate; E1 stays
-  blocked until it passes, is archived by `archive-v1f`, and the promotion
-  `prepare`/`finalize` chain produces the final Cycle 4 lock.
+  thermostat triggers; by 19:16 it was at 789/960, consistent with the 41.4
+  wall-hour estimate. E1 stays blocked until it passes, is archived by
+  `archive-v1f`, and the promotion `prepare`/`finalize` chain produces the final
+  Cycle 4 lock.
+- S09's identifiability defect is now located and the E2-C4 design is frozen in
+  `research/e2-cycle4-channel-design.md`. A structural audit of Cycle 3's 160
+  archived E2 runs showed: the `production` factor switched both
+  `terrain_production_enabled` and `wealth_decay_rate`; the production-off cell
+  is a degenerate state (zero-sum exchange, mean wealth exactly 5.0) while the
+  production-on cell is drained to `min wealth ≈ 1e-07`, putting `w/w_ref` at
+  about 0.05 and 0.19 and therefore a different exchange-regime operating point;
+  the three spatial metrics are **string-identical** across the production factor
+  on every one of the 40 (seed, force) pairs, so the reported spatial null is a
+  structural identity rather than a finding; and all four cells passed the old
+  stationarity Gate, which cannot detect cross-cell non-comparability. The design
+  replaces the impossible source x sink on/off factorial (two of its four cells
+  have no stationary distribution) with a source-pattern ablation at matched
+  expected total plus a sink-rate response along a constant `s/d` line, guarded by
+  a structural-identity check and a mandatory comparability Gate.
 
 ## Cycle 3 E3 correction
 
