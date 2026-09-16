@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -32,7 +32,12 @@ def project_path(value: str, *, create: bool = False) -> Path:
     return path
 
 
-def run_logged(command: Sequence[str], log_path: Path) -> dict[str, Any]:
+def run_logged(
+    command: Sequence[str],
+    log_path: Path,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     started = time.monotonic()
     with log_path.open("w", encoding="utf-8") as log:
         completed = subprocess.run(
@@ -42,6 +47,7 @@ def run_logged(command: Sequence[str], log_path: Path) -> dict[str, Any]:
             stderr=subprocess.STDOUT,
             text=True,
             check=False,
+            env=None if env is None else dict(env),
         )
     return {
         "command": list(command),
@@ -49,6 +55,15 @@ def run_logged(command: Sequence[str], log_path: Path) -> dict[str, Any]:
         "elapsed_seconds": time.monotonic() - started,
         "log": log_path.name,
     }
+
+
+def python_test_environment(
+    base_environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Bind the src-layout package path for clean, non-interactive checkouts."""
+    environment = dict(os.environ if base_environment is None else base_environment)
+    environment["PYTHONPATH"] = str(PROJECT_ROOT / "src")
+    return environment
 
 
 def command_output(command: Sequence[str]) -> str:
@@ -129,6 +144,7 @@ def main() -> int:
     if not 1 <= build_jobs <= 16:
         raise ValueError("build_jobs must be between 1 and 16")
 
+    pytest_environment = python_test_environment()
     environment = {
         "host": platform.node(),
         "platform": platform.platform(),
@@ -138,6 +154,7 @@ def main() -> int:
         "source_commit": command_output(["git", "rev-parse", "HEAD"]),
         "working_tree_clean": not bool(command_output(["git", "status", "--porcelain"])),
         "cpu_count": os.cpu_count(),
+        "pytest_pythonpath": pytest_environment["PYTHONPATH"],
     }
     (output_dir / "environment.json").write_text(
         json.dumps(environment, ensure_ascii=False, indent=2) + "\n",
@@ -145,7 +162,9 @@ def main() -> int:
     )
 
     pytest_result = run_logged(
-        [sys.executable, "-m", "pytest", "-q"], output_dir / "pytest.log"
+        [sys.executable, "-m", "pytest", "-q"],
+        output_dir / "pytest.log",
+        env=pytest_environment,
     )
     builds = [
         validate_build(output_dir, openmp=False, build_jobs=build_jobs),

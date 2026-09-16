@@ -110,7 +110,8 @@ V1ED 在 umi 完成并通过 reconcile，精确复现 V1E Gate。点估计最大
 V0F 随后在 umi 完成 Python 153/153、OpenMP OFF/ON CTest 各 7/7，reference binary
 SHA-256 与 V0E 完全一致。V1F preflight 8/8 后于 2026-09-15 10:01:13 +08:00 提交，
 使用 8 个 OMP=1 CPU reference 进程。运行期间同步完成 E1-C4 独立 runner、两阶段 promotion
-生成器和 binary SHA-256 执行前强校验；本地全套测试增至 163/163。promotion 的 candidate
+生成器和 binary SHA-256 执行前强校验；V0G 的非交互测试环境显式绑定当前 checkout 的
+`src/`，消除 editable install 隐式依赖；本地全套测试增至 164/164。promotion 的 candidate
 阶段不授权 E1，finalize 必须先验证 V0G 及其新建 reference binary。最终锁与作业仍须等待
 V1F 完整结果后由该流程生成。
 

@@ -111,7 +111,10 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   declarations. `finalize` requires a clean umi V0G run with Python and OpenMP
   OFF/ON CTest passing, then binds the rebuilt reference binary SHA-256 and
   authorizes E1. The E1-C4 runner now rejects a missing or mismatched binary
-  checksum before numerical execution; the full local suite is 163/163.
+  checksum before numerical execution. V0G also binds `PYTHONPATH` to the clean
+  checkout's `src/` and records it in `environment.json`, so validation no
+  longer depends on an earlier editable install; the full local suite is
+  164/164.
 - V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
   rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
   8/8 and all execution prerequisites are now satisfied.

@@ -30,7 +30,9 @@ Cycle 4 已改变模拟器、必需稳态指标、稳态 Gate 单位、物理时
 7. **binary 执行绑定已补齐。** E1-C4 runner 在任何数值执行前强制核对 64 位
    `binary_sha256`；缺失或不匹配立即失败，Cycle 3 历史任务的执行接口保持不变。
 
-此前新增 5 项 E1-C4 契约测试；本轮再新增 5 项 promotion/binary 绑定测试，总测试为 163/163。
+此前新增 5 项 E1-C4 契约测试；promotion/binary 绑定和干净 checkout Python 路径绑定继续补齐，
+总测试为 164/164。V0G runner 现在显式把 `PYTHONPATH` 绑定到当前项目的 `src/` 并写入
+`environment.json`，不依赖服务器曾执行 editable install。
 尚未关闭的启动缺口是：V1F 必须整体通过、生成并
 绑定最终 C4 参数锁，以及在 umi 执行新的 V0G 实现 Gate。样本量和 64 个未见 seeds 已在
 `e1-cycle4-design.md` 冻结；它们排除 Cycle 1–3 和所有 Cycle 4 校准 seeds，并禁止
