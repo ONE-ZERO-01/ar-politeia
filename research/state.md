@@ -15,11 +15,13 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 `research/simulator-review-and-repair-plan-2026-09-08.md`, and
 `research/simulator-remediation-status.md`.
 
-## Current status (2026-09-14)
+## Current status (2026-09-16)
 
 - The Cycle 4 remediation and V1 validation infrastructure are committed.
-- Local non-numerical validation passes: 147 pytest tests, per-file C++ syntax
-  checks, and `git diff --check`.
+- Current non-numerical validation passes locally and through the umi validation
+  runner: 164 pytest tests, OpenMP OFF/ON CTest 7/7, and `git diff --check`.
+  The umi runner self-test used a clean checkout and its own recorded
+  `PYTHONPATH`, without relying on a prior editable install.
 - The Cycle 3 plan is archived under `research/versions/cycle-3/`; the new
   Cycle 4 plan limits current execution to implementation validation.
 - V0B implementation validation passed on umi: Python 141/141 and CTest 7/7
@@ -59,6 +61,9 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   final 96-snapshot window, whereas 6/9 remained below temporal ESS=4. The
   limiting smooth-Spearman timestep cell needs an estimated 14 independent
   replicates if its observed mean and variance persist.
+- V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
+  rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passed
+  8/8 before V1C execution.
 - V1C completed 225/225 runs on umi without execution failure and jobctl
   reconcile passed. It consumed 45.38 CPU-hours / 6.24 wall-hours. Invariants,
   all non-flat timestep bounds, and all storage-order bounds passed; numerical
@@ -115,9 +120,6 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   checkout's `src/` and records it in `environment.json`, so validation no
   longer depends on an earlier editable install; the full local suite is
   164/164.
-- V0D then passed on umi: Python 148/148 and OpenMP OFF/ON CTest 7/7; the
-  rebuilt reference binary exactly matches V0C by SHA-256. V1C preflight passes
-  8/8 and all execution prerequisites are now satisfied.
 - The numerical error bounds are now empirically resolved, but the steady-state
   premise remains unvalidated. No Cycle 4 confirmatory claim is currently
   supported.

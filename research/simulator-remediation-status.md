@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-15。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行。确认性实验尚未开始。
+日期：2026-09-16。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行。确认性实验尚未开始。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
