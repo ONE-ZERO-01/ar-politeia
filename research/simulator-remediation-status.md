@@ -115,6 +115,10 @@ SHA-256 与 V0E 完全一致。V1F preflight 8/8 后于 2026-09-15 10:01:13 +08:
 阶段不授权 E1，finalize 必须先验证 V0G 及其新建 reference binary。最终锁与作业仍须等待
 V1F 完整结果后由该流程生成。
 
+V1F 完成后的证据归档也已纳入 promotion：`archive-v1f` 将 run specs、completion markers、
+health、jobctl exit/artifacts、reference binary 和 calibration/steady Gate 交叉验证后再生成 tracked
+结果与 manifest，相关全套测试增至 165/165。该命令在作业运行期间不会执行。
+
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。

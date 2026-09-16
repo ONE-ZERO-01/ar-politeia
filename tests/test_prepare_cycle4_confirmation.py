@@ -188,3 +188,113 @@ def test_promotion_refuses_to_rewrite_after_e1_outcomes_exist(tmp_path):
     _write_json(outcome, {"experiment": promotion.E1_ID})
     with pytest.raises(RuntimeError, match="after E1 outcomes exist"):
         promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+
+def test_archive_v1f_cross_checks_runs_and_writes_tracked_evidence(tmp_path):
+    calibration_path, _result_path, config_path = _v1f_inputs(tmp_path)
+    job_dir = config_path.parent
+    workspace = job_dir / "workspace"
+    workspace.mkdir()
+    binary = tmp_path / "research/jobs/V0F-SIMULATOR-TESTS-C4/workspace/build-off/src/politeia"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"v1f reference binary")
+    binary_sha256 = _sha256(binary)
+
+    config = json.loads(config_path.read_text())
+    config["binary"] = binary.relative_to(tmp_path).as_posix()
+    _write_json(config_path, config)
+    workspace_calibration = workspace / "numerical_calibration.json"
+    workspace_calibration.write_bytes(calibration_path.read_bytes())
+    calibration_sha256 = _sha256(workspace_calibration)
+
+    run_specs = []
+    for index in range(960):
+        run_id = f"run-{index:04d}"
+        run_specs.append({"run_id": run_id})
+        run_dir = workspace / "runs" / run_id
+        run_dir.mkdir(parents=True)
+        _write_json(
+            run_dir / "completion.json",
+            {
+                "status": "completed",
+                "run_id": run_id,
+                "binary_sha256": binary_sha256,
+                "omp_threads": 1,
+                "elapsed_seconds": 1.0,
+            },
+        )
+        _write_json(run_dir / "health.json", {"pass": True})
+    _write_json(workspace / "run_specs.json", {"runs": run_specs})
+    _write_json(workspace / "matched_input_audit.json", {"pass": True})
+    (workspace / "replicate_metrics.csv").write_text("run_id\n", encoding="utf-8")
+    _write_json(workspace / "stationarity_report.json", {"pass": True})
+    _write_json(workspace / "ensemble_stationarity_report.json", {"pass": True})
+    conditions = {
+        f"condition-{index}": {
+            "tail_stationarity_pass": True,
+            "adjacent_window_stability_pass": True,
+            "independent_replicate_precision_pass": True,
+            "temporal_ess_diagnostic_pass": True,
+            "metrics": {},
+        }
+        for index in range(9)
+    }
+    _write_json(
+        workspace / "steady_estimand_report.json",
+        {
+            "replicates_per_condition": 64,
+            "tail_stationarity_valid": True,
+            "adjacent_window_stability_valid": True,
+            "independent_replicate_precision_valid": True,
+            "temporal_ess_diagnostic_valid": True,
+            "conditions": conditions,
+        },
+    )
+    _write_json(
+        workspace / "result.json",
+        {
+            "experiment": promotion.V1F_ID,
+            "status": "completed",
+            "pass": True,
+            "calibration_sha256": calibration_sha256,
+            "config_sha256": _sha256(config_path),
+        },
+    )
+    jobctl_dir = tmp_path / f".autoresearcher/jobs/{promotion.V1F_ID}"
+    _write_json(
+        jobctl_dir / "spec.json",
+        {
+            "commit_id": SOURCE_COMMIT,
+            "config_sha256": _sha256(config_path),
+        },
+    )
+    _write_json(
+        jobctl_dir / "result.json",
+        {
+            "exit_code": 0,
+            "timed_out": False,
+            "wall_seconds": 120.0,
+            "artifacts": [
+                {"path": name, "valid": True}
+                for name in promotion.V1F_WORKSPACE_ARTIFACTS
+            ],
+        },
+    )
+
+    final_marker = workspace / "runs/run-0959/completion.json"
+    final_marker_payload = json.loads(final_marker.read_text())
+    final_marker.unlink()
+    with pytest.raises(RuntimeError, match="completion markers are incomplete: 959/960"):
+        promotion.archive_v1f(tmp_path, job_dir, jobctl_dir)
+    _write_json(final_marker, final_marker_payload)
+
+    result = promotion.archive_v1f(tmp_path, job_dir, jobctl_dir)
+    assert result["status"] == "completed_passed_gate"
+    assert result["runs_completed"] == 960
+    assert result["run_failures"] == 0
+    assert result["elapsed_cpu_hours"] == pytest.approx(960 / 3600)
+    assert result["binary_sha256"] == binary_sha256
+    assert json.loads((job_dir / "result.json").read_text()) == result
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert len(manifest["artifacts"]) == len(promotion.V1F_WORKSPACE_ARTIFACTS)

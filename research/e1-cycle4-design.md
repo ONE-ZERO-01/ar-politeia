@@ -82,8 +82,9 @@ V1E 最细步长 clustered/shuffled 的 40 个参考 run 平均 1,042 秒，线�
 37.06 CPU 小时、8 路理想墙钟 4.63 小时；按实测开销预留 6–8 小时。对应 40 runs 占 6.6 GB，
 线性估计 E1 workspace 约 21 GB。计算资源已授权，但只有在以下顺序全部完成后才能提交：
 
-1. V1F 960/960 完成、reconcile 且所有 Gate 通过；
-2. 归档 V1F 数值校准，使用 `prepare_cycle4_confirmation.py prepare` 确定性生成不授权执行的
+1. V1F 960/960 完成并 reconcile；使用 `prepare_cycle4_confirmation.py archive-v1f` 交叉核对
+   960 个 run spec、completion marker、health、jobctl 结果和全部 workspace artifact SHA；
+2. 归档结果的所有 Gate 通过后，使用 `prepare_cycle4_confirmation.py prepare` 确定性生成不授权执行的
    candidate 参数锁、V0G 声明和 E1-C4 声明，并核对本文件的 64 seeds；
 3. 提交并推送 candidate 声明，使 V0G 在干净的 umi checkout 上运行；
 4. V0G 在 umi 通过 Python 全套测试和 OpenMP OFF/ON CTest，产出新的 OpenMP-OFF reference binary；

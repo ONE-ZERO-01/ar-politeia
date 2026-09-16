@@ -13,6 +13,8 @@ import argparse
 import hashlib
 import json
 import math
+import os
+import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -76,6 +78,16 @@ MODEL_PARAMETERS = {
     "strict_numerics": True,
     "confirmative_mode": True,
 }
+V1F_WORKSPACE_ARTIFACTS = (
+    "run_specs.json",
+    "matched_input_audit.json",
+    "replicate_metrics.csv",
+    "stationarity_report.json",
+    "ensemble_stationarity_report.json",
+    "steady_estimand_report.json",
+    "numerical_calibration.json",
+    "result.json",
+)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -87,10 +99,12 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
+    os.replace(temporary, path)
 
 
 def _sha256(path: Path) -> str:
@@ -220,6 +234,284 @@ def validate_v1f(
         "result_sha256": _sha256(result_path),
         "config_sha256": _sha256(config_path),
     }
+
+
+def _failed_v1f_cells(
+    calibration: Mapping[str, Any], steady: Mapping[str, Any]
+) -> tuple[list[str], list[str], dict[str, int]]:
+    timestep: list[str] = []
+    for landscape, metrics in calibration.get("discretization", {}).items():
+        if not isinstance(metrics, Mapping):
+            continue
+        for metric, values in metrics.items():
+            if isinstance(values, Mapping) and values.get("pass") is not True:
+                timestep.append(f"{landscape}/{metric}")
+    storage = [
+        str(metric)
+        for metric, values in calibration.get("storage_order_sensitivity", {}).items()
+        if isinstance(values, Mapping) and values.get("pass") is not True
+    ]
+    failed_precision_metrics: dict[str, int] = {}
+    for condition in steady.get("conditions", {}).values():
+        if not isinstance(condition, Mapping):
+            continue
+        for metric, values in condition.get("metrics", {}).items():
+            if not isinstance(values, Mapping):
+                continue
+            precision = values.get("independent_replicate_precision")
+            if isinstance(precision, Mapping) and precision.get("pass") is not True:
+                failed_precision_metrics[str(metric)] = (
+                    failed_precision_metrics.get(str(metric), 0) + 1
+                )
+    return sorted(timestep), sorted(storage), failed_precision_metrics
+
+
+def archive_v1f(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
+    """Validate and compact a completed V1F workspace into tracked evidence."""
+    root = root.resolve()
+    job_dir = job_dir.resolve()
+    jobctl_dir = jobctl_dir.resolve()
+    _relative(root, job_dir)
+    _relative(root, jobctl_dir)
+    if job_dir.name != V1F_ID or jobctl_dir.name != V1F_ID:
+        raise ValueError("archive-v1f requires the V1F job and jobctl directories")
+
+    config_path = job_dir / "config.json"
+    workspace = job_dir / "workspace"
+    config = _read_json(config_path)
+    calibration_path = workspace / "numerical_calibration.json"
+    calibration = _read_json(calibration_path)
+    raw_result_path = workspace / "result.json"
+    raw_result = _read_json(raw_result_path)
+    steady_path = workspace / "steady_estimand_report.json"
+    steady = _read_json(steady_path)
+    matched_audit = _read_json(workspace / "matched_input_audit.json")
+    jobctl_result = _read_json(jobctl_dir / "result.json")
+    jobctl_spec = _read_json(jobctl_dir / "spec.json")
+
+    if config.get("experiment_id") != V1F_ID:
+        raise RuntimeError("V1F config has the wrong experiment_id")
+    if raw_result.get("experiment") != V1F_ID or raw_result.get("status") != "completed":
+        raise RuntimeError("V1F workspace result is not complete")
+    if calibration.get("experiment") != V1F_ID:
+        raise RuntimeError("V1F workspace calibration has the wrong experiment")
+    if not isinstance(calibration.get("pass"), bool):
+        raise RuntimeError("V1F calibration has no boolean verdict")
+    if raw_result.get("pass") is not calibration.get("pass"):
+        raise RuntimeError("V1F result and calibration verdicts disagree")
+    if raw_result.get("calibration_sha256") != _sha256(calibration_path):
+        raise RuntimeError("V1F workspace result does not bind its calibration")
+    if raw_result.get("config_sha256") != _sha256(config_path):
+        raise RuntimeError("V1F workspace result does not bind its config")
+    if jobctl_spec.get("config_sha256") != _sha256(config_path):
+        raise RuntimeError("jobctl spec does not bind the V1F config")
+    jobctl_artifacts = jobctl_result.get("artifacts", [])
+    if (
+        jobctl_result.get("exit_code") != 0
+        or jobctl_result.get("timed_out") is not False
+        or not isinstance(jobctl_artifacts, list)
+        or any(item.get("valid") is not True for item in jobctl_artifacts)
+    ):
+        raise RuntimeError("jobctl did not record a clean V1F execution")
+    recorded_artifacts = {
+        Path(str(item.get("path", ""))).name for item in jobctl_artifacts
+    }
+    if recorded_artifacts != set(V1F_WORKSPACE_ARTIFACTS):
+        raise RuntimeError("jobctl artifact declaration differs from V1F outputs")
+    if matched_audit.get("pass") is not True:
+        raise RuntimeError("V1F matched-input audit did not pass")
+
+    run_specs_payload = _read_json(workspace / "run_specs.json")
+    run_specs = run_specs_payload.get("runs")
+    if not isinstance(run_specs, list):
+        raise RuntimeError("V1F run_specs.json has no runs list")
+    expected_run_count = len(config.get("seeds", [])) * len(config.get("conditions", []))
+    if expected_run_count != 960 or len(run_specs) != expected_run_count:
+        raise RuntimeError("V1F must contain exactly 960 run specs")
+    expected_run_ids = {str(spec.get("run_id")) for spec in run_specs}
+    if len(expected_run_ids) != expected_run_count or "None" in expected_run_ids:
+        raise RuntimeError("V1F run IDs are missing or duplicated")
+
+    marker_paths = sorted((workspace / "runs").glob("*/completion.json"))
+    if len(marker_paths) != expected_run_count:
+        raise RuntimeError(
+            f"V1F completion markers are incomplete: {len(marker_paths)}/{expected_run_count}"
+        )
+    markers = [_read_json(path) for path in marker_paths]
+    marker_run_ids = {str(marker.get("run_id")) for marker in markers}
+    if marker_run_ids != expected_run_ids:
+        raise RuntimeError("V1F completion markers do not match run specs")
+    if any(marker.get("status") != "completed" for marker in markers):
+        raise RuntimeError("V1F contains a non-completed marker")
+    health_paths = [path.parent / "health.json" for path in marker_paths]
+    if any(not path.is_file() for path in health_paths):
+        raise RuntimeError("V1F has a completed run without health.json")
+    if any(not isinstance(_read_json(path), Mapping) for path in health_paths):
+        raise RuntimeError("V1F contains an invalid health.json payload")
+    binary_hashes = {marker.get("binary_sha256") for marker in markers}
+    if len(binary_hashes) != 1 or not all(
+        isinstance(value, str) and len(value) == 64 for value in binary_hashes
+    ):
+        raise RuntimeError("V1F completion markers do not bind one reference binary")
+    binary_path = (root / str(config.get("binary", ""))).resolve()
+    _relative(root, binary_path)
+    if not binary_path.is_file() or _sha256(binary_path) not in binary_hashes:
+        raise RuntimeError("V1F completion markers do not match the reference binary")
+    if {marker.get("omp_threads") for marker in markers} != {1}:
+        raise RuntimeError("V1F completion markers do not all use OMP=1")
+
+    for name in V1F_WORKSPACE_ARTIFACTS:
+        path = workspace / name
+        if not path.is_file() or path.stat().st_size == 0:
+            raise RuntimeError(f"V1F workspace artifact is missing or empty: {name}")
+    artifact_hashes = {
+        name: _sha256(workspace / name) for name in V1F_WORKSPACE_ARTIFACTS
+    }
+    failed_timestep, failed_storage, failed_precision = _failed_v1f_cells(
+        calibration, steady
+    )
+    conditions = steady.get("conditions", {})
+    if not isinstance(conditions, Mapping) or len(conditions) != 9:
+        raise RuntimeError("V1F steady report must contain nine timestep conditions")
+    if steady.get("replicates_per_condition") != 64:
+        raise RuntimeError("V1F steady report must contain 64 replicates per condition")
+    gate_layers = calibration.get("gate_layers", {})
+    required_gate_layers = {
+        "invariants",
+        "timestep_convergence",
+        "storage_order_sensitivity",
+        "stationarity",
+        "precision",
+        "adjacent_window_stability",
+    }
+    if not isinstance(gate_layers, Mapping) or any(
+        not isinstance(gate_layers.get(key), bool) for key in required_gate_layers
+    ):
+        raise RuntimeError("V1F calibration gate layers are incomplete")
+    expected_steady_flags = {
+        "stationarity": "tail_stationarity_valid",
+        "adjacent_window_stability": "adjacent_window_stability_valid",
+        "precision": "independent_replicate_precision_valid",
+    }
+    for calibration_key, steady_key in expected_steady_flags.items():
+        if gate_layers.get(calibration_key) is not steady.get(steady_key):
+            raise RuntimeError(
+                f"V1F calibration and steady report disagree on {calibration_key}"
+            )
+
+    source_commit = jobctl_spec.get("commit_id")
+    if (
+        not isinstance(source_commit, str)
+        or len(source_commit) != 40
+        or any(character not in "0123456789abcdef" for character in source_commit)
+    ):
+        raise RuntimeError("jobctl spec does not contain a full lowercase source commit")
+    elapsed_seconds = [float(marker.get("elapsed_seconds", 0.0)) for marker in markers]
+    if any(not math.isfinite(value) or value < 0.0 for value in elapsed_seconds):
+        raise RuntimeError("V1F completion markers contain invalid elapsed time")
+    jobctl_wall_seconds = float(jobctl_result.get("wall_seconds", 0.0))
+    if not math.isfinite(jobctl_wall_seconds) or jobctl_wall_seconds < 0.0:
+        raise RuntimeError("jobctl result contains invalid wall time")
+
+    tracked_calibration_path = job_dir / "numerical_calibration.json"
+    tracked_calibration_temp = tracked_calibration_path.with_suffix(".json.tmp")
+    shutil.copyfile(calibration_path, tracked_calibration_temp)
+    os.replace(tracked_calibration_temp, tracked_calibration_path)
+    compact_result = {
+        "experiment": V1F_ID,
+        "status": (
+            "completed_passed_gate"
+            if calibration.get("pass") is True
+            else "completed_failed_gate"
+        ),
+        "pass": bool(calibration.get("pass")),
+        "execution_completed": True,
+        "runs_planned": expected_run_count,
+        "runs_completed": len(markers),
+        "run_failures": 0,
+        "execution_host": "umi",
+        "source_commit": source_commit,
+        "binary_sha256": next(iter(binary_hashes)),
+        "config_sha256": _sha256(config_path),
+        "calibration_sha256": _sha256(tracked_calibration_path),
+        "elapsed_cpu_hours": sum(elapsed_seconds) / 3600.0,
+        "maximum_single_run_seconds": max(elapsed_seconds),
+        "jobctl_wall_seconds": jobctl_wall_seconds,
+        "gate_layers": {
+            "invariants": gate_layers.get("invariants") is True,
+            "timestep_convergence": gate_layers.get("timestep_convergence") is True,
+            "storage_order_sensitivity": gate_layers.get("storage_order_sensitivity") is True,
+            "tail_stationarity": gate_layers.get("stationarity") is True,
+            "adjacent_window_stability": gate_layers.get("adjacent_window_stability") is True,
+            "independent_replicate_precision": gate_layers.get("precision") is True,
+        },
+        "temporal_ess_diagnostic_valid": bool(
+            steady.get("temporal_ess_diagnostic_valid")
+        ),
+        "steady_estimand_layer": {
+            "conditions": len(conditions),
+            "replicates_per_condition": steady.get("replicates_per_condition"),
+            "tail_stationarity_failed_conditions": sum(
+                item.get("tail_stationarity_pass") is not True
+                for item in conditions.values()
+            ),
+            "adjacent_window_failed_conditions": sum(
+                item.get("adjacent_window_stability_pass") is not True
+                for item in conditions.values()
+            ),
+            "independent_precision_failed_conditions": sum(
+                item.get("independent_replicate_precision_pass") is not True
+                for item in conditions.values()
+            ),
+            "temporal_ess_diagnostic_failed_conditions": sum(
+                item.get("temporal_ess_diagnostic_pass") is not True
+                for item in conditions.values()
+            ),
+            "independent_precision_failed_metric_cells": sum(
+                failed_precision.values()
+            ),
+            "failed_precision_metrics": failed_precision,
+        },
+        "numerical_resolution_limits": calibration.get(
+            "numerical_resolution_limits", {}
+        ),
+        "failed_timestep_cells": failed_timestep,
+        "failed_storage_order_metrics": failed_storage,
+        "workspace_artifact_sha256": artifact_hashes,
+        "conclusion": (
+            "V1F completed 960/960 runs and passed every frozen calibration gate."
+            if calibration.get("pass") is True
+            else "V1F completed 960/960 runs but failed one or more frozen calibration gates."
+        ),
+        "next_action": (
+            "Run Cycle 4 promotion prepare; E1 remains blocked until V0G and finalization pass."
+            if calibration.get("pass") is True
+            else "Archive the independent negative calibration and keep E1 blocked."
+        ),
+        "evidence_boundary": (
+            "Independent numerical calibration only; no Cycle 4 landscape-effect claim is supported."
+        ),
+    }
+    compact_result_path = job_dir / "result.json"
+    _write_json(compact_result_path, compact_result)
+    manifest = {
+        "exit_code": 0,
+        "timed_out": False,
+        "wall_seconds": jobctl_result.get("wall_seconds"),
+        "jobctl_reconcile": "completed",
+        "artifacts": [
+            {
+                "path": f"workspace/{name}",
+                "sha256": artifact_hashes[name],
+                "valid": True,
+            }
+            for name in V1F_WORKSPACE_ARTIFACTS
+        ],
+    }
+    _write_json(job_dir / "manifest.json", manifest)
+    if compact_result["pass"] is True:
+        validate_v1f(tracked_calibration_path, compact_result_path, config_path)
+    return compact_result
 
 
 def _candidate_lock(source_commit: str, v1f: Mapping[str, Any]) -> dict[str, Any]:
@@ -516,6 +808,13 @@ def finalize(root: Path, v0g_result: Path, binary: Path) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
+    archive_parser = subparsers.add_parser("archive-v1f")
+    archive_parser.add_argument(
+        "--job-dir", default=f"research/jobs/{V1F_ID}"
+    )
+    archive_parser.add_argument(
+        "--jobctl-dir", default=f".autoresearcher/jobs/{V1F_ID}"
+    )
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--calibration", required=True)
     prepare_parser.add_argument("--result", required=True)
@@ -525,7 +824,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     finalize_parser.add_argument("--v0g-result", required=True)
     finalize_parser.add_argument("--binary", required=True)
     args = parser.parse_args(argv)
-    if args.command == "prepare":
+    if args.command == "archive-v1f":
+        archive_v1f(
+            PROJECT_ROOT,
+            (PROJECT_ROOT / args.job_dir).resolve(),
+            (PROJECT_ROOT / args.jobctl_dir).resolve(),
+        )
+    elif args.command == "prepare":
         prepare(
             PROJECT_ROOT,
             (PROJECT_ROOT / args.calibration).resolve(),

@@ -120,6 +120,12 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   checkout's `src/` and records it in `environment.json`, so validation no
   longer depends on an earlier editable install; the full local suite is
   164/164.
+- V1F post-run archival is now deterministic. Promotion command `archive-v1f`
+  requires an exact 960-way match across run specs, completion markers and
+  health files, a clean jobctl result, one OMP=1 reference-binary checksum,
+  passing input audit, and mutually consistent calibration/steady reports
+  before writing tracked calibration, result and manifest evidence. The full
+  local suite is now 165/165.
 - The numerical error bounds are now empirically resolved, but the steady-state
   premise remains unvalidated. No Cycle 4 confirmatory claim is currently
   supported.

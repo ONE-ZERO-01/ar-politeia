@@ -29,9 +29,13 @@ Cycle 4 已改变模拟器、必需稳态指标、稳态 Gate 单位、物理时
    或不完整 Gate 时均拒绝重写。
 7. **binary 执行绑定已补齐。** E1-C4 runner 在任何数值执行前强制核对 64 位
    `binary_sha256`；缺失或不匹配立即失败，Cycle 3 历史任务的执行接口保持不变。
+8. **V1F 归档已确定化。** promotion 的 `archive-v1f` 只有在 jobctl 正常退出、960 个唯一
+   run spec 与 960 个成功 marker 精确对应、每个 run 有 health、所有 marker 绑定同一 OMP=1
+   reference binary、输入审计通过且 calibration/steady 报告互相一致时，才生成 tracked
+   `numerical_calibration.json`、紧凑 `result.json` 和逐产物 SHA manifest。
 
 此前新增 5 项 E1-C4 契约测试；promotion/binary 绑定和干净 checkout Python 路径绑定继续补齐，
-总测试为 164/164。V0G runner 现在显式把 `PYTHONPATH` 绑定到当前项目的 `src/` 并写入
+总测试为 165/165。V0G runner 现在显式把 `PYTHONPATH` 绑定到当前项目的 `src/` 并写入
 `environment.json`，不依赖服务器曾执行 editable install。
 尚未关闭的启动缺口是：V1F 必须整体通过、生成并
 绑定最终 C4 参数锁，以及在 umi 执行新的 V0G 实现 Gate。样本量和 64 个未见 seeds 已在
@@ -71,7 +75,8 @@ V1F 通过后，新参数锁至少包含：
 
 1. V1ED 已冻结 64-seed 保守校准样本量；V1F 已通过 preflight 并正在 umi 执行；
 2. E1-C4 runner/tests 已完成本地实现，保持不读取 V1F 的中间科学指标；
-3. V1F 全过后执行 promotion `prepare`，一次生成只读 C4 candidate 锁、V0G 声明和带 64 个
+3. V1F 完成后先执行 promotion `archive-v1f`；只有归档 verdict 全过才执行 `prepare`，一次生成
+   只读 C4 candidate 锁、V0G 声明和带 64 个
    冻结 seeds 的 E1 job 声明；candidate 明确 `confirmatory_execution_authorized=false`；
 4. 提交 candidate 研究事件并 push umi，使 V0G 运行于干净 checkout；
 5. 在 umi 执行 V0G 实现 Gate，随后由 promotion `finalize` 绑定 V0G result 与 binary 哈希，
