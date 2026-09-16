@@ -204,6 +204,8 @@ def test_snapshot_metrics_and_paired_bootstrap():
     assert metrics["minimum_wealth"] == 1.0
     assert metrics["wealth_variance"] > 0.0
     assert metrics["zero_wealth_fraction"] == 0.0
+    # S12: the equilibrium level is reported so w/w_ref stays auditable.
+    assert metrics["mean_wealth"] == pytest.approx(np.mean([1.0, 1.0, 1.0, 2.0, 2.0, 3.0]))
     interval = landscape_study.paired_bootstrap_mean_difference(
         [2.0, 3.0, 4.0], [1.0, 2.0, 3.0], seed=7, samples=1000
     )

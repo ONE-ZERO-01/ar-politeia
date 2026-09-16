@@ -505,6 +505,10 @@ def test_aggregate_e1_c4_uses_effective_threshold_and_valid_null_policy(
                     "minimum_wealth_observed": 0.0,
                     "particle_count": 1000.0,
                     "total_wealth_relative_drift": -0.5,
+                    # S12: clustered sits at a higher equilibrium level than
+                    # shuffled even though both landscapes have the same
+                    # resource total, so the Gini effect is a composite.
+                    "mean_wealth": 2.0 if condition == "clustered" else 1.25,
                 }
             )
     config = {
@@ -538,6 +542,82 @@ def test_aggregate_e1_c4_uses_effective_threshold_and_valid_null_policy(
     ]
     assert spearman["sesoi"] == 0.06
     assert spearman["threshold_components"]["scientific_sesoi"] == 0.05
+    # S12: the wealth-scale composite must be reported so the Gini secondary
+    # family can be read as a composite rather than a single-channel effect.
+    scale = payload["wealth_scale_diagnostics"]
+    assert scale["per_condition"]["clustered"]["mean_wealth"] == pytest.approx(2.0)
+    assert scale["per_condition"]["shuffled"]["mean_wealth"] == pytest.approx(1.25)
+    assert scale["per_condition"]["clustered"][
+        "mean_wealth_scale_ratio"
+    ] == pytest.approx(2.0 / 5.0)
+    assert scale["paired_mean_wealth_difference"]["mean_difference"] == pytest.approx(
+        0.75
+    )
+    assert scale["relative_mean_wealth_difference"] == pytest.approx(0.75 / 1.25)
+    assert scale["gate_role"] == "diagnostic only; never enters a gate"
+
+
+def test_analyze_runs_records_wealth_scale_ratio(tmp_path, monkeypatch):
+    """S12: every metrics row must carry the exchange kernel's operating point."""
+    import numpy as np
+
+    monkeypatch.setattr(
+        run_landscape_study,
+        "project_path",
+        lambda value, must_exist=False: Path(value),
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    np.save(tmp_path / "resource.npy", np.ones((2, 2)), allow_pickle=False)
+    (tmp_path / "initial.csv").write_text(
+        "x,y,w\n1.0,1.0,4.0\n", encoding="utf-8"
+    )
+    for index in range(1, 7):
+        (run_dir / f"snap_{index}.csv").write_text(
+            "x,y,w\n1.0,1.0,2.0\n", encoding="utf-8"
+        )
+    # Stationarity diagnostics need a non-degenerate window, so vary the metrics
+    # slightly across the three snapshots instead of returning a constant.
+    call_count = {"value": 0}
+
+    def fake_snapshot_metrics(_snapshot, _resource, _bounds):
+        call_count["value"] += 1
+        step = 0.01 * call_count["value"]
+        return {
+            "resource_density_spearman_rho": 0.2 + step,
+            "density_morans_i": 0.3 + step,
+            "occupancy_entropy": 0.7 + step,
+            "wealth_gini": 0.4 + step,
+            "wealth_variance": 1.5 + step,
+            "zero_wealth_fraction": 0.0,
+            "minimum_wealth": 0.1,
+            "mean_wealth": 2.0,
+            "particle_count": 1000.0,
+        }
+
+    monkeypatch.setattr(run_landscape_study, "snapshot_metrics", fake_snapshot_metrics)
+    # The E2 aggregator needs four experiment cells; this test only checks that
+    # analyze_runs writes the wealth-scale columns, so stub the dispatch out.
+    monkeypatch.setattr(run_landscape_study, "aggregate_e2", lambda *args, **kwargs: None)
+    spec = {
+        "run_id": "run",
+        "seed": 5,
+        "condition": "clustered",
+        "run_dir": str(run_dir),
+        "resource_npy": str(tmp_path / "resource.npy"),
+        "initial_conditions": str(tmp_path / "initial.csv"),
+    }
+    rows = run_landscape_study.analyze_runs(
+        "E2-CHANNEL-ABLATION",
+        {"ability_saturation_w": 4.0, "steady_snapshots": 6},
+        tmp_path,
+        [spec],
+    )
+    assert rows[0]["mean_wealth"] == pytest.approx(2.0)
+    assert rows[0]["wealth_scale_ratio"] == pytest.approx(0.5)
+    header = (tmp_path / "replicate_metrics.csv").read_text(encoding="utf-8").splitlines()[0]
+    assert "mean_wealth" in header
+    assert "wealth_scale_ratio" in header
 
 
 def test_e1_c4_two_window_gate_uses_condition_ensembles(tmp_path, monkeypatch):
@@ -558,6 +638,7 @@ def test_e1_c4_two_window_gate_uses_condition_ensembles(tmp_path, monkeypatch):
             "wealth_variance": 1.5,
             "zero_wealth_fraction": 0.0,
             "minimum_wealth": 0.1,
+            "mean_wealth": 2.0,
             "particle_count": 1000.0,
         },
     )

@@ -1772,6 +1772,56 @@ def aggregate_e1(
     return payload
 
 
+def _wealth_scale_diagnostics(
+    by_seed: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    ability_saturation_w: float,
+) -> Dict[str, Any]:
+    """S12: report the equilibrium wealth level behind the paired comparison.
+
+    ``clustered`` and ``shuffled`` are forced to share the same resource total,
+    histogram and initial phase state, but nothing in the model ties their
+    equilibrium mean wealth together: concentrating particles in resource wells
+    raises ``sum(prod)`` and therefore ``omega* = sum(prod)/(N*d)``. Because the
+    exchange ability ``A = eps*w/(w + w_ref)`` depends on ``w/w_ref``, any
+    wealth-family effect is a composite of spatial organisation and a shift in
+    the wealth scale. This block makes that composite auditable; it is a
+    diagnostic and never enters a gate.
+    """
+    if not math.isfinite(ability_saturation_w) or ability_saturation_w <= 0.0:
+        raise ValueError("ability_saturation_w must be finite and positive")
+    conditions = ("clustered", "shuffled")
+    per_condition: Dict[str, Any] = {}
+    for condition in conditions:
+        levels = [float(by_seed[seed][condition]["mean_wealth"]) for seed in sorted(by_seed)]
+        per_condition[condition] = {
+            "mean_wealth": float(np.mean(levels)),
+            "mean_wealth_scale_ratio": float(np.mean(levels)) / ability_saturation_w,
+        }
+    clustered_levels = [
+        float(by_seed[seed]["clustered"]["mean_wealth"]) for seed in sorted(by_seed)
+    ]
+    shuffled_levels = [
+        float(by_seed[seed]["shuffled"]["mean_wealth"]) for seed in sorted(by_seed)
+    ]
+    interval = paired_bootstrap_mean_difference(
+        clustered_levels, shuffled_levels, seed=9173
+    )
+    control_level = float(np.mean(shuffled_levels))
+    return {
+        "per_condition": per_condition,
+        "paired_mean_wealth_difference": interval,
+        "relative_mean_wealth_difference": (
+            float(interval["mean_difference"]) / control_level if control_level else None
+        ),
+        "interpretation": (
+            "The wealth Gini secondary family is a composite of spatial "
+            "organisation and this equilibrium wealth-scale shift; it must not be "
+            "reported as a single-channel spatial effect."
+        ),
+        "gate_role": "diagnostic only; never enters a gate",
+    }
+
+
 def aggregate_e1_c4(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
@@ -1891,6 +1941,9 @@ def aggregate_e1_c4(
             steady_estimand.get("temporal_ess_diagnostic_valid", False)
         ),
         "execution_invariant_checks": execution_invariants,
+        "wealth_scale_diagnostics": _wealth_scale_diagnostics(
+            by_seed, float(config.get("ability_saturation_w", 5.0))
+        ),
         "confirmatory_spatial_family": primary,
         "secondary_wealth_family": secondary,
         "threshold_policy": (
@@ -2421,6 +2474,17 @@ def analyze_runs(
         )
         for spec in run_specs
     ]
+    # S12: record the exchange kernel's operating point (mean wealth relative to
+    # the ability half-saturation w_ref) for every run. This is a diagnostic, not
+    # a gate: it makes the level dependence of any wealth-family effect auditable
+    # instead of implicit. w_ref is written into every run's politeia.cfg by
+    # common_cpp_config, and defaults to the simulator's 5.0 when unset.
+    ability_saturation_w = float(config.get("ability_saturation_w", 5.0))
+    if not math.isfinite(ability_saturation_w) or ability_saturation_w <= 0.0:
+        raise ValueError("ability_saturation_w must be finite and positive")
+    for row in rows:
+        mean_wealth = float(row["mean_wealth"])
+        row["wealth_scale_ratio"] = mean_wealth / ability_saturation_w
     write_metrics_csv(output_dir / "replicate_metrics.csv", rows)
     # R01: stationarity report carries per-metric status/reason so undefined
     # (constant-field) and invalid (corruption) metrics are distinguishable

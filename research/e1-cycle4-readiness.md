@@ -71,6 +71,33 @@ V1F 通过后，新参数锁至少包含：
 `max(V1F numerical limit, scientific SESOI)`。若效应落入该等效区，记录为可解释的 null/等效结果，
 不把它当执行失败。
 
+## 次要家族（wealth Gini）的预注册限定（2026-09-16，锁冻结前登记）
+
+**主 family 不受影响。** `resource_density_spearman_rho`、`density_morans_i`、`occupancy_entropy`
+全部是位置类指标，而位置对任何只写 `w` 的因子逐位不变
+（[model-specification-c4.md](model-specification-c4.md) §5.9）。因此主家族的实际取值与
+财富水平无关，主效应 Gate、阈值与样本量都不需要改动。
+
+**Gini 是合成量。** 对 V1F 已完成 run 的实测（59 对 seed，`dt = 0.005`）显示 clustered 与 shuffled
+的平衡平均财富为 **1.9838 对 1.3810**，即 `clustered − shuffled` 相对差 **+43.6%**
+（2SE 半宽 4.5%），`w/w_ref` 从 0.276 变到 0.397。由于交换能力 `A = εw/(w + w_ref)` 依赖
+`w/w_ref`，两个条件的交换核工作点不同。因此：
+
+1. `wealth_gini` 的配对差**不得**解释为纯空间组织效应，只能表述为
+   "空间组织与其伴随的平衡财富尺度变化"的**合成效应**；
+2. E1-C4 必须把 `mean_wealth` 与 `wealth_scale_ratio = mean_wealth/w_ref` 作为诊断量随
+   `result.json` 一并报告，使该合成可被读者与审稿人核算；
+3. 该限定属**判据解释**层面，不改参数、不改样本量、不改任何阈值，
+   因此不使 V1F 的数值校准失效，也不需要重新校准；
+4. 若需要纯空间组织的财富效应，必须由 [e2-cycle4-channel-design.md](e2-cycle4-channel-design.md)
+   的 P2 提供——它在关闭地形力、位置逐位共享的条件下估计源空间组织效应。
+
+**协议偏离披露。** 上述数值是在 V1F 运行期间读取的，且包含一个 `clustered − shuffled` 对比，
+而本文件前述原则要求实现阶段"保持不读取 V1F 的中间科学指标"。读取对象是**非主指标**的结构量
+（平均财富），目的是**检查设计前提**（原 P4 曾把可比性目标写成 `w_ref = 5`，实测表明不可达），
+且由此产生的处置是**收窄解释**而非放宽任何阈值、样本量或 Gate。偏离方向保守，
+此处作为审计记录保留，不得删除。V1F 自身是校准实验，其 `numerical_calibration.json` 尚未读取。
+
 ## 启动顺序
 
 1. V1ED 已冻结 64-seed 保守校准样本量；V1F 已通过 preflight 并正在 umi 执行；

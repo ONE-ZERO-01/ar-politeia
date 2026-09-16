@@ -144,12 +144,12 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - E1-C4's frozen seed-disjointness claim was re-verified by bookkeeping across
   every tracked `seeds.txt` and job config: the 64 frozen E1-C4 seeds have zero
   intersection with all Cycle 1-3 jobs and with V1/V1B/V1C/V1E/V1F/V1P.
-- V1F is still running on umi under jobctl pid 2647912. At 2026-09-16 13:17
-  +08:00 it had completed 640/960 runs with zero non-empty stderr files and zero
-  thermostat triggers; by 19:16 it was at 789/960, consistent with the 41.4
-  wall-hour estimate. E1 stays blocked until it passes, is archived by
-  `archive-v1f`, and the promotion `prepare`/`finalize` chain produces the final
-  Cycle 4 lock.
+- V1F is still running on umi under jobctl pid 2647912. At 2026-09-16 23:14
+  +08:00 it had completed 875/960 runs with zero non-empty stderr files and zero
+  thermostat triggers; at 13:17 it was at 640/960 and at 19:16 at 789/960,
+  consistent with the 41.4 wall-hour estimate. E1 stays blocked until it passes,
+  is archived by `archive-v1f`, and the promotion `prepare`/`finalize` chain
+  produces the final Cycle 4 lock.
 - S09's identifiability defect is now located and the E2-C4 design is frozen in
   `research/e2-cycle4-channel-design.md`. A structural audit of Cycle 3's 160
   archived E2 runs showed: the `production` factor switched both
@@ -162,9 +162,40 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   structural identity rather than a finding; and all four cells passed the old
   stationarity Gate, which cannot detect cross-cell non-comparability. The design
   replaces the impossible source x sink on/off factorial (two of its four cells
-  have no stationary distribution) with a source-pattern ablation at matched
-  expected total plus a sink-rate response along a constant `s/d` line, guarded by
-  a structural-identity check and a mandatory comparability Gate.
+  have no stationary distribution) with a source-pattern ablation and a sink-rate
+  response along a constant `s/d` line.
+- **S12 (new, P0): the reference process runs deep in the sub-saturation regime
+  and the movement channel leaks into the wealth scale.** Measuring mean wealth
+  on the final snapshot of completed V1F runs (59 paired seeds, `dt = 0.005`):
+  clustered 1.9838, shuffled 1.3810, smooth 0.5918, i.e. `w/w_ref` = 0.397,
+  0.276, 0.118, with a paired clustered-minus-shuffled difference of **+43.6%**
+  (2SE half-width 4.5%; `dt = 0.02` gives +44.3%). So the design intent
+  (`initial_wealth = mean_wealth = 5.0 = w_ref`, the half-saturation point) is not
+  where the process actually sits: `A = eps*w/(w + w_ref)` is nearly linear in
+  `w` there, weakening the channel by which ability heterogeneity becomes
+  exchange advantage. `min wealth` reaches 1e-05 to 1e-13, so the `[0,1]` share
+  clamp is active at confirmatory scale. And because force on concentrates
+  particles in resource wells, raising `sum(prod)`, the equilibrium level differs
+  by ~3.4x between force on and off, so any wealth outcome mixes spatial
+  organisation with a shift in the wealth scale.
+- Consequences of S12. On the E1-C4 side the primary family is position-based and
+  therefore unaffected, so its Gate and thresholds are unchanged, but the
+  wealth-Gini secondary family is now pre-registered in `e1-cycle4-readiness.md`
+  as a composite of spatial organisation and equilibrium wealth-scale shift, and
+  `mean_wealth` plus `wealth_scale_ratio` must be reported alongside
+  `result.json`. That only narrows interpretation and relaxes no threshold, so it
+  does not invalidate the V1F calibration. On the E2-C4 side all cells now run
+  with terrain force off, which makes positions exogenous and bit-shared across
+  cells (an identity already confirmed bitwise on E2's 40 (seed, force) pairs),
+  turning the spatial metrics from outcomes into identity guards; the uniform
+  source comes from the `flat` landscape (constant exactly at the mean), so no
+  C++ change is needed and the reference binary SHA is untouched.
+- Reading mean wealth during the V1F run is disclosed as a protocol deviation in
+  both `e1-cycle4-readiness.md` and `e2-cycle4-channel-design.md` section 5. The
+  quantity read is a non-primary structural one, the purpose was to check a design
+  premise (the original comparability target of `w_ref = 5` turned out
+  unreachable), and the resulting action narrows rather than widens any claim.
+  V1F's `numerical_calibration.json` has not been read.
 
 ## Cycle 3 E3 correction
 

@@ -506,6 +506,12 @@ def snapshot_metrics(
         "occupancy_entropy": occupancy_entropy(density),
         "wealth_gini": gini(wealth),
         "wealth_variance": float(np.var(wealth)),
+        # S12: the mean wealth level is an auditing quantity, not a gate. The
+        # exchange ability A = eps*w/(w + w_ref) depends on w/w_ref, so a
+        # landscape-induced shift in the mean wealth moves the exchange kernel's
+        # operating point. Any wealth-family effect must therefore be reported
+        # together with this level.
+        "mean_wealth": float(np.mean(wealth)),
         "zero_wealth_fraction": float(np.count_nonzero(wealth == 0.0) / n_wealth),
         "minimum_wealth": float(np.min(wealth)),
         "particle_count": float(np.sum(density)),
