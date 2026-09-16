@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-16。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行。确认性实验尚未开始。
+日期：2026-09-16。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行（2026-09-16 13:17 +08:00 实测 640/960 completed，0 个非空 stderr）。确认性实验尚未开始。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
@@ -21,7 +21,7 @@
 
 | ID | 优先级 | 类别 | 问题 | 处置 | 完成状态 | 残余限制 |
 |---|---|---|---|---|---|---|
-| S01 | P0 | A | 财富没有反馈到当前空间动力学 | 重写机制解释（E2 空间零效应=结构隔离） | 待办（文档，非代码） | 需随新因果图成文 |
+| S01 | P0 | A | 财富没有反馈到当前空间动力学 | 重写机制解释（E2 空间零效应=结构隔离） | 已完成（`research/model-specification-c4.md` §6，2026-09-16） | 完整模型（social_strength>0）下的中介链未验证 |
 | S02 | P0 | A/B | 截断产生零财富后交换跳过该粒子 | 修复交换边界 + 诊断 | 本轮 | 回流是"允许"而非"必然" |
 | S03 | P0 | B | Moran's I 与部分财富方差被移出稳态 Gate | 恢复 gate 指标 | 已完成（分析代码与 V1C 实测） | V1C 显示长相关时间，稳态/精度问题仍需独立诊断 |
 | S04 | P0 | B | 平坦景观把 Spearman 数值误差校准成零 | 退化相关标 NaN，排除退化 SESOI | 本轮 | 非退化校准仍需 umi |
@@ -29,7 +29,7 @@
 | S06 | P1 | A | OpenMP 无噪声分支遗漏摩擦 | 修复 + 回归 | 本轮 | 无 |
 | S07 | P1 | A/C | 交换噪声不含 seed、用数组下标 | 稳定 GID + base_seed 子流 | 本轮 | 重排不变性需 umi 实测 |
 | S08 | P1 | A/C | 固定顺序原地交换 | 三级步长 × 完整相态重排量化 | V1/V1B/V1C 顺序界均通过 | 当前参数域内已受数值误差界约束；扩大参数域需重校准 |
-| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象 | 待办 | 纯生产/纯衰减分离设计 |
+| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象（"生产—衰减组合通道"，非纯生产） | 已完成（`research/model-specification-c4.md` §5.6，2026-09-16） | 纯生产/纯衰减分离设计仍未开展 |
 | S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
 
@@ -122,3 +122,29 @@ health、jobctl exit/artifacts、reference binary 和 calibration/steady Gate �
 ### 4.4 Cycle 3 E3 证据纠正
 
 2026-09-13 在 umi workspace 核查：E3 共计划 240 runs，实际存在 71 个 completion marker，其中 62 completed、9 timeout（10,800 秒），169 未尝试；最后 marker 日期为 2026-09-07，当前无执行进程，也没有 aggregate artifacts。因此 E3 状态从陈旧的“执行中”纠正为 `incomplete`，不支持 C4-ROBUSTNESS。部分 Cycle 3 runs 保留为 provenance，不与 Cycle 4 修复后的模型合并。
+
+### 4.5 WP0 交付物与 V1F 期间的独立核验（2026-09-16）
+
+V1F 运行期间完成了两项不依赖其结果的 WP0 工作。
+
+**模型规范与因果结构已写实。** 新建 [research/model-specification-c4.md](model-specification-c4.md)，
+逐条对照活动源码给出：单步更新流水线及其顺序、运动/边界/温控的实际过程、交换公式与边界政策、
+随机来源、原地更新的顺序效应、生产—衰减组合因子、因果图与缺失的 `w → (x, p)` 边、
+可观测诊断的适用边界、执行模式支持矩阵，以及旧结论处置表（WP0 §3.3）。
+它同时关闭 S01 与 S09 的文档部分；未关闭的六项在文末列出，其中唯一科学阻塞仍是稳态前提。
+
+写实过程中确认的、此前未在台账中逐条记录的事实：
+
+- `exchange_halos` 在 `main.cpp` 中**没有任何调用点**（`grep` 全仓核实，仅在定义处出现），
+  因此 R10.2 的"halo 未接入每步力/交换"是代码级事实而非推测；
+- `CellList::for_each_pair` 的行主序遍历 + 计数排序插入序构成原地交换的确定顺序，
+  且 `r2 > 0` 严格排除重合粒子对；
+- `ability_saturation_w` 未在 V1F config 中显式给出，取默认值 **5.0**，恰好等于
+  `mean_wealth = 5`，因此能力函数在均值财富处半饱和——它是模型参数而非数值细节；
+- V1F 的 `order` 层显式设 `temperature = 0.0`（配 `initial_temperature = 0.5`），
+  与 `timestep` 层的 `temperature = 0.5` 不同，两层结论不可互相引用。
+
+**E1-C4 冻结 seeds 互斥性已复核。** 对仓库内全部 `research/jobs/*/seeds.txt` 与 job JSON 中的
+`seed` 字段做全量扫描，E1-C4 的 64 个冻结 seeds（`11657`–`12241`）与 Cycle 1–3 全部任务、
+以及 `V1`/`V1B`/`V1C`/`V1E`/`V1F`/`V1P` 的**交集均为 0**，`e1-cycle4-design.md` §2 的冻结声明成立。
+复核方法为纯记账比对，不执行任何模拟器或实验脚本。

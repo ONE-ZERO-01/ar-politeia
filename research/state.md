@@ -129,6 +129,26 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - The numerical error bounds are now empirically resolved, but the steady-state
   premise remains unvalidated. No Cycle 4 confirmatory claim is currently
   supported.
+- WP0's model-specification deliverable is written:
+  `research/model-specification-c4.md` records the actual implemented process
+  (per-step stage order, BBK integration and reflection boundaries, the
+  Berendsen thermostat with its two correction regimes, the exchange formula and
+  its boundary policy, deterministic per-pair random signs keyed by stable GIDs,
+  serial in-place update order, and the production-decay bundle), the causal
+  graph including the **absent** `w -> (x, p)` edge, the support matrix, and the
+  disposition table for older evidence. This closes the documentation part of
+  S01 and S09. Source-level facts confirmed while writing it: `exchange_halos`
+  has no call site in `main.cpp`; `ability_saturation_w` defaults to 5.0,
+  exactly the configured mean wealth; the V1F `order` layer runs at
+  `temperature = 0.0` while the `timestep` layer runs at 0.5.
+- E1-C4's frozen seed-disjointness claim was re-verified by bookkeeping across
+  every tracked `seeds.txt` and job config: the 64 frozen E1-C4 seeds have zero
+  intersection with all Cycle 1-3 jobs and with V1/V1B/V1C/V1E/V1F/V1P.
+- V1F is still running on umi under jobctl pid 2647912. At 2026-09-16 13:17
+  +08:00 it had completed 640/960 runs with zero non-empty stderr files and zero
+  thermostat triggers, consistent with the 41.4 wall-hour estimate; E1 stays
+  blocked until it passes, is archived by `archive-v1f`, and the promotion
+  `prepare`/`finalize` chain produces the final Cycle 4 lock.
 
 ## Cycle 3 E3 correction
 
