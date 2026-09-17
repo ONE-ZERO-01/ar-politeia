@@ -663,11 +663,22 @@ def test_archive_e1_rejects_gate_verdict_disagreeing_with_its_own_gate_block(tmp
 
 
 def test_archive_e1_rejects_a_claim_that_fails_a_gate(tmp_path):
+    """A verdict may not be recorded as passing while one of its gates failed."""
     job_dir, jobctl_dir = _e1_fixture(tmp_path)
     paired_path = job_dir / "workspace/paired_effects.json"
     paired = json.loads(paired_path.read_text())
     paired["gates"]["tail_stationarity"] = False
+    # Keep analysis_gate_pass True and the steady/ensemble reports agreeing with
+    # the failing gate, so the only broken invariant is the conjunction itself.
     _write_json(paired_path, paired)
+    steady_path = job_dir / "workspace/steady_estimand_report.json"
+    steady = json.loads(steady_path.read_text())
+    steady["tail_stationarity_valid"] = False
+    _write_json(steady_path, steady)
+    ensemble_path = job_dir / "workspace/ensemble_stationarity_report.json"
+    ensemble = json.loads(ensemble_path.read_text())
+    ensemble["stationarity_valid"] = False
+    _write_json(ensemble_path, ensemble)
 
     with pytest.raises(RuntimeError, match="verdict disagrees with its gate block"):
         promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
