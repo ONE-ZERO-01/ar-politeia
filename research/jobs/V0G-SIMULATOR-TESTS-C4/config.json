@@ -1,0 +1,14 @@
+{
+  "experiment_id": "V0G-SIMULATOR-TESTS-C4",
+  "source_commit": "9424b211053642ce8facfe2083c7b632b6a99749",
+  "execution_host": "umi",
+  "build_jobs": 4,
+  "openmp_modes": [
+    false,
+    true
+  ],
+  "mpi_enabled": false,
+  "build_type": "Release",
+  "run_pytest": true,
+  "test_scope": "Final Cycle 4 lock/calibration/binary binding, matched E1-C4 runner, two-window gates, and all simulator invariants."
+}
