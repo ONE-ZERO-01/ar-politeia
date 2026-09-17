@@ -229,10 +229,23 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 财富相差 +43.6%，`w/w_ref` 从 0.276 变为 0.397，交换核工作点不同。因此 Gini 的配对差
 **不能**解释为纯空间组织效应，而是"空间组织 + 平衡财富尺度"的合成。处置：
 
-- 在 `e1-cycle4-readiness.md` 与最终锁中预注册该限定；
+- 在 `e1-cycle4-readiness.md` 中于锁冻结前预注册该限定（2026-09-16，已完成）；锁本身通过
+  `design_contract.secondary_family = ["wealth_gini"]` 命名该 family，并通过
+  `analysis_commit = b6d24b76…` 绑定释放该限定文本的分析器（`_wealth_scale_diagnostics()`，
+  `gate_role = "diagnostic only; never enters a gate"`）；
 - E1-C4 必须把 `mean_wealth` 作为诊断量随 `result.json` 一并报告，使该合成可被读者核算；
 - Gini 结论的措辞限定为"空间组织与其伴随的平衡财富尺度变化"的合成效应，
   不得写成单通道空间效应。
+
+> **复核修正（2026-09-17）。** 本节原文写作"在 `e1-cycle4-readiness.md` **与最终锁中**预注册该限定"，
+> 这与锁的 schema 不符：`parameter_lock.cycle4.json` 只能表达 family 名（`secondary_family`）与
+> `analysis_commit` 绑定，无法承载限定文本。该限定实际由两条具约束力的路径固定：冻结前登记的
+> `e1-cycle4-readiness.md`（2026-09-16），以及锁 `analysis_commit = b6d24b76…` 中
+> `_wealth_scale_diagnostics()` 释放的 `interpretation` / `gate_role` 字段（已随
+> `research/jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json` 归档入 git）。这是**措辞过度承诺**，
+> 不是证据完整性缺口；`wealth_gini` 亦非显著（CI 含 0），无结论依赖它。
+> **锁不得补写**：E1-C4 的 `config.json`、`result.json`、`parameter_lock_audit` 与归档 manifest
+> 均绑定锁 SHA `bee66e70…`，事后改动会切断该绑定链，且落在 `amendment_policy` 所禁的事后知情变更内。
 
 这些是**判据解释**层面的限定，不改参数、不改样本量、不改任何阈值，因此不使 V1F 的
 数值校准失效，也不需要重新校准。
@@ -282,9 +295,20 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 
 ## 8. 统计契约、seeds 与预算
 
-- **seeds 必须全新且互斥**。可用池 = 未出现在 Cycle 1–3、`V1`/`V1B`/`V1C`/`V1E`/`V1F`/`V1P`
-  与 E1-C4 的 64 个冻结 seeds（`11657–12241`）中的素数。沿用 E1-C4 的记账式互斥审计
-  （对全部 `seeds.txt` 与 job config 的 `seed` 字段全量比对），该方法本轮已复核过一遍。
+- **seeds 必须全新且互斥**。审计已实现为 `seeds-audit` 子命令
+  （`research/src/experiments/prepare_cycle4_confirmation.py`），扫描**全部** `research/jobs/*/`
+  的三条通道：`seeds.txt`、job JSON 的**顶层** `seeds`/`seed` 字段，以及 `result.json`/`manifest.json`
+  运行标识里的 `seed-<n>`。第三条是唯一能抓住 `V1D`/`V1BD`/`V1CD` 这类带 `seed_waiver` 的 job 的通道
+  （其 `seeds.txt` 为空，却实际消耗了 `6101/6203/6301/6407/6503`）。未登记的跨 job 复用**直接报错**；
+  新实验故意不在 `SEED_REUSE_COMPONENTS` 内，因此 E2-C4 一旦撞用旧 seed 会在提交前失败。
+- **实测台账（2026-09-17）**：全库 28 个 job 共消耗 **211 个不同 seed**（范围 101–12241），
+  96 个重叠组，全部归属 4 个已登记或历史 component（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1 谱系、
+  V1F↔V1G 配对）。两处**历史记账缺陷**已登记、不追溯修改，且不承载任何确认性结论：
+  `E0-NUMERICS` 与 `E1-MATCHED-LANDSCAPES` 撞用 seed `1103`；三个冻结 seed 非素数
+  —— `6407`、`6503`（V1）与 `9071`（V1C）。
+- **可用池的上界尚未冻结，这是 R 冻结前必须补的显式决策**。本节只说了"未出现的素数"，未给窗口；
+  审计的 `--pool-min/--pool-max` 刻意**没有默认值**，以免该边界被隐式决定。应与 R 一同写入 E2-C4 的 lock：
+  例如 `12300–13000` 含 77 个未用素数，`--propose 32` 确定性地给出最小的 32 个（自 `12301` 起）。
 - **样本量不得继承 E1-C4 的 64**。64 是为配对景观对比的估计量定的，与 P2/P3 估计量不同。
   先用**非证据 pilot** 估计各对比的方差（只看方差与可比性，不看对比方向或大小，
   与 V1ED 对 V1E 的用法一致），再按既有"上取 2 的幂"政策冻结。
@@ -328,8 +352,9 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] `mean_source_rate`（P2 源总量核算量）（2026-09-17，代码）
 - [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
-- [ ] seeds 互斥审计（记账式，覆盖全部历史 job）——**待办**，需在冻结 R 前完成
-- [x] E1-C4 侧：Gini 限定预注册 + `mean_wealth` 入表（2026-09-16，在 `prepare` 之前完成）
+- [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 15 项测试；台账 211 seeds / 28 jobs / 96 重叠组）
+- [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**
+- [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
 - [ ] E2-C4 新实验 ID 与独立目录；Cycle 3 E2 结果不改写、只改解释——**待办**（ID 已在代码中固定）

@@ -62,7 +62,7 @@
       "priority": "P1",
       "status": "pending",
       "falsification": "The implemented causal paths do not match the registered estimands, a named disabled channel remains active, or a factorial contrast combines incomparable non-stationary cells.",
-      "experiments": ["E2-CHANNEL-SEMANTICS-C4"]
+      "experiments": ["E2-CHANNEL-ABLATION-C4"]
     },
     {
       "id": "C4-ROBUSTNESS-C4",
@@ -300,13 +300,13 @@
       "evidence": ["research/jobs/E1-MATCHED-LANDSCAPES-C4/result.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/manifest.json"]
     },
     {
-      "id": "E2-CHANNEL-SEMANTICS-C4",
+      "id": "E2-CHANNEL-ABLATION-C4",
       "claim_ids": ["C3-CHANNELS-C4"],
-      "objective": "Validate strict no-exchange behavior and estimate movement versus the explicitly named production-decay source-sink path; treat spatial production zero effect as a structural isolation check.",
+      "objective": "Disentangle spatial organisation from the explicitly named production-decay source-sink path under a factorial design (P1 landscape main effect, P2 landscape-at-closed-force, P3 exchange-kernel invariance, P4 force-on at frozen positions); treat the P3 spatial-production null as a structural isolation check rather than a substantive finding.",
       "mode": "server",
       "execution_host": "umi",
       "status": "deferred",
-      "blocked_by": "V1 calibration and estimand freeze"
+      "blocked_by": "freeze the available seed pool window alongside R; read-only pilot variance to freeze R; E2-C4 design_contract lock authorising E2-CHANNEL-ABLATION-C4"
     },
     {
       "id": "E3-ROBUSTNESS-C4",

@@ -374,7 +374,7 @@ RNG 状态与数组顺序共同决定，所以 restart 在原理上无法复现�
 热噪声按数组下标消费（A3），换行序即换每个粒子拿到的噪声；这一耦合**从未被任何一层
 覆盖**，包括 wealth_gini 那 9.4e-5——因为 `T=0` 时该耦合不存在。
 
-**判定已就绪（2026-09-17，未提交）**：`V1G-ORDER-THERMAL-C4` 就是 V1F 的 order 层
+**判定已提交运行（2026-09-17，jobctl pid 2149600，128 runs）**：`V1G-ORDER-THERMAL-C4` 就是 V1F 的 order 层
 只改一个参数（`T 0.0 → 0.5`），景观/dt/时长/尾窗口/64 个 seed 全部不动，IC 用显式相态
 以保证两份输入是同一物理态、只有行序不同。判定规则预先冻结：每指标按 seed 配对
 `|mean| + 2·SE ≤ 已冻结 numerical_resolution_limits`，阈值从参数锁读出并重算校准文件
@@ -467,3 +467,42 @@ V1G-ORDER-THERMAL-C4 探针负责判定。定量上看它不威胁本次结论�
 需要该界限再增长一个数量级才可能侵入判定。E1-C4 jobctl 台账中的提交时刻（08:10）
 与实际不符（run 目录创建于 10:09、结果写于 15:17），属记账瑕疵，不影响证据链。
 
+
+## 4.10 seeds 互斥台账审计（2026-09-17，纯代码，为 E2-C4 授权前提）
+
+E2-C4 的设计契约要求 seeds 全新且互斥，而**此前并不存在覆盖全部历史 job 的审计**：
+`preflight._check_seeds` 只检查 `seeds.txt` 存在与非空、P0 是否 ≥3 个，不跨 job；
+`prepare_cycle4_confirmation._assert_e1_seeds_unused` 只单向护住 E1 的 64 个，且只看
+`config.json` 的 `seeds` 字段。本次把该审计实现为 `seeds-audit` 子命令。
+
+**三条通道，缺一不可。** 审计扫描每个 job 的
+（1）`seeds.txt`；（2）job JSON 的**顶层** `seeds`/`seed` 字段；
+（3）`result.json`/`manifest.json` 运行标识里的 `seed-<n>` 子串。
+第三条不是冗余：`V1D-STATIONARITY-DIAGNOSTIC-C4`、`V1BD-ENSEMBLE-DIAGNOSTIC-C4`、
+`V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4` 三个 job 的 `seeds.txt` 是**空的**（带 `seed_waiver.txt`），
+只在运行标识里留痕，却实际消耗了 `6101/6203/6301/6407/6503`。前两条通道都会漏掉它们。
+
+**实测台账。** 28 个 job、**211 个不同 seed**（范围 101–12241）、96 个重叠组，
+全部归属于 4 个 component（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1 谱系、V1F↔V1G 配对）。
+审计对未登记的跨 job 复用直接报错，而 E2-C4 故意不在 `SEED_REUSE_COMPONENTS` 内，
+因此它一旦撞用旧 seed 会在提交前失败，而不是在后续分析里才暴露。
+
+**顺带发现的两处历史记账缺陷（仅登记，不追溯修改）。**
+
+| 缺陷 | 事实 | 处置 |
+|---|---|---|
+| seed 撞用 | `E0-NUMERICS` 与 `E1-MATCHED-LANDSCAPES` 共用 `1103` | 登记为 grandfathered |
+| 非素数 seed | `6407`、`6503`（V1）与 `9071`（V1C）不是素数 | 报告而非报错 |
+
+两者都落在 Cycle 1–3 / V1 的**非确认性**实验里，不承载任何确认性结论，且三个 job 已冻结
+不可改。素数性是项目约定而非科学要求（唯一硬要求是唯一性），因此审计**报告**非素数 seed
+而不失败，只在生成新 seed 时保证素数。
+
+**一个刻意留下的显式决策。** `--pool-min/--pool-max` **没有默认值**：E2 设计文档只写了
+"未出现的素数"而未给窗口，把这个边界隐式定下来正是要避免的事。它应与 R 一同写入
+E2-C4 的 lock。示例：`12300–13000` 含 77 个未用素数，`--propose 32` 确定性地给出最小的 32 个。
+
+**测试**：`tests/test_prepare_cycle4_confirmation.py` 新增 15 项（三条通道各自的抓取、
+sentinel 处理、嵌套 `seeds` 判为引用而非消耗、单文件内重复、`seeds.txt` 与 config 不一致、
+未登记复用报错、已登记复用通过、未注册 sentinel、非素数不报错、池与提议的边界，
+以及一项对真实仓库跑全量审计的集成守护）。全库 256 项测试通过。

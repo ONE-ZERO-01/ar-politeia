@@ -819,3 +819,173 @@ def test_cli_exposes_archive_e1():
     assert "archive_e1(" in parser_source
     assert module.E1_RUN_COUNT == 128
 
+
+# ---------------------------------------------------------------------------
+# Seeds mutual-exclusion ledger
+# ---------------------------------------------------------------------------
+
+
+def _seed_job(
+    root: Path,
+    name: str,
+    *,
+    seeds: list[int] | None = None,
+    seeds_txt: str | None = None,
+    config: dict | None = None,
+    result: dict | None = None,
+) -> Path:
+    """Materialise one job directory with only the seed channels a test needs."""
+    job_dir = root / "research/jobs" / name
+    job_dir.mkdir(parents=True, exist_ok=True)
+    if seeds_txt is not None:
+        (job_dir / "seeds.txt").write_text(seeds_txt, encoding="utf-8")
+    elif seeds is not None:
+        (job_dir / "seeds.txt").write_text(
+            "\n".join(str(seed) for seed in seeds) + "\n", encoding="utf-8"
+        )
+    payload = dict(config or {})
+    if seeds is not None and "seeds" not in payload:
+        payload["seeds"] = list(seeds)
+    if payload:
+        _write_json(job_dir / "config.json", payload)
+    if result is not None:
+        _write_json(job_dir / "result.json", result)
+    return job_dir
+
+
+def _audit(root: Path, **kwargs):
+    return promotion.audit_seeds(root / "research/jobs", **kwargs)
+
+
+def test_seed_ledger_harvests_every_channel(tmp_path):
+    job_dir = _seed_job(
+        tmp_path,
+        "JOB-A",
+        seeds=[11, 13],
+        result={"runs": ["seed-11--smooth", "seed-13--clustered"]},
+    )
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == [11, 13]
+    assert set(record["channels"]) == {"seeds.txt", "declared:config.json", "runids:result.json"}
+
+
+def test_seed_ledger_recovers_seeds_from_run_ids_alone(tmp_path):
+    """A seed-waiver job leaves its seeds only inside run identifiers."""
+    job_dir = _seed_job(
+        tmp_path,
+        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        seeds_txt="",
+        result={"runs": ["seed-6101--smooth", "seed-6203--smooth"]},
+    )
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == [6101, 6203]
+    assert "runids:result.json" in record["channels"]
+
+
+def test_seed_ledger_records_sentinels_without_counting_them(tmp_path):
+    job_dir = _seed_job(tmp_path, "JOB-A", seeds_txt="none\n")
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == []
+    assert record["sentinels"] == ["none"]
+
+
+def test_seed_ledger_treats_nested_seeds_as_references(tmp_path):
+    """V1P points at another design's seeds; that is not a consumption."""
+    job_dir = _seed_job(
+        tmp_path,
+        "V1P-RUNTIME-PILOT-C4",
+        seeds_txt="6007\n",
+        config={"seeds": [6007], "target_design": {"seeds": [6101, 6203]}},
+    )
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == [6007]
+    assert record["references"] == {"config.json:nested": [6101, 6203]}
+
+
+def test_audit_rejects_a_seed_repeated_inside_one_declaration(tmp_path):
+    _seed_job(tmp_path, "JOB-A", seeds_txt="11 11\n", config={"seeds": [11]})
+    with pytest.raises(RuntimeError, match="repeats seeds inside seeds.txt"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_a_stale_seeds_txt(tmp_path):
+    _seed_job(tmp_path, "JOB-A", seeds_txt="11\n", config={"seeds": [13]})
+    with pytest.raises(RuntimeError, match="one of the two is stale"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_an_unregistered_seed_overlap(tmp_path):
+    """Two unrelated jobs sharing a seed breaks run independence."""
+    _seed_job(tmp_path, "JOB-A", seeds=[11])
+    _seed_job(tmp_path, "JOB-B", seeds=[11])
+    with pytest.raises(RuntimeError, match="unregistered seed reuse"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_an_unregistered_sentinel(tmp_path):
+    _seed_job(tmp_path, "JOB-A", seeds_txt="n/a\n")
+    with pytest.raises(RuntimeError, match="not registered sentinels"):
+        _audit(tmp_path)
+
+
+def test_audit_accepts_a_registered_overlap(tmp_path):
+    """V1G must reuse V1F's seeds, because the pairing is the estimand."""
+    _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003, 11027])
+    _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003, 11027])
+    report = _audit(tmp_path)
+    assert report["used_seed_count"] == 2
+    assert [entry["registered"] for entry in report["overlaps"]] == [True, True]
+
+
+def test_audit_detects_a_leak_hidden_from_the_config(tmp_path):
+    """The run-id channel is what catches a seed the config never declares."""
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[6101], result={"runs": ["seed-6101"]})
+    _seed_job(
+        tmp_path,
+        "JOB-B",
+        seeds_txt="",
+        result={"runs": ["seed-6101"]},
+    )
+    with pytest.raises(RuntimeError, match="unregistered seed reuse"):
+        _audit(tmp_path)
+
+
+def test_audit_reports_non_prime_seeds_without_failing(tmp_path):
+    """Primality is a convention; frozen history violates it and cannot change."""
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[9, 11])
+    report = _audit(tmp_path)
+    assert report["non_prime_seeds"] == [9]
+    assert report["used_seeds"] == [9, 11]
+
+
+def test_audit_pool_excludes_used_seeds_and_proposes_smallest_primes(tmp_path):
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[12301])
+    report = _audit(tmp_path, pool_min=12300, pool_max=12350, propose=2)
+    assert 12301 not in report["pool"]["available_primes"]
+    assert report["proposed_seeds"] == [12323, 12329]
+
+
+def test_audit_pool_requires_both_bounds(tmp_path):
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[11])
+    with pytest.raises(RuntimeError, match="pool bounds must be given together"):
+        _audit(tmp_path, pool_min=12300)
+
+
+def test_audit_pool_rejects_an_impossible_proposal(tmp_path):
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[11])
+    with pytest.raises(RuntimeError, match="cannot propose"):
+        _audit(tmp_path, pool_min=12300, pool_max=12310, propose=5)
+
+
+def test_repository_ledger_holds_no_unregistered_overlap():
+    """Integration guard: the real ledger must stay leak-free as jobs accrue.
+
+    Post-V1F experiments are absent from SEED_REUSE_COMPONENTS, so a new job that
+    silently reuses an existing seed fails here rather than in a later analysis.
+    """
+    root = Path(__file__).parents[1]
+    report = promotion.audit_seeds(root / "research/jobs")
+    assert report["used_seed_count"] >= 211
+    assert set(promotion.E1_SEEDS) <= set(report["used_seeds"])
+    assert all(entry["reason"] is not None for entry in report["overlaps"])
+

@@ -243,6 +243,25 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   turning the spatial metrics from outcomes into identity guards; the uniform
   source comes from the `flat` landscape (constant exactly at the mean), so no
   C++ change is needed and the reference binary SHA is untouched.
+- The E2-C4 authorisation prerequisite for fresh, mutually exclusive seeds is now
+  met by a new `seeds-audit` subcommand
+  (`research/src/experiments/prepare_cycle4_confirmation.py`). It replaces a gap:
+  preflight only checked that `seeds.txt` exists and is non-empty, and the E1-C4
+  helper guarded only E1's own 64 seeds through `config.json` alone. The audit
+  reads three channels per job and treats a top-level `seeds`/`seed` field, a
+  `seeds.txt` list, and `seed-<n>` tokens inside run identifiers as consumed,
+  while a nested declaration such as V1P's `target_design.seeds` is recorded as a
+  reference instead. The run-identifier channel is what recovers the seeds of
+  `V1D`/`V1BD`/`V1CD`, three `seed_waiver` jobs whose `seeds.txt` is empty yet
+  whose results came from `6101/6203/6301/6407/6503`. The ledger now holds 211
+  distinct seeds across 28 jobs and 96 overlap groups, all inside four registered
+  or grandfathered components; unregistered reuse fails the audit, and E2-C4 is
+  deliberately absent from the register so it cannot silently reuse one. Two
+  historical accounting defects are recorded without rewriting them: seed `1103`
+  is shared by `E0-NUMERICS` and `E1-MATCHED-LANDSCAPES`, and `6407`, `6503` (V1)
+  and `9071` (V1C) are not prime. The available-pool window is left unset on
+  purpose (`--pool-min/--pool-max` have no defaults) because that boundary must be
+  frozen explicitly alongside R.
 - Reading mean wealth during the V1F run is disclosed as a protocol deviation in
   both `e1-cycle4-readiness.md` and `e2-cycle4-channel-design.md` section 5. The
   quantity read is a non-primary structural one, the purpose was to check a design

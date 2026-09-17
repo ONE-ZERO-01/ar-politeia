@@ -7,7 +7,9 @@ the V0G/E1 declarations.  ``finalize`` requires a passing V0G result and its
 rebuilt OpenMP-OFF binary before it makes the lock final and E1 executable.
 ``archive-v1f`` and ``archive-e1`` cross-check a finished run against its own
 declarations and compact it into tracked evidence; neither recomputes an effect
-or has any authority to relax a gate.
+or has any authority to relax a gate.  ``seeds-audit`` builds the bookkeeping
+ledger of every seed any job has consumed and refuses to let a new experiment
+reuse one silently.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -1048,17 +1051,369 @@ def _assert_no_e1_outcomes(root: Path) -> None:
         raise RuntimeError("refusing to change the Cycle 4 lock after E1 outcomes exist")
 
 
-def _assert_e1_seeds_unused(root: Path) -> None:
-    e1_seed_set = set(E1_SEEDS)
-    for path in (root / "research/jobs").glob("*/config.json"):
-        if path.parent.name == E1_ID:
+# ---------------------------------------------------------------------------
+# Seeds mutual-exclusion ledger
+# ---------------------------------------------------------------------------
+
+# A job that consumes no stochastic seeds writes a sentinel into seeds.txt
+# instead of a number. Sentinels are recorded for auditability but are never
+# treated as seeds.
+SEED_SENTINELS = frozenset({"none", "not-applicable-deterministic-tests"})
+
+# Jobs that are allowed to share seeds, grouped by the reason they may.
+#
+# Every seed found anywhere in the repository must have all of its consumers
+# inside one single component below. A consumer outside every component is a
+# leak: it means a job silently reused another job's random stream, which
+# breaks the independence assumption behind the pooled precision estimates.
+# Post-V1F experiments are deliberately absent from this table, so any overlap
+# they introduce fails the audit until it is registered explicitly.
+SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
+    {
+        "jobs": (
+            "B0-DYNAMICS-PILOT",
+            "B0-DYNAMICS-PILOT-C2",
+            "B0-DYNAMICS-PILOT-C3",
+        ),
+        "registered": True,
+        "reason": "cycle repeats of one pilot; seeds held fixed across C1-C3 on purpose",
+    },
+    {
+        "jobs": (
+            "E0-NUMERICS",
+            "E0-NUMERICS-C2",
+            "E0-NUMERICS-C3",
+            "E1-MATCHED-LANDSCAPES",
+            "E2-CHANNEL-ABLATION",
+        ),
+        "registered": False,
+        "reason": (
+            "Cycle 1-3 lineage: the Cycle 3 E2 ablation re-ran E1's seeds, and seed 1103 "
+            "additionally collides with E0. The 1103 collision is a grandfathered "
+            "accounting defect, not a design choice; no confirmatory claim rests on it."
+        ),
+    },
+    {
+        "jobs": (
+            "V1-NONFLAT-CALIBRATION-C4",
+            "V1D-STATIONARITY-DIAGNOSTIC-C4",
+            "V1P-RUNTIME-PILOT-C4",
+        ),
+        "registered": True,
+        "reason": (
+            "V1 lineage: the stationarity and runtime diagnostics re-run V1's seeds so "
+            "their runs stay paired with the calibration they diagnose"
+        ),
+    },
+    {
+        "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
+        "registered": True,
+        "reason": (
+            "V1G re-runs V1F's exact 64 seeds at the same time points; the seed pairing "
+            "is the estimand, since storage order must be the only difference"
+        ),
+    },
+)
+
+_NUMERIC_SEED = re.compile(r"^\d+$")
+_RUN_ID_SEED = re.compile(r"seed-(\d+)")
+
+
+def _is_prime(value: int) -> bool:
+    if value < 2:
+        return False
+    if value % 2 == 0:
+        return value == 2
+    divisor = 3
+    while divisor * divisor <= value:
+        if value % divisor == 0:
+            return False
+        divisor += 2
+    return True
+
+
+def _load_seed_json(path: Path) -> Any:
+    """Load a job JSON file tolerantly; job payloads may be objects or arrays."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _seed_values(value: Any) -> list[int]:
+    """Normalise a ``seeds``/``seed`` field into a list of integers."""
+    if isinstance(value, list):
+        return [
+            item for item in value if isinstance(item, int) and not isinstance(item, bool)
+        ]
+    if isinstance(value, int) and not isinstance(value, bool):
+        return [value]
+    if isinstance(value, str) and _NUMERIC_SEED.match(value):
+        return [int(value)]
+    return []
+
+
+def _collect_nested_seeds(node: Any) -> list[int]:
+    """Seeds named inside a nested block, such as V1P's ``target_design.seeds``.
+
+    A nested declaration describes a design the job *points at* rather than one
+    it ran, so it is recorded as a reference and kept out of the
+    mutual-exclusion set. Only the top level of a job file declares consumed
+    seeds.
+    """
+    found: list[int] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in ("seeds", "seed"):
+                found.extend(_seed_values(value))
+            else:
+                found.extend(_collect_nested_seeds(value))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_collect_nested_seeds(item))
+    return found
+
+
+def _collect_run_id_seeds(node: Any) -> list[int]:
+    """Seeds recoverable only from ``seed-<n>`` tokens inside run identifiers."""
+    found: list[int] = []
+    if isinstance(node, dict):
+        for value in node.values():
+            found.extend(_collect_run_id_seeds(value))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_collect_run_id_seeds(item))
+    elif isinstance(node, str):
+        found.extend(int(match.group(1)) for match in _RUN_ID_SEED.finditer(node))
+    return found
+
+
+def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
+    """Collect every seed a job consumed, from every channel it can appear on.
+
+    Seeds reach the record through three independent channels, and a job may use
+    only some of them:
+
+    * ``seeds.txt``, the declared list that preflight checks;
+    * a top-level ``seeds``/``seed`` field in a job JSON file;
+    * ``seed-<n>`` tokens inside run identifiers in ``result.json`` or
+      ``manifest.json``, which is the only trace left behind by jobs that
+      shipped with a seed waiver.
+
+    The third channel is what catches a job like
+    ``V1D-STATIONARITY-DIAGNOSTIC-C4``, whose ``seeds.txt`` is empty yet whose
+    results were produced from five specific seeds.
+    """
+    sentinels: list[str] = []
+    channels: dict[str, list[int]] = {}
+    references: dict[str, list[int]] = {}
+
+    seeds_file = job_dir / "seeds.txt"
+    if seeds_file.is_file():
+        tokens = [
+            token
+            for token in re.split(r"[\s,]+", seeds_file.read_text(encoding="utf-8").strip())
+            if token
+        ]
+        from_file = [int(token) for token in tokens if _NUMERIC_SEED.match(token)]
+        sentinels = [token for token in tokens if not _NUMERIC_SEED.match(token)]
+        if from_file:
+            channels["seeds.txt"] = from_file
+
+    for path in sorted(job_dir.glob("*.json")):
+        payload = _load_seed_json(path)
+        if payload is None:
             continue
-        payload = _read_json(path)
-        seeds = payload.get("seeds", [])
-        if isinstance(seeds, list) and e1_seed_set & set(seeds):
-            overlap = sorted(e1_seed_set & set(seeds))
+
+        consumed: list[int] = []
+        referenced: list[int] = []
+        if isinstance(payload, dict):
+            consumed.extend(_seed_values(payload.get("seeds")))
+            consumed.extend(_seed_values(payload.get("seed")))
+            referenced.extend(
+                _collect_nested_seeds(
+                    {
+                        key: value
+                        for key, value in payload.items()
+                        if key not in ("seeds", "seed")
+                    }
+                )
+            )
+        if consumed:
+            channels[f"declared:{path.name}"] = consumed
+        if referenced:
+            references[f"{path.name}:nested"] = sorted(set(referenced))
+
+        # Run identifiers are harvested as a set: one seed legitimately appears
+        # once per replicate and once per condition.
+        run_ids = sorted(set(_collect_run_id_seeds(payload)))
+        if run_ids:
+            channels[f"runids:{path.name}"] = run_ids
+
+    return {
+        "sentinels": sentinels,
+        "seeds": sorted({seed for group in channels.values() for seed in group}),
+        "channels": {name: list(group) for name, group in channels.items()},
+        "references": references,
+        # A seed repeated inside one declaration list is a typo, because it
+        # silently shrinks the realised seed count below the registered one.
+        # Run-identifier channels are excluded: repeats there are expected.
+        "duplicates": {
+            name: sorted(seed for seed in set(group) if group.count(seed) > 1)
+            for name, group in channels.items()
+            if not name.startswith("runids:") and len(set(group)) != len(group)
+        },
+    }
+
+
+def audit_seeds(
+    jobs_dir: Path,
+    *,
+    pool_min: int | None = None,
+    pool_max: int | None = None,
+    propose: int | None = None,
+) -> dict[str, Any]:
+    """Build the bookkeeping ledger of every seed consumed by every job.
+
+    Raises RuntimeError when the ledger is internally inconsistent, meaning a
+    job repeats a seed inside one channel, or declares its seeds two different
+    ways, or shares a seed with another job without a registered reason.
+    """
+    jobs = {
+        job_dir.name: _harvest_job_seeds(job_dir)
+        for job_dir in sorted(path for path in jobs_dir.iterdir() if path.is_dir())
+    }
+
+    # A seed drawn twice inside one declaration list is not a larger sample, it
+    # is a typo, and it would silently shrink the realised seed count.
+    for job, record in jobs.items():
+        for channel, repeats in record["duplicates"].items():
+            raise RuntimeError(f"{job} repeats seeds inside {channel}: {repeats}")
+
+    # A non-numeric token in seeds.txt is either a registered sentinel or a typo;
+    # an unrecognised token would otherwise be dropped silently.
+    for job, record in jobs.items():
+        unknown = [token for token in record["sentinels"] if token not in SEED_SENTINELS]
+        if unknown:
             raise RuntimeError(
-                f"E1 seeds are no longer unseen; overlap in {path.parent.name}: {overlap}"
+                f"{job} has non-numeric seeds.txt entries that are not registered "
+                f"sentinels: {unknown}"
+            )
+
+    # seeds.txt and the structured declarations must agree; a disagreement means
+    # one of the two is stale and the ledger cannot be trusted.
+    for job, record in jobs.items():
+        channels = record["channels"]
+        from_file = set(channels.get("seeds.txt", []))
+        declared = {
+            seed
+            for name, group in channels.items()
+            if name.startswith("declared:")
+            for seed in group
+        }
+        if from_file and declared and from_file != declared:
+            raise RuntimeError(
+                f"{job} declares seeds.txt {sorted(from_file)} but config/experiment "
+                f"{sorted(declared)}; one of the two is stale"
+            )
+
+    consumers: dict[int, set[str]] = {}
+    for job, record in jobs.items():
+        for seed in record["seeds"]:
+            consumers.setdefault(seed, set()).add(job)
+
+    components = [set(entry["jobs"]) for entry in SEED_REUSE_COMPONENTS]
+    overlaps: list[dict[str, Any]] = []
+    for seed, users in sorted(consumers.items()):
+        if len(users) < 2:
+            continue
+        owner = next((index for index, c in enumerate(components) if users <= c), None)
+        overlaps.append(
+            {
+                "seed": seed,
+                "jobs": sorted(users),
+                "reason": SEED_REUSE_COMPONENTS[owner]["reason"] if owner is not None else None,
+                "registered": (
+                    SEED_REUSE_COMPONENTS[owner]["registered"] if owner is not None else False
+                ),
+            }
+        )
+
+    leaks = [entry for entry in overlaps if entry["reason"] is None]
+    if leaks:
+        detail = "; ".join(
+            f"seed {entry['seed']} shared by {entry['jobs']}" for entry in leaks
+        )
+        raise RuntimeError(f"unregistered seed reuse breaks run independence: {detail}")
+
+    used = sorted(consumers)
+    # Primality is a project convention, not a scientific requirement, and three
+    # frozen historical seeds break it (6407 and 6503 in V1, 9071 in V1C). They
+    # are reported rather than rejected so the ledger stays usable as evidence.
+    non_prime = [seed for seed in used if not _is_prime(seed)]
+
+    report: dict[str, Any] = {
+        "job_count": len(jobs),
+        "used_seed_count": len(used),
+        "used_seeds": used,
+        "non_prime_seeds": non_prime,
+        "jobs": jobs,
+        "overlaps": overlaps,
+        "references": {
+            job: record["references"]
+            for job, record in sorted(jobs.items())
+            if record["references"]
+        },
+        "grandfathered_overlaps": [
+            entry for entry in overlaps if entry["reason"] is not None and not entry["registered"]
+        ],
+    }
+
+    if pool_min is None and pool_max is None:
+        return report
+    if pool_min is None or pool_max is None:
+        raise RuntimeError("pool bounds must be given together")
+    if pool_max <= pool_min:
+        raise RuntimeError("pool_max must exceed pool_min")
+
+    pool = [
+        value
+        for value in range(pool_min, pool_max + 1)
+        if _is_prime(value) and value not in consumers
+    ]
+    report["pool"] = {
+        "min": pool_min,
+        "max": pool_max,
+        "available_count": len(pool),
+        "available_primes": pool,
+    }
+    if propose is not None:
+        if propose < 1:
+            raise RuntimeError("propose must request at least one seed")
+        if len(pool) < propose:
+            raise RuntimeError(
+                f"pool [{pool_min}, {pool_max}] holds {len(pool)} unused primes, "
+                f"cannot propose {propose}"
+            )
+        report["proposed_seeds"] = pool[:propose]
+    return report
+
+
+def _assert_e1_seeds_unused(root: Path) -> None:
+    """Reject a lock whose E1 seeds are no longer unseen by any other job.
+
+    Every channel is checked rather than just ``config.json``, because a job can
+    consume a seed while declaring it only inside a run identifier.
+    """
+    e1_seed_set = set(E1_SEEDS)
+    jobs_dir = root / "research/jobs"
+    for job_dir in sorted(path for path in jobs_dir.iterdir() if path.is_dir()):
+        if job_dir.name == E1_ID:
+            continue
+        overlap = e1_seed_set & set(_harvest_job_seeds(job_dir)["seeds"])
+        if overlap:
+            raise RuntimeError(
+                f"E1 seeds are no longer unseen; overlap in {job_dir.name}: {sorted(overlap)}"
             )
 
 
@@ -1254,6 +1609,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     finalize_parser = subparsers.add_parser("finalize")
     finalize_parser.add_argument("--v0g-result", required=True)
     finalize_parser.add_argument("--binary", required=True)
+    seeds_parser = subparsers.add_parser("seeds-audit")
+    seeds_parser.add_argument("--jobs-dir", default="research/jobs")
+    seeds_parser.add_argument("--pool-min", type=int, default=None)
+    seeds_parser.add_argument("--pool-max", type=int, default=None)
+    seeds_parser.add_argument("--propose", type=int, default=None)
+    seeds_parser.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
@@ -1275,6 +1636,48 @@ def main(argv: Sequence[str] | None = None) -> int:
             (PROJECT_ROOT / args.v1f_config).resolve(),
             args.source_commit,
         )
+    elif args.command == "seeds-audit":
+        report = audit_seeds(
+            (PROJECT_ROOT / args.jobs_dir).resolve(),
+            pool_min=args.pool_min,
+            pool_max=args.pool_max,
+            propose=args.propose,
+        )
+        print(
+            f"{report['used_seed_count']} distinct seeds across {report['job_count']} jobs"
+        )
+        for job, record in sorted(report["jobs"].items()):
+            if record["seeds"]:
+                print(f"  {job}: {len(record['seeds'])} seeds")
+            else:
+                sentinel = ", ".join(record["sentinels"]) or "none declared"
+                print(f"  {job}: no seeds ({sentinel})")
+        print(f"cross-job overlap groups: {len(report['overlaps'])}")
+        grouped: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+        for entry in report["overlaps"]:
+            grouped.setdefault(tuple(entry["jobs"]), []).append(entry)
+        for jobs_in_common, entries in sorted(grouped.items()):
+            tag = "registered" if entries[0]["registered"] else "grandfathered"
+            print(f"  [{tag}] {len(entries)} seeds shared by {', '.join(jobs_in_common)}")
+        if report["non_prime_seeds"]:
+            print(f"non-prime seeds (convention violation): {report['non_prime_seeds']}")
+        for job, refs in report["references"].items():
+            for name, seeds in refs.items():
+                print(f"referenced (not consumed): {job} {name} = {seeds}")
+        if "pool" in report:
+            pool = report["pool"]
+            print(
+                f"pool [{pool['min']}, {pool['max']}]: "
+                f"{pool['available_count']} unused primes"
+            )
+        if "proposed_seeds" in report:
+            print(f"proposed seeds: {report['proposed_seeds']}")
+        if args.out:
+            (PROJECT_ROOT / args.out).write_text(
+                json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+                encoding="utf-8",
+            )
+            print(f"wrote {args.out}")
     else:
         finalize(
             PROJECT_ROOT,
