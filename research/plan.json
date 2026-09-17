@@ -263,6 +263,20 @@
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
     {
+      "id": "V1G-ORDER-THERMAL-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Decide whether the frozen numerical resolution limits cover the storage-order channel at the reference temperature (S18), by rerunning V1F's order layer with temperature 0.0 changed to 0.5 and nothing else.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "running",
+      "blocked_by": "cleared: E1-C4 finished and released the concurrency slots (design section 8).",
+      "execution": "Submitted on umi at 2026-09-17 under jobctl pid 2149600; 128 run directories (64 seeds x canonical/permuted) were created and sixteen OMP=1 simulator processes entered execution with the reference temperature confirmed in the generated cfg.",
+      "design": "research/v1g-order-thermal-design.md",
+      "artifacts": ["order_thermal_report.json"],
+      "judgment": "Pre-frozen in the design before submission: bounded if and only if all four tail metrics satisfy |mean| + 2*SE <= the frozen numerical_resolution_limits. Diagnostic only; it produces no evidence for any E1/E2 landscape effect and must not be cited as such."
+    },
+    {
       "id": "V0G-SIMULATOR-TESTS-C4",
       "claim_ids": ["C2-LANDSCAPE-C4"],
       "objective": "Validate the Cycle 4 promotion and binary-binding contracts, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi; produce the final reference binary.",
