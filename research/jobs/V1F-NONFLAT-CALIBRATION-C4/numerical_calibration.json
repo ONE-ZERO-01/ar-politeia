@@ -1,0 +1,441 @@
+{
+  "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+  "pass": true,
+  "scope": "non-flat weak timestep convergence plus deterministic exchange-order sensitivity",
+  "timesteps": {
+    "coarse": 0.02,
+    "fine": 0.01,
+    "finest": 0.005
+  },
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": true,
+    "storage_order_sensitivity": true,
+    "stationarity": true,
+    "precision": true,
+    "adjacent_window_stability": true
+  },
+  "stationarity_gate_unit": "condition_ensemble_two_window",
+  "invariant_checks": {
+    "wealth_nonnegative": true,
+    "total_wealth_change_finite": true
+  },
+  "total_wealth_relative_drift_range": [
+    -0.8856665824026091,
+    -0.17280399476999866
+  ],
+  "discretization": {
+    "smooth": {
+      "resource_density_spearman_rho": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.000573694009404037,
+          "signed_mean_difference": 0.000573694009404037,
+          "paired_sample_sd": 0.012031350405674232,
+          "standard_error": 0.001503918800709279,
+          "two_se_bound": 0.003581531610822595,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.000958247858192731,
+          "signed_mean_difference": 0.000958247858192731,
+          "paired_sample_sd": 0.014526979260124601,
+          "standard_error": 0.0018158724075155752,
+          "two_se_bound": 0.004589992673223881,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "density_morans_i": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.001050074021150253,
+          "signed_mean_difference": 0.001050074021150253,
+          "paired_sample_sd": 0.012394622751936469,
+          "standard_error": 0.0015493278439920586,
+          "two_se_bound": 0.0041487297091343705,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.00012664379038743352,
+          "signed_mean_difference": 0.00012664379038743352,
+          "paired_sample_sd": 0.012528460625881968,
+          "standard_error": 0.001566057578235246,
+          "two_se_bound": 0.0032587589468579255,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "occupancy_entropy": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 7.913676120146519e-05,
+          "signed_mean_difference": -7.913676120146519e-05,
+          "paired_sample_sd": 0.0009832512940373917,
+          "standard_error": 0.00012290641175467397,
+          "two_se_bound": 0.00032494958471081313,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 3.632270281878243e-05,
+          "signed_mean_difference": -3.632270281878243e-05,
+          "paired_sample_sd": 0.0009764822183760167,
+          "standard_error": 0.00012206027729700209,
+          "two_se_bound": 0.00028044325741278663,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "wealth_gini": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0014276762394073023,
+          "signed_mean_difference": 0.0014276762394073023,
+          "paired_sample_sd": 0.0025033022913718535,
+          "standard_error": 0.0003129127864214817,
+          "two_se_bound": 0.0020535018122502654,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.000969170539859409,
+          "signed_mean_difference": 0.000969170539859409,
+          "paired_sample_sd": 0.0018864346466366524,
+          "standard_error": 0.00023580433082958155,
+          "two_se_bound": 0.0014407792015185721,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      }
+    },
+    "clustered": {
+      "resource_density_spearman_rho": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0005143584010936821,
+          "signed_mean_difference": 0.0005143584010936821,
+          "paired_sample_sd": 0.007661464720957028,
+          "standard_error": 0.0009576830901196285,
+          "two_se_bound": 0.002429724581332939,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.0010058173777290642,
+          "signed_mean_difference": -0.0010058173777290642,
+          "paired_sample_sd": 0.006009789012503823,
+          "standard_error": 0.0007512236265629779,
+          "two_se_bound": 0.0025082646308550198,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "density_morans_i": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0003661972615619019,
+          "signed_mean_difference": -0.0003661972615619019,
+          "paired_sample_sd": 0.0054192996589305575,
+          "standard_error": 0.0006774124573663197,
+          "two_se_bound": 0.0017210221762945413,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.0002934000165354493,
+          "signed_mean_difference": 0.0002934000165354493,
+          "paired_sample_sd": 0.006922306716927789,
+          "standard_error": 0.0008652883396159737,
+          "two_se_bound": 0.0020239766957673966,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "occupancy_entropy": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 7.265013671626814e-05,
+          "signed_mean_difference": 7.265013671626814e-05,
+          "paired_sample_sd": 0.002700100434054737,
+          "standard_error": 0.0003375125542568421,
+          "two_se_bound": 0.0007476752452299524,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.00031952806044577894,
+          "signed_mean_difference": -0.00031952806044577894,
+          "paired_sample_sd": 0.002701170773030721,
+          "standard_error": 0.00033764634662884015,
+          "two_se_bound": 0.0009948207537034592,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "wealth_gini": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0005651960109524443,
+          "signed_mean_difference": 0.0005651960109524443,
+          "paired_sample_sd": 0.0023224823867045268,
+          "standard_error": 0.00029031029833806584,
+          "two_se_bound": 0.001145816607628576,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.0006976267903229406,
+          "signed_mean_difference": 0.0006976267903229406,
+          "paired_sample_sd": 0.002362875736077672,
+          "standard_error": 0.000295359467009709,
+          "two_se_bound": 0.0012883457243423584,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      }
+    },
+    "shuffled": {
+      "resource_density_spearman_rho": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0001537105912698348,
+          "signed_mean_difference": -0.0001537105912698348,
+          "paired_sample_sd": 0.0029953344418807773,
+          "standard_error": 0.00037441680523509716,
+          "two_se_bound": 0.0009025442017400291,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.00017975234730027148,
+          "signed_mean_difference": 0.00017975234730027148,
+          "paired_sample_sd": 0.002718768810029852,
+          "standard_error": 0.0003398461012537315,
+          "two_se_bound": 0.0008594445498077345,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "density_morans_i": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.00026110277687816296,
+          "signed_mean_difference": -0.00026110277687816296,
+          "paired_sample_sd": 0.008960506700239719,
+          "standard_error": 0.0011200633375299648,
+          "two_se_bound": 0.0025012294519380926,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 3.334652930631369e-05,
+          "signed_mean_difference": 3.334652930631369e-05,
+          "paired_sample_sd": 0.009914188166901754,
+          "standard_error": 0.0012392735208627192,
+          "two_se_bound": 0.002511893571031752,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.02,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "occupancy_entropy": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0001716546807926187,
+          "signed_mean_difference": -0.0001716546807926187,
+          "paired_sample_sd": 0.00329586982023735,
+          "standard_error": 0.00041198372752966877,
+          "two_se_bound": 0.0009956221358519562,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 1.5663946005694748e-05,
+          "signed_mean_difference": -1.5663946005694748e-05,
+          "paired_sample_sd": 0.0029536839046750392,
+          "standard_error": 0.0003692104880843799,
+          "two_se_bound": 0.0007540849221744546,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      },
+      "wealth_gini": {
+        "coarse_vs_fine": {
+          "absolute_mean_difference": 0.0007786658156064361,
+          "signed_mean_difference": 0.0007786658156064361,
+          "paired_sample_sd": 0.002561944858271139,
+          "standard_error": 0.0003202431072838924,
+          "two_se_bound": 0.0014191520301742209,
+          "replicates": 64
+        },
+        "fine_vs_finest": {
+          "absolute_mean_difference": 0.0005638149481000231,
+          "signed_mean_difference": 0.0005638149481000231,
+          "paired_sample_sd": 0.0026103738080845286,
+          "standard_error": 0.00032629672601056607,
+          "two_se_bound": 0.0012164084001211554,
+          "replicates": 64
+        },
+        "trend_pass": true,
+        "ceiling": 0.01,
+        "ceiling_pass": true,
+        "pass": true
+      }
+    }
+  },
+  "storage_order_sensitivity": {
+    "resource_density_spearman_rho": {
+      "by_dt": {
+        "0.02": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.01": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.0050000000000000001": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        }
+      },
+      "trend_pass": true,
+      "ceiling": 0.02,
+      "ceiling_pass": true,
+      "bounded_by_discretization": true,
+      "pass": true
+    },
+    "density_morans_i": {
+      "by_dt": {
+        "0.02": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.01": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.0050000000000000001": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        }
+      },
+      "trend_pass": true,
+      "ceiling": 0.02,
+      "ceiling_pass": true,
+      "bounded_by_discretization": true,
+      "pass": true
+    },
+    "occupancy_entropy": {
+      "by_dt": {
+        "0.02": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.01": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        },
+        "0.0050000000000000001": {
+          "absolute_mean_difference": 0.0,
+          "signed_mean_difference": 0.0,
+          "paired_sample_sd": 0.0,
+          "standard_error": 0.0,
+          "two_se_bound": 0.0,
+          "replicates": 64
+        }
+      },
+      "trend_pass": true,
+      "ceiling": 0.01,
+      "ceiling_pass": true,
+      "bounded_by_discretization": true,
+      "pass": true
+    },
+    "wealth_gini": {
+      "by_dt": {
+        "0.02": {
+          "absolute_mean_difference": 0.0002204677127260659,
+          "signed_mean_difference": -0.0002204677127260659,
+          "paired_sample_sd": 0.0006797407661009895,
+          "standard_error": 8.496759576262368e-05,
+          "two_se_bound": 0.00039040290425131324,
+          "replicates": 64
+        },
+        "0.01": {
+          "absolute_mean_difference": 0.00011769539667149352,
+          "signed_mean_difference": -0.00011769539667149352,
+          "paired_sample_sd": 0.00039477715254389426,
+          "standard_error": 4.934714406798678e-05,
+          "two_se_bound": 0.00021638968480746707,
+          "replicates": 64
+        },
+        "0.0050000000000000001": {
+          "absolute_mean_difference": 9.384269572466561e-05,
+          "signed_mean_difference": -9.384269572466561e-05,
+          "paired_sample_sd": 0.00024249867101812435,
+          "standard_error": 3.0312333877265543e-05,
+          "two_se_bound": 0.0001544673634791967,
+          "replicates": 64
+        }
+      },
+      "trend_pass": true,
+      "ceiling": 0.01,
+      "ceiling_pass": true,
+      "bounded_by_discretization": true,
+      "pass": true
+    }
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.004589992673223881,
+    "density_morans_i": 0.0032587589468579255,
+    "occupancy_entropy": 0.0009948207537034592,
+    "wealth_gini": 0.0014407792015185721
+  },
+  "threshold_policy": "Resolution limits bound numerical error only. Scientific relevance thresholds for E1 must be frozen separately before confirmatory runs.",
+  "pathwise_claim": false
+}

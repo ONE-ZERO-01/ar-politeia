@@ -1,0 +1,57 @@
+{
+  "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+  "status": "completed_passed_gate",
+  "pass": true,
+  "execution_completed": true,
+  "runs_planned": 960,
+  "runs_completed": 960,
+  "run_failures": 0,
+  "execution_host": "umi",
+  "source_commit": "48ad02a79dd6b1807fdec12b315e948ba549a2a8",
+  "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+  "config_sha256": "7d0496884aa09564d51f99b9255c0f43f8fd17af6ff06a6f9e987da21b196079",
+  "calibration_sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+  "elapsed_cpu_hours": 340.9517786904104,
+  "maximum_single_run_seconds": 9884.783205855638,
+  "jobctl_wall_seconds": 166076.31495750323,
+  "gate_layers": {
+    "invariants": true,
+    "timestep_convergence": true,
+    "storage_order_sensitivity": true,
+    "tail_stationarity": true,
+    "adjacent_window_stability": true,
+    "independent_replicate_precision": true
+  },
+  "temporal_ess_diagnostic_valid": false,
+  "steady_estimand_layer": {
+    "conditions": 9,
+    "replicates_per_condition": 64,
+    "tail_stationarity_failed_conditions": 0,
+    "adjacent_window_failed_conditions": 0,
+    "independent_precision_failed_conditions": 0,
+    "temporal_ess_diagnostic_failed_conditions": 8,
+    "independent_precision_failed_metric_cells": 0,
+    "failed_precision_metrics": {}
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.004589992673223881,
+    "density_morans_i": 0.0032587589468579255,
+    "occupancy_entropy": 0.0009948207537034592,
+    "wealth_gini": 0.0014407792015185721
+  },
+  "failed_timestep_cells": [],
+  "failed_storage_order_metrics": [],
+  "workspace_artifact_sha256": {
+    "run_specs.json": "b32747ab0c22c32dfcb676fbfaa82f54434754221365ccea2b238eb74b60b7f5",
+    "matched_input_audit.json": "8e37e2b2f7a23ba6da452f8d9b649a6ac77d13705a17bc046b6891a481cdbf30",
+    "replicate_metrics.csv": "902b286a04647382449537707164cfdfc46881a0175107320a5b663fbf544dbc",
+    "stationarity_report.json": "71a8fa0c48f9c62b627aaeb70b2ebd64900e2aa1cd588c33117d43e00171edbe",
+    "ensemble_stationarity_report.json": "801890ae118e50444858dbabb69a2a94f68db000923f297fe1a1b9e42f075d6b",
+    "steady_estimand_report.json": "7727875cd6a206a651399cf5dff9bc9807268860e8c4c5120b4447bd64a7d777",
+    "numerical_calibration.json": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+    "result.json": "d7ac50ad7ac86b7fbf30c7ecc9a158cc0e85eea29fbdfaa6971192541ad026cb"
+  },
+  "conclusion": "V1F completed 960/960 runs and passed every frozen calibration gate.",
+  "next_action": "Run Cycle 4 promotion prepare; E1 remains blocked until V0G and finalization pass.",
+  "evidence_boundary": "Independent numerical calibration only; no Cycle 4 landscape-effect claim is supported."
+}

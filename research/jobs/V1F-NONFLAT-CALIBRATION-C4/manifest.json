@@ -1,0 +1,48 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 166076.31495750323,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {
+      "path": "workspace/run_specs.json",
+      "sha256": "b32747ab0c22c32dfcb676fbfaa82f54434754221365ccea2b238eb74b60b7f5",
+      "valid": true
+    },
+    {
+      "path": "workspace/matched_input_audit.json",
+      "sha256": "8e37e2b2f7a23ba6da452f8d9b649a6ac77d13705a17bc046b6891a481cdbf30",
+      "valid": true
+    },
+    {
+      "path": "workspace/replicate_metrics.csv",
+      "sha256": "902b286a04647382449537707164cfdfc46881a0175107320a5b663fbf544dbc",
+      "valid": true
+    },
+    {
+      "path": "workspace/stationarity_report.json",
+      "sha256": "71a8fa0c48f9c62b627aaeb70b2ebd64900e2aa1cd588c33117d43e00171edbe",
+      "valid": true
+    },
+    {
+      "path": "workspace/ensemble_stationarity_report.json",
+      "sha256": "801890ae118e50444858dbabb69a2a94f68db000923f297fe1a1b9e42f075d6b",
+      "valid": true
+    },
+    {
+      "path": "workspace/steady_estimand_report.json",
+      "sha256": "7727875cd6a206a651399cf5dff9bc9807268860e8c4c5120b4447bd64a7d777",
+      "valid": true
+    },
+    {
+      "path": "workspace/numerical_calibration.json",
+      "sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+      "valid": true
+    },
+    {
+      "path": "workspace/result.json",
+      "sha256": "d7ac50ad7ac86b7fbf30c7ecc9a158cc0e85eea29fbdfaa6971192541ad026cb",
+      "valid": true
+    }
+  ]
+}
