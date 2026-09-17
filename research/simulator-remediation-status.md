@@ -61,6 +61,12 @@
   `E2_C4_EXPERIMENT` 分支，E1-C4 的 `run_specs.json` schema 恢复为冻结状态；E2-C4 源项核算
   缺键时前置 fail-fast；`tests/test_run_landscape_study_gates.py` 新增
   `E1_C4_FROZEN_RUN_SPEC_KEYS` 契约与两条回归（schema 冻结、源项缺键拒绝）。本地 192/192 通过。
+- 冻结声明完整性护栏（2026-09-17，S14 的机制化收尾）：新增
+  `tests/test_cycle4_frozen_declarations.py`（8 项），把 Cycle 4 授权链的交叉引用
+  变成机器校验——校准文件 ⇄ 归档结果 ⇄ 最终参数锁 ⇄ 实验声明 ⇄ 参考 binary SHA、
+  `source_commit`、config/artifacts 哈希，外加"有效阈值 = max(数值上限, SESOI)"
+  且 SESOI 必须在四项上严格占优。此前 promotion 测试只对**合成临时目录**做生成器测试，
+  没有任何测试钉住真实归档层之间的绑定，因此 S14 那样的错绑可以整体通过测试。本地 200/200 通过。
 
 ## 4. 复审修复（R01–R12 · 阶段 A+B 本地，2026-09-08）
 
@@ -282,3 +288,14 @@ artifact。该等价性是被实测的，不是被论证的。最终锁的两处
 
 被作废的中间产物（`e397bef` 上的候选/最终锁与 V0G/E1 声明）已删除，其 jobctl 记录
 留档为 `.autoresearcher/jobs/V0G-SIMULATOR-TESTS-C4.superseded-e397bef`。
+
+**S14 的机制化收尾（2026-09-17）。** S14 能发生，是因为整条授权链只靠文档陈述、没有
+任何机器校验：promotion 测试全部对合成临时目录做生成器测试，真实归档层之间的绑定
+（校准 ⇄ 结果 ⇄ 锁 ⇄ 声明 ⇄ binary SHA）无人核对。现已新增
+`tests/test_cycle4_frozen_declarations.py`（8 项，只读 tracked 文件、不执行模拟器）
+把每一处交叉引用钉死，其中包括 S14 的直接判据：
+`lock.numerical_calibration.reference_binary_sha256` ==
+`lock.simulator_validation.binary_sha256` == 归档结果的 `binary_sha256` ==
+实验声明的 `data_checksums.reference_binary`。同时钉住 `source_commit` 三方一致、
+config/artifacts 哈希、以及"有效阈值 = max(数值上限, SESOI)"且 SESOI 在四项上严格占优。
+任何一层被改动而其余未同步，测试立即失败。
