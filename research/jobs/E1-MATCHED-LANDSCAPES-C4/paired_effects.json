@@ -1,0 +1,134 @@
+{
+  "experiment": "E1-MATCHED-LANDSCAPES-C4",
+  "comparison": "clustered-minus-shuffled",
+  "analysis_gate_pass": true,
+  "claim_supported": true,
+  "valid_null_or_equivalence": false,
+  "gates": {
+    "v1f_numerical_calibration": true,
+    "matched_inputs": true,
+    "execution_invariants": true,
+    "tail_stationarity": true,
+    "adjacent_window_stability": true,
+    "independent_replicate_precision": true
+  },
+  "temporal_ess_diagnostic_pass": false,
+  "execution_invariant_checks": {
+    "wealth_nonnegative": true,
+    "population_preserved": true,
+    "total_wealth_change_finite": true
+  },
+  "wealth_scale_diagnostics": {
+    "per_condition": {
+      "clustered": {
+        "mean_wealth": 2.0170905250059734,
+        "mean_wealth_scale_ratio": 0.4034181050011947
+      },
+      "shuffled": {
+        "mean_wealth": 1.4012885342842005,
+        "mean_wealth_scale_ratio": 0.2802577068568401
+      }
+    },
+    "paired_mean_wealth_difference": {
+      "mean_difference": 0.6158019907217724,
+      "ci95_low": 0.5633507280120292,
+      "ci95_high": 0.6676419149932861,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 64,
+      "bootstrap_samples": 10000
+    },
+    "relative_mean_wealth_difference": 0.43945409932033264,
+    "interpretation": "The wealth Gini secondary family is a composite of spatial organisation and this equilibrium wealth-scale shift; it must not be reported as a single-channel spatial effect.",
+    "gate_role": "diagnostic only; never enters a gate"
+  },
+  "confirmatory_spatial_family": {
+    "resource_density_spearman_rho": {
+      "mean_difference": 0.22970883413296816,
+      "ci95_low": 0.21245769756038096,
+      "ci95_high": 0.24607784468641922,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 64,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 0.05,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true,
+      "threshold_components": {
+        "numerical_resolution_limit": 0.004589992673223881,
+        "scientific_sesoi": 0.05,
+        "effective_claim_threshold": 0.05
+      }
+    },
+    "density_morans_i": {
+      "mean_difference": 0.5525349797941341,
+      "ci95_low": 0.5330296162500459,
+      "ci95_high": 0.5705112921797535,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 64,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 0.05,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true,
+      "threshold_components": {
+        "numerical_resolution_limit": 0.0032587589468579255,
+        "scientific_sesoi": 0.05,
+        "effective_claim_threshold": 0.05
+      }
+    },
+    "occupancy_entropy": {
+      "mean_difference": -0.08181953231480679,
+      "ci95_low": -0.09007944147816749,
+      "ci95_high": -0.07351033586533857,
+      "sign_flip_p_value": 9.99990000099999e-06,
+      "pairs": 64,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 9.99990000099999e-06,
+      "holm_adjusted_p_value": 2.999970000299997e-05,
+      "holm_reject": true,
+      "alpha": 0.05,
+      "family_size": 3,
+      "sesoi": 0.025,
+      "ci_excludes_equivalence_region": true,
+      "claim_threshold_pass": true,
+      "threshold_components": {
+        "numerical_resolution_limit": 0.0009948207537034592,
+        "scientific_sesoi": 0.025,
+        "effective_claim_threshold": 0.025
+      }
+    }
+  },
+  "secondary_wealth_family": {
+    "wealth_gini": {
+      "mean_difference": 0.003033318458671561,
+      "ci95_low": -0.00042524026858302053,
+      "ci95_high": 0.006884103474969998,
+      "sign_flip_p_value": 0.10875891241087589,
+      "pairs": 64,
+      "bootstrap_samples": 10000,
+      "raw_p_value": 0.10875891241087589,
+      "holm_adjusted_p_value": 0.10875891241087589,
+      "holm_reject": false,
+      "alpha": 0.05,
+      "family_size": 1,
+      "sesoi": 0.025,
+      "ci_excludes_equivalence_region": false,
+      "claim_threshold_pass": false,
+      "threshold_components": {
+        "numerical_resolution_limit": 0.0014407792015185721,
+        "scientific_sesoi": 0.025,
+        "effective_claim_threshold": 0.025
+      }
+    }
+  },
+  "threshold_policy": "Each claim uses max(V1F numerical resolution limit, independently frozen scientific SESOI).",
+  "multiplicity": "Holm FWER 0.05 across the three primary spatial metrics; wealth Gini is a separate secondary family."
+}

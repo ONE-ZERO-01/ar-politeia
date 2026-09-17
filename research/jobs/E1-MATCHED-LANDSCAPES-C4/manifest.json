@@ -1,0 +1,52 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 18512.201262187213,
+  "jobctl_reconcile": "completed",
+  "archived_after_run": true,
+  "artifacts": [
+    {
+      "path": "workspace/result.json",
+      "sha256": "6ce9bb8c43f90a9c544d1a7f10d046f4ce17e645ff0fc462ecf3ad5f4b208733",
+      "valid": true
+    },
+    {
+      "path": "workspace/replicate_metrics.csv",
+      "sha256": "890965be4c1edc60c7012b10c203f25c95abc7584733dd54c5251a4425a2501a",
+      "valid": true
+    },
+    {
+      "path": "workspace/paired_effects.json",
+      "sha256": "25cc74a24839b41d85377163b86184890e5079e8fcb3302c7f96943c16ff177b",
+      "valid": true
+    },
+    {
+      "path": "workspace/matched_input_audit.json",
+      "sha256": "8c7e5d59573ac10b688527c491e3cbbc0ea9a35de2cb7b498081cad69eec9f96",
+      "valid": true
+    },
+    {
+      "path": "workspace/stationarity_report.json",
+      "sha256": "19eb46fbefe6ae6641c74658d24dd8c005334db5aad84a38edd38152d9414f2c",
+      "valid": true
+    },
+    {
+      "path": "workspace/steady_estimand_report.json",
+      "sha256": "6772be9ca104728c9ff487019cd1b57aecf672c5f29db9feba075bf89ac99603",
+      "valid": true
+    },
+    {
+      "path": "workspace/parameter_lock_audit.json",
+      "sha256": "14cf29002aad853035eedd4ff664fc68263a6bf1462a1ed4f29355718a71f241",
+      "valid": true
+    },
+    {
+      "path": "workspace/run_specs.json",
+      "sha256": "a59b80155037a6572b95e1ed6b6d40e96a169b70c5e56e1f8f967c0da5d7b379",
+      "valid": true
+    }
+  ],
+  "undeclared_provenance_sha256": {
+    "ensemble_stationarity_report.json": "ccb5cf3c133f914558ee7422d1c47949ef0f67e71260b019a0fd516a8b0cab75"
+  }
+}
