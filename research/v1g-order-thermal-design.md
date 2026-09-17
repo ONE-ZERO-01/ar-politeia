@@ -1,6 +1,8 @@
 # V1G：参考温度下的存储顺序通道判定（预注册）
 
-**状态**：设计完成、脚本与配置就绪、未提交、未运行（等 E1-C4 结束，见 §7）。
+**状态**：已于 2026-09-17 在 umi 提交运行（jobctl pid 2149600；128/128 run 目录已建立，
+16 个 OMP=1 进程在跑，`temperature = 0.5` 已核对）。前置 E1-C4 已结束。判定待
+`order_thermal_report.json` 产出后按 §5 的回填，不在看到结果后更改任何阈值。
 **ID**：`V1G-ORDER-THERMAL-C4`（诊断，不是确认性实验）
 **对应台账**：S18 / S10；`research/simulator-remediation-status.md` §4.7
 **交付物**：`research/src/experiments/run_v1g_order_thermal.py`、
@@ -116,7 +118,13 @@ python3 -m autoresearcher.foundation.jobctl submit \
 - 完成后：`jobctl reconcile` → 把 `order_thermal_report.json` 的判定回填台账 S18 →
   按 §5 的对应行行动。**不运行前不写任何结论。**
 
-## 8. 为什么现在不提交
+## 8. 提交时序
+
+E1-C4 已结束（128/128，claim supported），因此 V1G 已按本节的条件提交（jobctl pid 2149600）。
+提交前的实际步骤：补齐声明集（seeds/env/outputs/data_checksums/computational_strategy/
+experiment，冻结身份全部取自已跟踪的最终锁并逐项交叉校验）→ `preflight` 8/8 通过 →
+`jobctl submit`。`commit.txt` 指向 `6f39c02c7047949f9c1b7d61d6518add1990fa45`，该 commit 确实
+包含 V1G 的脚本、配置与全部声明。
 
 E1-C4 正在 umi 上运行，占用并发槽位；V1G 使用 `parallel = 16`，与 E1-C4 叠加会互相
 拖慢并使运行时长估计失真。另外：**在 E1-C4 运行期间不改共享驱动**——崩溃恢复可能重跑
