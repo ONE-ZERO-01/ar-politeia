@@ -264,6 +264,15 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   visible rather than implied. Two historical accounting defects are recorded
   without rewriting them: seed `1103` is shared by `E0-NUMERICS` and
   `E1-MATCHED-LANDSCAPES`, and `6407`, `6503` (V1) and `9071` (V1C) are not prime.
+  Each authorisation now carries a machine-verified basis instead of prose: a
+  same-`experiment_id` re-execution, a citation to a tracked document that must
+  still contain the declaring text, or disjointness from the evidence-bearing seed
+  set. That last property is the one that actually makes the historical collisions
+  tolerable, and it is re-derived on every run: the 24 grandfathered seeds (all
+  <= 5519) are disjoint from the 174 evidence seeds (minimum 6007). Two earlier
+  component justifications did not survive this re-check and were rewritten: the
+  B0 jobs are one experiment recorded three times rather than a deliberate seed
+  freeze, and the E0/E1/E2 collision was never written down as a decision at all.
   Primality was checked against the code rather than assumed: `random_seed` only
   initialises `mt19937_64` streams and serves as the base of `rank`-derived
   offsets, so nothing depends on the base being prime; the primes in the codebase

@@ -305,8 +305,11 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
   未登记的跨 job 复用**直接报错**；新实验故意不在 `SEED_REUSE_COMPONENTS` 内，因此 E2-C4
   一旦撞用旧 seed 会在提交前失败。
 - **实测台账（2026-09-17）**：全库 28 个 job 共 **211 个不同 seed**（范围 101–12241）、
-  **91 个重叠组**，归属 **3 个 component**（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1F↔V1G 配对）。
-  两处**历史记账缺陷**已登记、不追溯修改，且不承载任何确认性结论：
+  **91 个重叠组**，归属 **3 个 component**，每条的授权都带**可机器校验的 basis**：
+  B0 三连为 `same_experiment_reexecution`（三者 `experiment_id` 全同）、V1F↔V1G 为
+  `declared_paired_rerun`（引文文件存在且仍含声明文本）、E0/E1/E2 Cycle 1–3 为
+  `historical_collision`（其 24 个共享 seed 与 8 个 evidence job 的 174 个 seed **不相交**，
+  实测全部 ≤5519 vs 最小 6007）。两处**历史记账缺陷**已登记、不追溯修改：
   `E0-NUMERICS` 与 `E1-MATCHED-LANDSCAPES` 撞用 seed `1103`；三个冻结 seed 非素数
   —— `6407`、`6503`（V1）与 `9071`（V1C）。素数性已对照代码查实：`random_seed` 只作为
   `mt19937_64` 初始状态与 rank 派生偏移的基点，**无任何依赖基点素性的逻辑**，仓库里的素数
@@ -357,7 +360,7 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] `mean_source_rate`（P2 源总量核算量）（2026-09-17，代码）
 - [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
-- [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 21 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component；重分析 job 的标识按引用记账，见 §8 更正）
+- [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 36 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component，每条带可机器校验的 basis；重分析 job 的标识按引用记账，见 §8）
 - [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力

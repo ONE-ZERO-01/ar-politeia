@@ -1064,8 +1064,23 @@ SEED_SENTINELS = frozenset({"none", "not-applicable-deterministic-tests"})
 #
 # Membership in a component is the authorisation. The ``status`` field is purely
 # descriptive and neither gates nor relaxes anything: ``intended`` marks a reuse
-# chosen when the design was frozen, ``grandfathered`` marks a historical defect
-# that is recorded but not rewritten.
+# chosen when the design was frozen, ``grandfathered`` marks a historical
+# collision that is recorded but not rewritten.
+#
+# ``basis`` names the property the audit must *verify* before the component
+# authorises anything, so a component cannot be justified by prose alone:
+#
+# * ``same_experiment_reexecution`` — every member must carry one identical
+#   ``experiment_id``. The shared seeds then come from the same experiment being
+#   re-executed in successive cycles, not from one experiment borrowing another's
+#   random stream.
+# * ``declared_paired_rerun`` — ``citation`` must name a tracked document that
+#   exists and actually contains ``marker``. The reuse is a frozen design
+#   decision, so the design that declares it must still be in the tree.
+# * ``historical_collision`` — the component's shared seeds must be disjoint from
+#   ``EVIDENCE_SEED_SETS``. This is the property that matters: these collisions
+#   are tolerable *because* they cannot contaminate anything the precision bounds,
+#   thresholds or confirmatory claims depend on.
 #
 # Every seed found anywhere in the repository must have all of its consumers
 # inside one single component. A consumer outside every component is a leak: it
@@ -1081,7 +1096,12 @@ SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
             "B0-DYNAMICS-PILOT-C3",
         ),
         "status": "intended",
-        "reason": "cycle repeats of one pilot; seeds held fixed across C1-C3 on purpose",
+        "basis": "same_experiment_reexecution",
+        "reason": (
+            "three cycle-labelled records of one and the same experiment "
+            "(experiment_id is identical in all three), so the shared seeds are a "
+            "re-execution artifact rather than a borrowed random stream"
+        ),
     },
     {
         "jobs": (
@@ -1092,20 +1112,45 @@ SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
             "E2-CHANNEL-ABLATION",
         ),
         "status": "grandfathered",
+        "basis": "historical_collision",
         "reason": (
-            "Cycle 1-3 lineage: the Cycle 3 E2 ablation re-ran E1's seeds, and seed 1103 "
-            "additionally collides with E0. The 1103 collision is a grandfathered "
-            "accounting defect, not a design choice; no confirmatory claim rests on it."
+            "Cycle 1-3 collisions that were never written down as a decision: the "
+            "Cycle 3 E2 ablation re-used E1's seeds, and seed 1103 additionally "
+            "collides with E0. No document declares any of this, which is exactly "
+            "why it is recorded as a defect rather than as intent. It stays harmless "
+            "only because every one of these seeds is disjoint from the evidence "
+            "sets, which the audit now re-verifies on every run."
         ),
     },
     {
         "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
         "status": "intended",
+        "basis": "declared_paired_rerun",
+        "citation": {
+            "path": "research/v1g-order-thermal-design.md",
+            "marker": "seeds | **V1F 冻结的 64 个**",
+        },
         "reason": (
             "V1G re-runs V1F's exact 64 seeds at the same time points; the seed pairing "
             "is the estimand, since storage order must be the only difference"
         ),
     },
+)
+
+# Jobs whose numeric output the calibration bounds, the pre-registered thresholds
+# or a confirmatory claim actually rest on. A historical collision is only
+# tolerable while it stays clear of these: if a shared seed ever appeared here,
+# the independence of the precision estimates would be in question and the
+# collision would have to stop being called harmless.
+EVIDENCE_BEARING_JOBS: tuple[str, ...] = (
+    "V1-NONFLAT-CALIBRATION-C4",
+    "V1B-NONFLAT-CALIBRATION-C4",
+    "V1C-NONFLAT-CALIBRATION-C4",
+    "V1E-NONFLAT-CALIBRATION-C4",
+    "V1F-NONFLAT-CALIBRATION-C4",
+    "V1G-ORDER-THERMAL-C4",
+    "V1P-RUNTIME-PILOT-C4",
+    "E1-MATCHED-LANDSCAPES-C4",
 )
 
 # Jobs whose ``seed-<n>`` run-identifier tokens name pre-existing source runs
@@ -1226,6 +1271,7 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
     sentinels: list[str] = []
     channels: dict[str, list[int]] = {}
     references: dict[str, list[int]] = {}
+    experiment_id: str | None = None
 
     seeds_file = job_dir / "seeds.txt"
     if seeds_file.is_file():
@@ -1245,6 +1291,10 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
         payload = _load_seed_json(path)
         if payload is None:
             continue
+        if isinstance(payload, dict) and experiment_id is None:
+            candidate = payload.get("experiment_id")
+            if isinstance(candidate, str) and candidate:
+                experiment_id = candidate
 
         consumed: list[int] = []
         referenced: list[int] = []
@@ -1293,6 +1343,7 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
 
     return {
         "sentinels": sentinels,
+        "experiment_id": experiment_id,
         "seeds": sorted({seed for group in channels.values() for seed in group}),
         "channels": {name: list(group) for name, group in channels.items()},
         "references": references,
@@ -1307,6 +1358,92 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
             if not name.startswith("runids:") and len(set(group)) != len(group)
         },
     }
+
+
+def _verify_seed_reuse_components(
+    jobs: Mapping[str, dict[str, Any]],
+    consumers: Mapping[int, set[str]],
+    repo_root: Path,
+) -> list[str]:
+    """Verify that every component's ``basis`` actually holds.
+
+    A component authorises a seed overlap, so it must not rest on prose. Each
+    basis is checked against data: the experiment identity, the cited document, or
+    the disjointness that makes a historical collision harmless. Returns the
+    evidence-bearing seed set so the caller can report it.
+    """
+    known = {
+        "same_experiment_reexecution",
+        "declared_paired_rerun",
+        "historical_collision",
+    }
+    for entry in SEED_REUSE_COMPONENTS:
+        basis = entry.get("basis")
+        if basis not in known:
+            raise RuntimeError(
+                f"seed reuse component {entry['jobs']} has basis {basis!r}, "
+                f"expected one of {sorted(known)}"
+            )
+        missing = [job for job in entry["jobs"] if job not in jobs]
+        if missing:
+            raise RuntimeError(
+                f"seed reuse component {entry['jobs']} names jobs with no directory: {missing}"
+            )
+
+    evidence_jobs = [job for job in EVIDENCE_BEARING_JOBS if job in jobs]
+    absent = [job for job in EVIDENCE_BEARING_JOBS if job not in jobs]
+    if absent:
+        # A typo here would silently shrink the evidence set and make the
+        # disjointness check vacuous.
+        raise RuntimeError(f"EVIDENCE_BEARING_JOBS names jobs with no directory: {absent}")
+    evidence_seeds = {seed for job in evidence_jobs for seed in jobs[job]["seeds"]}
+
+    for entry in SEED_REUSE_COMPONENTS:
+        members = list(entry["jobs"])
+        basis = entry["basis"]
+
+        if basis == "same_experiment_reexecution":
+            identities = {jobs[job]["experiment_id"] for job in members}
+            if len(identities) != 1 or None in identities:
+                raise RuntimeError(
+                    f"component {tuple(members)} claims one experiment re-executed, but "
+                    f"its experiment_ids are {sorted(str(i) for i in identities)}"
+                )
+
+        elif basis == "declared_paired_rerun":
+            citation = entry.get("citation") or {}
+            path, marker = citation.get("path"), citation.get("marker")
+            if not isinstance(path, str) or not isinstance(marker, str) or not marker:
+                raise RuntimeError(
+                    f"component {tuple(members)} claims a declared pairing but has no "
+                    f"citation path and marker"
+                )
+            document = repo_root / path
+            if not document.is_file():
+                raise RuntimeError(
+                    f"component {tuple(members)} cites {path}, which is not in the tree"
+                )
+            if marker not in document.read_text(encoding="utf-8"):
+                raise RuntimeError(
+                    f"component {tuple(members)} cites {path}, but it no longer contains "
+                    f"the declaration {marker!r}"
+                )
+
+        elif basis == "historical_collision":
+            shared = {
+                seed
+                for seed, users in consumers.items()
+                if len(users) >= 2 and users <= set(members)
+            }
+            contaminated = sorted(shared & evidence_seeds)
+            if contaminated:
+                raise RuntimeError(
+                    f"component {tuple(members)} is registered as a harmless historical "
+                    f"collision, but seeds {contaminated} also appear in evidence-bearing "
+                    f"jobs; the collision can no longer be called harmless"
+                )
+
+    return sorted(evidence_seeds)
 
 
 def audit_seeds(
@@ -1376,6 +1513,11 @@ def audit_seeds(
         for seed in record["seeds"]:
             consumers.setdefault(seed, set()).add(job)
 
+    # Authorisation must be verified, not asserted: each component's basis is
+    # checked against the data before it is allowed to explain any overlap.
+    repo_root = jobs_dir.resolve().parents[1]
+    evidence_seeds = _verify_seed_reuse_components(jobs, consumers, repo_root)
+
     # Membership in a component authorises the reuse; the entry's ``status`` is a
     # label for readers and never affects this test.
     components = [set(entry["jobs"]) for entry in SEED_REUSE_COMPONENTS]
@@ -1391,6 +1533,9 @@ def audit_seeds(
                 "reason": SEED_REUSE_COMPONENTS[owner]["reason"] if owner is not None else None,
                 "status": (
                     SEED_REUSE_COMPONENTS[owner]["status"] if owner is not None else "leak"
+                ),
+                "basis": (
+                    SEED_REUSE_COMPONENTS[owner]["basis"] if owner is not None else None
                 ),
             }
         )
@@ -1416,6 +1561,8 @@ def audit_seeds(
         "used_seed_count": len(used),
         "used_seeds": used,
         "non_prime_seeds": non_prime,
+        "evidence_bearing_jobs": list(EVIDENCE_BEARING_JOBS),
+        "evidence_seed_count": len(evidence_seeds),
         "jobs": jobs,
         "overlaps": overlaps,
         "references": {

@@ -20,6 +20,11 @@ assert SPEC and SPEC.loader
 promotion = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(promotion)
 
+# Captured before the autouse fixture blanks them, so the integration test can
+# assert against the register the repository actually ships.
+REAL_SEED_REUSE_COMPONENTS = promotion.SEED_REUSE_COMPONENTS
+REAL_EVIDENCE_BEARING_JOBS = promotion.EVIDENCE_BEARING_JOBS
+
 SOURCE_COMMIT = "a" * 40
 V0G_COMMIT = "b" * 40
 
@@ -825,6 +830,19 @@ def test_cli_exposes_archive_e1():
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _isolated_seed_register(monkeypatch):
+    """Run each test against an empty reuse register by default.
+
+    Component verification refers to real job directories and real tracked
+    documents by design, so the ledger-mechanics tests must not depend on the
+    repository's specific job names. Tests that exercise authorisation install
+    their own register and evidence set.
+    """
+    monkeypatch.setattr(promotion, "SEED_REUSE_COMPONENTS", ())
+    monkeypatch.setattr(promotion, "EVIDENCE_BEARING_JOBS", ())
+
+
 def _seed_job(
     root: Path,
     name: str,
@@ -957,33 +975,245 @@ def test_audit_rejects_an_unregistered_sentinel(tmp_path):
         _audit(tmp_path)
 
 
-def test_audit_accepts_a_registered_overlap(tmp_path):
-    """V1G must reuse V1F's seeds, because the pairing is the estimand."""
+def test_audit_accepts_a_declared_paired_rerun(tmp_path, monkeypatch):
+    """V1G must reuse V1F's seeds, and the design that declares it must exist."""
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
+                "status": "intended",
+                "basis": "declared_paired_rerun",
+                "citation": {
+                    "path": "research/v1g-order-thermal-design.md",
+                    "marker": "seeds | **V1F 冻结的 64 个**",
+                },
+                "reason": "the seed pairing is the estimand",
+            },
+        ),
+    )
+    design = tmp_path / "research/v1g-order-thermal-design.md"
+    design.parent.mkdir(parents=True, exist_ok=True)
+    design.write_text("| seeds | **V1F 冻结的 64 个**（...） |\n", encoding="utf-8")
     _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003, 11027])
     _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003, 11027])
+
     report = _audit(tmp_path)
     assert report["used_seed_count"] == 2
     assert [entry["status"] for entry in report["overlaps"]] == ["intended", "intended"]
+    assert {entry["basis"] for entry in report["overlaps"]} == {"declared_paired_rerun"}
 
 
-def test_audit_authorises_by_membership_not_by_status_label(tmp_path):
+def _paired_component(tmp_path, monkeypatch, *, marker, write_document=True):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
+                "status": "intended",
+                "basis": "declared_paired_rerun",
+                "citation": {"path": "research/design.md", "marker": marker},
+                "reason": "declared pairing",
+            },
+        ),
+    )
+    if write_document:
+        document = tmp_path / "research/design.md"
+        document.parent.mkdir(parents=True, exist_ok=True)
+        document.write_text(marker + "\n", encoding="utf-8")
+    _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003])
+    _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003])
+
+
+def test_audit_rejects_a_citation_whose_document_is_gone(tmp_path, monkeypatch):
+    _paired_component(tmp_path, monkeypatch, marker="reuse declared", write_document=False)
+    with pytest.raises(RuntimeError, match="is not in the tree"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_a_citation_whose_document_stopped_declaring_it(tmp_path, monkeypatch):
+    """The document must still contain the declaration, not merely exist."""
+    _paired_component(tmp_path, monkeypatch, marker="reuse declared")
+    (tmp_path / "research/design.md").write_text("rewritten, no declaration\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="no longer contains the declaration"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_a_paired_rerun_without_a_citation(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
+                "status": "intended",
+                "basis": "declared_paired_rerun",
+                "reason": "no citation",
+            },
+        ),
+    )
+    _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003])
+    _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003])
+    with pytest.raises(RuntimeError, match="no citation path and marker"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_an_unknown_basis(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("JOB-A", "JOB-B"),
+                "status": "intended",
+                "basis": "because_i_said_so",
+                "reason": "prose is not a basis",
+            },
+        ),
+    )
+    _seed_job(tmp_path, "JOB-A", seeds=[11])
+    _seed_job(tmp_path, "JOB-B", seeds=[11])
+    with pytest.raises(RuntimeError, match="expected one of"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_a_component_naming_a_missing_job(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("JOB-A", "TYPO-JOB"),
+                "status": "intended",
+                "basis": "same_experiment_reexecution",
+                "reason": "one experiment",
+            },
+        ),
+    )
+    _seed_job(tmp_path, "JOB-A", seeds=[11])
+    with pytest.raises(RuntimeError, match="names jobs with no directory"):
+        _audit(tmp_path)
+
+
+def test_audit_rejects_a_reexecution_component_with_mixed_identities(tmp_path, monkeypatch):
+    """``same_experiment_reexecution`` must be true, not merely asserted."""
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("JOB-A", "JOB-B"),
+                "status": "intended",
+                "basis": "same_experiment_reexecution",
+                "reason": "claims one experiment",
+            },
+        ),
+    )
+    _seed_job(tmp_path, "JOB-A", seeds=[11], config={"experiment_id": "ONE", "seeds": [11]})
+    _seed_job(tmp_path, "JOB-B", seeds=[11], config={"experiment_id": "TWO", "seeds": [11]})
+    with pytest.raises(RuntimeError, match="claims one experiment re-executed"):
+        _audit(tmp_path)
+
+
+def test_audit_accepts_a_true_reexecution_component(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("JOB-A", "JOB-B"),
+                "status": "intended",
+                "basis": "same_experiment_reexecution",
+                "reason": "one experiment, two cycle records",
+            },
+        ),
+    )
+    _seed_job(tmp_path, "JOB-A", seeds=[11], config={"experiment_id": "ONE", "seeds": [11]})
+    _seed_job(tmp_path, "JOB-B", seeds=[11], config={"experiment_id": "ONE", "seeds": [11]})
+    report = _audit(tmp_path)
+    assert report["overlaps"][0]["basis"] == "same_experiment_reexecution"
+
+
+def test_audit_refuses_a_collision_that_touches_evidence_seeds(tmp_path, monkeypatch):
+    """An evidence-bearing pair may not be relabelled a 'harmless historical collision'.
+
+    If the members of a component are themselves evidence-bearing, its shared
+    seeds are inside the evidence set, so the disjointness the label relies on is
+    false. This is the mutation that matters: without it, calling a V1F/V1G-style
+    overlap "historical" would authorise it without a declared pairing.
+    """
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
+                "status": "grandfathered",
+                "basis": "historical_collision",
+                "reason": "thought harmless",
+            },
+        ),
+    )
+    monkeypatch.setattr(promotion, "EVIDENCE_BEARING_JOBS", ("V1F-NONFLAT-CALIBRATION-C4",))
+    _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003])
+    _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003])
+    with pytest.raises(RuntimeError, match="can no longer be called harmless"):
+        _audit(tmp_path)
+
+
+def test_audit_accepts_a_collision_confined_to_the_historical_regime(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("OLD-A", "OLD-B"),
+                "status": "grandfathered",
+                "basis": "historical_collision",
+                "reason": "confined to the historical regime",
+            },
+        ),
+    )
+    monkeypatch.setattr(promotion, "EVIDENCE_BEARING_JOBS", ("V1F-NONFLAT-CALIBRATION-C4",))
+    _seed_job(tmp_path, "OLD-A", seeds=[101])
+    _seed_job(tmp_path, "OLD-B", seeds=[101])
+    _seed_job(tmp_path, "V1F-NONFLAT-CALIBRATION-C4", seeds=[11003])
+    report = _audit(tmp_path)
+    assert report["overlaps"][0]["status"] == "grandfathered"
+    assert report["evidence_seed_count"] == 1
+
+
+def test_audit_rejects_an_evidence_job_name_that_does_not_exist(tmp_path, monkeypatch):
+    """A typo in the evidence list would silently make disjointness vacuous."""
+    monkeypatch.setattr(promotion, "EVIDENCE_BEARING_JOBS", ("TYPO-EVIDENCE-JOB",))
+    _seed_job(tmp_path, "JOB-A", seeds=[11])
+    with pytest.raises(RuntimeError, match="EVIDENCE_BEARING_JOBS names jobs with no directory"):
+        _audit(tmp_path)
+
+
+def test_audit_authorises_by_membership_not_by_status_label(tmp_path, monkeypatch):
     """The status field is descriptive; only component membership authorises.
 
-    Inverting the label on a grandfathered component must not change the verdict,
-    which is what stops a reader from mistaking ``status`` for a gate.
+    Relabelling a grandfathered component must not change whether its overlap is
+    authorised, which is what stops a reader from mistaking ``status`` for a gate.
     """
+    monkeypatch.setattr(
+        promotion,
+        "SEED_REUSE_COMPONENTS",
+        (
+            {
+                "jobs": ("E1-MATCHED-LANDSCAPES", "E2-CHANNEL-ABLATION"),
+                "status": "intended",
+                "basis": "historical_collision",
+                "reason": "relabelled on purpose",
+            },
+        ),
+    )
     _seed_job(tmp_path, "E1-MATCHED-LANDSCAPES", seeds=[101])
     _seed_job(tmp_path, "E2-CHANNEL-ABLATION", seeds=[101])
-    relabelled = tuple(
-        {**entry, "status": "intended"} if len(entry["jobs"]) == 5 else entry
-        for entry in promotion.SEED_REUSE_COMPONENTS
-    )
-    original = promotion.SEED_REUSE_COMPONENTS
-    promotion.SEED_REUSE_COMPONENTS = relabelled
-    try:
-        report = _audit(tmp_path)
-    finally:
-        promotion.SEED_REUSE_COMPONENTS = original
+    report = _audit(tmp_path)
     assert [entry["status"] for entry in report["overlaps"]] == ["intended"]
 
 
@@ -1059,12 +1289,14 @@ def test_audit_pool_rejects_an_impossible_proposal(tmp_path):
         _audit(tmp_path, pool_min=12300, pool_max=12310, propose=5)
 
 
-def test_repository_ledger_holds_no_unregistered_overlap():
+def test_repository_ledger_holds_no_unregistered_overlap(monkeypatch):
     """Integration guard: the real ledger must stay leak-free as jobs accrue.
 
     Post-V1F experiments are absent from SEED_REUSE_COMPONENTS, so a new job that
     silently reuses an existing seed fails here rather than in a later analysis.
     """
+    monkeypatch.setattr(promotion, "SEED_REUSE_COMPONENTS", REAL_SEED_REUSE_COMPONENTS)
+    monkeypatch.setattr(promotion, "EVIDENCE_BEARING_JOBS", REAL_EVIDENCE_BEARING_JOBS)
     root = Path(__file__).parents[1]
     report = promotion.audit_seeds(root / "research/jobs")
     assert report["used_seed_count"] >= 211
@@ -1085,4 +1317,20 @@ def test_repository_ledger_holds_no_unregistered_overlap():
     # Every job that records no seed provenance must justify that with a waiver.
     for job in report["jobs_without_seed_evidence"]:
         assert report["jobs"][job]["has_seed_waiver"] is True
+
+    # Each authorisation must rest on a verified property, not on prose: the
+    # component's basis is re-derived from the repository on every run.
+    assert {entry["basis"] for entry in report["overlaps"]} == {
+        "same_experiment_reexecution",
+        "historical_collision",
+        "declared_paired_rerun",
+    }
+    # The grandfathered collisions stay tolerable only while they miss every job
+    # that the calibration bounds or the confirmatory claim depend on.
+    assert report["evidence_seed_count"] == 174
+    historical = {
+        entry["seed"] for entry in report["overlaps"] if entry["status"] == "grandfathered"
+    }
+    evidence = {seed for job in promotion.EVIDENCE_BEARING_JOBS for seed in report["jobs"][job]["seeds"]}
+    assert historical and not (historical & evidence)
 
