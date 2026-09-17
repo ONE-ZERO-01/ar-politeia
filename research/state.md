@@ -15,7 +15,7 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 `research/simulator-review-and-repair-plan-2026-09-08.md`, and
 `research/simulator-remediation-status.md`.
 
-## Current status (2026-09-16)
+## Current status (2026-09-17)
 
 - The Cycle 4 remediation and V1 validation infrastructure are committed.
 - Current non-numerical validation passes locally and through the umi validation
@@ -144,12 +144,65 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
 - E1-C4's frozen seed-disjointness claim was re-verified by bookkeeping across
   every tracked `seeds.txt` and job config: the 64 frozen E1-C4 seeds have zero
   intersection with all Cycle 1-3 jobs and with V1/V1B/V1C/V1E/V1F/V1P.
-- V1F is still running on umi under jobctl pid 2647912. At 2026-09-16 23:14
-  +08:00 it had completed 875/960 runs with zero non-empty stderr files and zero
-  thermostat triggers; at 13:17 it was at 640/960 and at 19:16 at 789/960,
-  consistent with the 41.4 wall-hour estimate. E1 stays blocked until it passes,
-  is archived by `archive-v1f`, and the promotion `prepare`/`finalize` chain
-  produces the final Cycle 4 lock.
+- **V1F completed and passed every frozen Gate.** On 2026-09-17 08:09 +08:00 the
+  960-run job finished 960/960 runs with zero run failures in 166,076 wall-seconds
+  (46.13 h) and 340.95 CPU-hours, zero non-empty stderr files, and one OMP=1
+  reference-binary checksum. `archive-v1f` then cross-checked run specs, completion
+  markers, health files, the jobctl record, the reference binary and the
+  calibration/steady reports, and wrote tracked evidence
+  (`research/jobs/V1F-NONFLAT-CALIBRATION-C4/{result,manifest,numerical_calibration}.json`).
+- **All six numerical Gate layers pass**: invariants, timestep convergence,
+  storage-order sensitivity, tail stationarity, adjacent-window stability, and
+  independent-replicate precision. The 9 conditions x 64 replicates fail no cell
+  on tail stationarity, adjacent-window stability or independent precision. The
+  temporal-ESS diagnostic still flags 8/9 conditions but is a diagnostic layer, not
+  a Gate, by the frozen design.
+- **Numerical resolution limits**: Spearman 0.0045900, Moran's I 0.0032588,
+  occupancy entropy 0.00099482, wealth Gini 0.0014408. All are roughly one order of
+  magnitude below the frozen scientific SESOI (0.05/0.05/0.025/0.025), so the
+  effective E1-C4 thresholds are the SESOI values.
+- **The promotion chain produced the final Cycle 4 parameter lock.** V0G passed on
+  umi on a clean checkout (Python suite and OpenMP OFF/ON CTest), and `finalize`
+  bound the reference binary and authorized `E1-MATCHED-LANDSCAPES-C4`. The lock is
+  `research/parameter_lock.cycle4.json` (`ar-politeia-cycle4-confirmatory-v1`,
+  status `final`, `confirmatory_execution_authorized = true`), with
+  `source_commit = b6d24b76a50529965469332644e7bed251c49eb1`. E1-C4 is therefore
+  unblocked.
+- **S14 (new, P0): `finalize` silently bound a binary that was not the calibrated
+  one.** V1F's numerical resolution limits were measured by executing the reference
+  binary `87eafa4e...ddee3`. But commit `0f4ac29` (2026-09-15 21:35), made after
+  V1F was submitted (2026-09-15 10:03) and while it was still running, changed
+  `research/src/experiments/politeia/src/io/ic_loader.cpp`; V0G therefore rebuilt
+  `1e3f052f...b43b` and `finalize` accepted it, writing a lock whose calibration and
+  executable did not correspond. The change is semantically inert (it constructs the
+  identical culture column name), so it could not alter simulation behaviour, but it
+  did alter the artifact. Two structural gaps allowed it: `validate_build` records
+  no SHA of the binary under test, and the candidate lock carried no SHA of the
+  calibrated binary, so no gate was in a position to judge the binding.
+- **S14 remediation.** `validate_v1f` now reads and validates the calibrated
+  `binary_sha256` from the V1F archive; the candidate lock carries it as
+  `numerical_calibration.reference_binary_sha256`; and `finalize` refuses unless the
+  bound binary lies inside the V0G workspace and its SHA-256 equals that reference.
+  The offending source hunk was reverted so the simulator tree is byte-identical to
+  the calibrated commit (`git diff 48ad02a -- research/src/experiments/politeia/` is
+  empty), and V0G's rebuild empirically reproduced `87eafa4e...ddee3` — so the
+  binding is now a verified identity, not an argued equivalence, and no 340
+  CPU-hour V1F rerun was needed. The compiler-warning fix is deferred until after
+  E1-C4. This is exactly the class of unmeasured equivalence assumption the project
+  has been eliminating (compare S01, S09).
+- **S13 (new, P1): the V1F job declaration was malformed.** Its `jobctl` spec
+  declared eight artifacts as bare basenames, which the worker resolves against
+  `spec.cwd` (the project root) rather than the job workspace, so all eight were
+  recorded `valid: false` 46 hours later. Peer jobs V1E/V0E/V0F used full
+  project-root-relative paths, so this was a declaration error, not lost output;
+  `archive-v1f` independently validated the workspace and passed. `jobctl` now
+  fails fast when a declared artifact escapes the submission cwd or is duplicated,
+  records the resolved absolute path for each artifact (so a misdeclaration is
+  visible instead of appearing as a missing file), and gained a `recheck` action
+  that recomputes a completed job's artifact contract from the stored declaration
+  while preserving every execution fact and recording the previous verdict as
+  provenance. V1F's declaration was corrected and now reconciles as `completed`
+  (execution facts unchanged: exit 0, 46.13 h).
 - S09's identifiability defect is now located and the E2-C4 design is frozen in
   `research/e2-cycle4-channel-design.md`. A structural audit of Cycle 3's 160
   archived E2 runs showed: the `production` factor switched both

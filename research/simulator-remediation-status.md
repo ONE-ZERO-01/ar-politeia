@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-16。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已经通过；V1F 64-seed 独立校准正在运行（2026-09-16 13:17 +08:00 实测 640/960 completed，0 个非空 stderr）。确认性实验尚未开始。
+日期：2026-09-17。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已通过；V1F 64-seed 独立校准已完成并**全部 Gate 通过**（2026-09-17 08:09 +08:00，960/960 runs，0 失败，340.95 CPU 小时 / 46.13 墙钟小时）；promotion `archive-v1f` → `prepare` → V0G → `finalize` 已完成，Cycle 4 最终参数锁已冻结并授权 `E1-MATCHED-LANDSCAPES-C4`。确认性实验尚未执行。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
@@ -31,6 +31,8 @@
 | S08 | P1 | A/C | 固定顺序原地交换 | 三级步长 × 完整相态重排量化 | V1/V1B/V1C 顺序界均通过 | 当前参数域内已受数值误差界约束；扩大参数域需重校准 |
 | S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象 + 隔离设计（v2） | 已完成（`model-specification-c4.md` §5.6/§6.4；`e2-cycle4-channel-design.md` v2，2026-09-16） | E2-C4 未实施；旧 E2 三效应字段必须按新设计重解释 |
 | S12 | P0 | A/C | 参考过程运行在深度次饱和区，且运动通道泄漏到财富尺度 | 已实测登记；E1-C4 次要家族预注册限定；E2-C4 P3 增设尺度不变性检验 | 部分（文档与限定已完成；参数层修复未开展） | `w/w_ref = 0.12–0.40`；穿越 `w_ref` 的水平扫描需新校准（P3b） |
+| S13 | P1 | B | V1F 的 jobctl artifact 声明用裸文件名，被解析到项目根而非作业 workspace，48 小时后全部记为 valid=false | jobctl 提交期越界/重复拦截 + 记录 resolved 绝对路径 + 新增 `recheck`（按已存声明重算契约、保留执行事实、旧判定留作溯源）；V1F 声明已修正并 reconcile 为 completed | 已完成（2026-09-17） | 提交时产物尚不存在，故"路径写错但界内"的笔误无法在提交期拦下；只能靠 recheck 与 resolved 字段暴露 |
+| S14 | P0 | A/C | `finalize` 静默绑定了非校准的 binary：0f4ac29 在 V1F 提交后改了 `ic_loader.cpp`，V0G 重建出 `1e3f052f…` 而非校准所用 `87eafa4e…` | `validate_v1f` 读出并校验校准 binary SHA；候选锁新增 `reference_binary_sha256`；`finalize` 强制"binary 在 V0G workspace 内"且 SHA 等于校准对象，否则拒绝写 final；`ic_loader.cpp` 恢复到校准提交 | 已完成（2026-09-17；V0G 重建实测复现 `87eafa4e…`，无需重跑 V1F） | 若未来确需引入模拟器源码改动，必须重跑校准；编译告警修复推迟到 E1-C4 之后 |
 | S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
 
@@ -198,5 +200,72 @@ E1-C4 侧的处置已在锁冻结前写入 `e1-cycle4-readiness.md`：主 family
 `result.json` 报告。该处置只收窄解释、不放宽任何阈值，属保守方向。
 
 读取平均财富一事已在 `e1-cycle4-readiness.md` 与 `e2-cycle4-channel-design.md` §5
-作为**协议偏离**完整披露（读取对象为非主指标的结构量，目的是检查设计前提；
-V1F 的 `numerical_calibration.json` 尚未读取）。
+作为**协议偏离**完整披露（读取对象为非主指标的结构量，目的是检查设计前提）。
+V1F 的 `numerical_calibration.json` 当时尚未读取；它已在作业完成后由 `archive-v1f`
+正式核验并进入 tracked 证据（见 §4.6），其六层 Gate 与数值上限见该节。
+
+### 4.6 V1F 完成与 promotion 链（2026-09-17）
+
+**V1F 通过全部冻结 Gate。** 作业于 2026-09-17 08:09 +08:00 结束：960/960 runs、
+0 运行失败、166,076 墙钟秒（46.13 小时）、340.95 CPU 小时、0 个非空 stderr、
+单一 OMP=1 reference binary checksum。六层 Gate 全通过：invariants、
+timestep_convergence、storage_order_sensitivity、tail stationarity、
+adjacent-window stability、independent-replicate precision。9 条件 × 64 重复在尾窗稳态、
+相邻窗口稳定和独立精度上均无失败单元；temporal-ESS 诊断仍标记 8/9 条件未过，
+但按冻结设计它是诊断层而非 Gate 层。
+
+数值分辨率上限为 Spearman `0.0045900`、Moran's I `0.0032588`、
+occupancy entropy `0.00099482`、wealth Gini `0.0014408`，比冻结的 SESOI
+（0.05/0.05/0.025/0.025）小约一个数量级，故 E1-C4 的有效阈值即 SESOI。
+
+`archive-v1f` 在交叉核验 run specs、960 个 completion marker、health、
+jobctl 执行事实、reference binary 与 calibration/steady 两报告互证后，写出 tracked
+结果与 manifest。随后 promotion 链走完 `prepare` → V0G → `finalize`，生成
+`research/parameter_lock.cycle4.json`（`ar-politeia-cycle4-confirmatory-v1`，
+status `final`，`confirmatory_execution_authorized = true`，
+`source_commit = b6d24b7…`），授权 `E1-MATCHED-LANDSCAPES-C4`。
+
+**S13：jobctl artifact 声明笔误。** V1F 的 jobctl spec 把 8 个 artifact 声明成裸文件名，
+worker 按 `spec.cwd`（项目根）解析，于是全部落在 `<root>/result.json` 一类路径上，
+46 小时后一律记为 `valid: false`。同期的 V1E/V0E/V0F 都用项目根相对完整路径，
+故这是声明错误而非产物丢失——`archive-v1f` 独立校验 workspace 并通过，8 个产物齐全。
+`jobctl` 已补三件事：提交期拒绝越界（解析到 `cwd` 之外）与重复的 artifact 声明；
+每条 artifact 记录新增 `resolved` 绝对路径与 `contained_in_cwd`；新增 `recheck`
+动作，按已存 `spec.json` 重算契约而**不重跑作业**，保留 `exit_code`/`timed_out`/
+`wall_seconds` 并写入 `artifact_recheck` 溯源（含旧判定与本次核验的声明）。
+V1F 的声明已修正，reconcile 现为 `completed`，执行事实未改（exit 0、46.13 小时）。
+
+提交期拦截对"路径写错但在界内"的笔误无效——提交时产物尚不存在，无法判断正确位置；
+这条限制已如实记入残余限制。
+
+**S14：finalize 静默绑定了非校准的 binary（本轮最严重发现）。** V1F 的数值分辨率
+上限是在 reference binary `87eafa4e…` 上实测的，并被写进 V1F 归档 `result.json` 的
+`binary_sha256`。但 `0f4ac29`（2026-09-15 21:35，即 V1F 于 10:03 提交后约 11.5 小时、
+V1F 仍在运行时）改动了 `research/src/experiments/politeia/src/io/ic_loader.cpp`，
+于是 V0G 在 `e397bef` 重建出 `1e3f052f…`。`finalize` 照单全收，把一个
+"校准对象 ≠ 执行对象"的锁写成了 final。
+
+该改动语义惰性（把文化列名构造从 `"c" + std::to_string(d)` 改为显式拼 `std::string`，
+结果字符串逐字节一致），不可能改变模拟行为——但它改变了编译产物。后果因此不是
+"告警没修"，而是整条 V1F→V0G→finalize 链所要建立的绑定从**恒等**退化成了需要论证的
+等价；留在锁里就等于用一个未实测的等价性假设去支撑整个确认性实验的数值误差界，
+正是本项目一直在消除的那类推断（参见 S01、S09）。
+
+允许它发生的两个结构缺口：`validate_build` 只记录 configure/build/ctest 返回码，
+完全不记录被测 binary 的 SHA；候选锁只带校准文件的 SHA，不带被校准 binary 的 SHA。
+因此没有任何一方有资格判断绑定是否正确。
+
+处置：`validate_v1f` 读出并校验归档的 `binary_sha256`；候选锁新增
+`numerical_calibration.reference_binary_sha256`；`finalize` 强制两条——绑定的 binary
+必须位于 V0G workspace 内（即确实由 V0G 构建产出），且其 SHA-256 必须等于校准对象，
+否则拒绝把锁写成 final（报错文案提示"恢复模拟器改动或重新校准"）。
+`ic_loader.cpp` 恢复到 48ad02a 的内容，`git diff 48ad02a -- research/src/experiments/politeia/`
+为空，即该子树完全回到被校准状态；编译告警修复推迟到 E1-C4 之后单独提交。
+
+关键点是**没有重跑 V1F**：在恢复后的源码（`b6d24b7`）上，V0G 重建**实测复现**出
+`87eafa4e…`，与校准对象逐字节相同，证明构建是确定性的、恢复源码足以还原被校准的
+artifact。该等价性是被实测的，不是被论证的。最终锁的两处 binary SHA
+（`reference_binary_sha256` 与 `simulator_validation.binary_sha256`）均为 `87eafa4e…`。
+
+被作废的中间产物（`e397bef` 上的候选/最终锁与 V0G/E1 声明）已删除，其 jobctl 记录
+留档为 `.autoresearcher/jobs/V0G-SIMULATOR-TESTS-C4.superseded-e397bef`。
