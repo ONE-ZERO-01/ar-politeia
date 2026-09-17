@@ -12,6 +12,7 @@ import pytest
 import autoresearcher.foundation.jobctl as jobctl
 from autoresearcher.foundation.jobctl import (
     _config_hash,
+    recheck,
     reconcile,
     status,
     submit,
@@ -267,3 +268,143 @@ def test_status_failed(jobs_dir):
     _write(job_dir / "handle.json", {"status": "RUNNING", "pid": os.getpid()})
     result = status(jobs_dir, "E1")
     assert result["status"] == "FAILED"
+
+
+# ── 声明契约：提交期拦截与完成后 recheck ─────────────────────────────
+
+
+def _submit_fixtures(tmp_path):
+    config = tmp_path / "config.yaml"
+    config.write_text("lr: 0.001", encoding="utf-8")
+    env = tmp_path / "env.txt"
+    env.write_text("python=3.9\n", encoding="utf-8")
+    return config, env
+
+
+def test_submit_blocks_artifact_escaping_cwd(jobs_dir, tmp_path):
+    config, env = _submit_fixtures(tmp_path)
+    result = submit(
+        jobs_dir, "E1", ["true"], str(config), "abc1234", [11], str(env),
+        artifacts=["../outside.json"], cwd=str(tmp_path),
+    )
+    assert result["status"] == "blocked"
+    assert any("escapes" in e for e in result["errors"])
+    assert not (jobs_dir / "E1" / "handle.json").exists()
+
+
+def test_submit_blocks_duplicate_artifact(jobs_dir, tmp_path):
+    config, env = _submit_fixtures(tmp_path)
+    result = submit(
+        jobs_dir, "E1", ["true"], str(config), "abc1234", [11], str(env),
+        artifacts=["out/result.json", "out/result.json"], cwd=str(tmp_path),
+    )
+    assert result["status"] == "blocked"
+    assert any("duplicate" in e for e in result["errors"])
+
+
+def test_submit_records_resolved_artifact_path(jobs_dir, tmp_path):
+    config, env = _submit_fixtures(tmp_path)
+    result = submit(
+        jobs_dir, "E1", ["true"], str(config), "abc1234", [11], str(env),
+        artifacts=["out/result.json"], cwd=str(tmp_path),
+    )
+    assert result["status"] == "submitted"
+    spec = json.loads((jobs_dir / "E1" / "spec.json").read_text(encoding="utf-8"))
+    assert spec["artifacts"] == ["out/result.json"]
+
+
+def test_recheck_repairs_bare_basename_declaration(jobs_dir, tmp_path):
+    """A bare basename resolves to cwd root; recheck must expose the real path."""
+    job_dir = jobs_dir / "E1"
+    job_dir.mkdir(parents=True)
+    workspace = tmp_path / "jobs" / "E1" / "workspace"
+    workspace.mkdir(parents=True)
+    (workspace / "result.json").write_text('{"pass": true}\n', encoding="utf-8")
+    _write(
+        job_dir / "spec.json",
+        {
+            "exp_id": "E1",
+            "cwd": str(tmp_path),
+            "artifacts": ["jobs/E1/workspace/result.json"],
+        },
+    )
+    # The worker recorded a verdict against the malformed declaration.
+    _write(
+        job_dir / "result.json",
+        {
+            "exit_code": 0,
+            "timed_out": False,
+            "wall_seconds": 12.5,
+            "artifacts": [
+                {"path": "result.json", "valid": False},
+            ],
+        },
+    )
+    result = recheck(jobs_dir, "E1", reason="declaration used bare basenames")
+    assert result["action"] == "rechecked"
+    assert result["artifacts_valid"] is True
+    repaired = json.loads((job_dir / "result.json").read_text(encoding="utf-8"))
+    # Execution facts are preserved verbatim; only the contract is recomputed.
+    assert repaired["exit_code"] == 0
+    assert repaired["timed_out"] is False
+    assert repaired["wall_seconds"] == 12.5
+    assert repaired["artifacts"][0]["valid"] is True
+    assert repaired["artifacts"][0]["resolved"] == str(workspace / "result.json")
+    assert repaired["artifact_recheck"]["declaration_evaluated"] == [
+        "jobs/E1/workspace/result.json"
+    ]
+    assert repaired["artifact_recheck"]["previous_artifacts"] == [
+        {"path": "result.json", "valid": False}
+    ]
+    assert repaired["artifact_recheck"]["still_invalid"] == []
+    _write(job_dir / "handle.json", {"status": "RUNNING", "pid": os.getpid()})
+    assert reconcile(jobs_dir, "E1")["action"] == "completed"
+
+
+def test_recheck_reports_still_invalid_artifact(jobs_dir, tmp_path):
+    job_dir = jobs_dir / "E1"
+    job_dir.mkdir(parents=True)
+    _write(job_dir / "spec.json", {"exp_id": "E1", "cwd": str(tmp_path), "artifacts": ["a.json"]})
+    _write(
+        job_dir / "result.json",
+        {"exit_code": 0, "timed_out": False, "wall_seconds": 1.0, "artifacts": []},
+    )
+    result = recheck(jobs_dir, "E1", reason="re-verify")
+    assert result["action"] == "rechecked"
+    assert result["artifacts_valid"] is False
+    assert result["invalid"] == ["a.json"]
+    _write(job_dir / "handle.json", {"status": "RUNNING", "pid": os.getpid()})
+    assert reconcile(jobs_dir, "E1")["action"] == "failed"
+
+
+def test_recheck_requires_reason(jobs_dir, tmp_path):
+    job_dir = jobs_dir / "E1"
+    job_dir.mkdir(parents=True)
+    _write(job_dir / "spec.json", {"exp_id": "E1", "cwd": str(tmp_path), "artifacts": []})
+    _write(job_dir / "result.json", {"exit_code": 0, "artifacts": []})
+    result = recheck(jobs_dir, "E1", reason="   ")
+    assert result["action"] == "blocked"
+
+
+def test_reconcile_surfaces_resolved_path_on_invalid(jobs_dir, tmp_path):
+    job_dir = jobs_dir / "E1"
+    job_dir.mkdir(parents=True)
+    _write(
+        job_dir / "result.json",
+        {
+            "exit_code": 0,
+            "artifacts": [
+                {
+                    "path": "result.json",
+                    "resolved": str(tmp_path / "result.json"),
+                    "valid": False,
+                }
+            ],
+        },
+    )
+    _write(job_dir / "handle.json", {"status": "RUNNING", "pid": os.getpid()})
+    result = reconcile(jobs_dir, "E1")
+    assert result["action"] == "failed"
+    assert result["invalid_artifacts"] == [
+        {"path": "result.json", "resolved": str(tmp_path / "result.json")}
+    ]

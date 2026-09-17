@@ -72,6 +72,31 @@ def _read_json(path: Path) -> Dict[str, Any]:
         return json.load(handle)
 
 
+def _artifact_records(
+    base: Path, artifacts: List[str]
+) -> List[Dict[str, Any]]:
+    """Evaluate a declared artifact contract against ``base``.
+
+    Each record carries the resolved absolute path so a misdeclared relative
+    path (for example a bare ``result.json`` that resolves to the project root
+    rather than the job's output directory) is immediately visible in the
+    record instead of surfacing only as ``valid: false``.
+    """
+    records: List[Dict[str, Any]] = []
+    for relative in artifacts:
+        path = (base / relative).resolve()
+        contained = base == path or base in path.parents
+        records.append(
+            {
+                "path": relative,
+                "resolved": str(path),
+                "contained_in_cwd": contained,
+                "valid": contained and path.is_file() and path.stat().st_size > 0,
+            }
+        )
+    return records
+
+
 # ── submit ──────────────────────────────────────────────────────────
 
 
@@ -102,6 +127,24 @@ def submit(
         validation_errors.append("commit_id is missing or dirty")
     if not seeds:
         validation_errors.append("at least one seed is required")
+    # Sound, domain-agnostic invariant: a declared artifact must be locatable
+    # relative to the submission cwd. Paths escaping cwd can never be verified
+    # by the worker and would silently fail the contract hours later.
+    resolved_cwd = Path(cwd or os.getcwd()).resolve()
+    seen_artifacts = set()
+    for relative in artifacts or []:
+        if not isinstance(relative, str) or not relative:
+            validation_errors.append("artifact declarations must be non-empty strings")
+            continue
+        if relative in seen_artifacts:
+            validation_errors.append(f"duplicate artifact declaration: {relative}")
+            continue
+        seen_artifacts.add(relative)
+        resolved = (resolved_cwd / relative).resolve()
+        if resolved_cwd != resolved and resolved_cwd not in resolved.parents:
+            validation_errors.append(
+                f"artifact escapes the submission cwd: {relative} -> {resolved}"
+            )
     if validation_errors:
         return {
             "status": "blocked",
@@ -271,6 +314,16 @@ def reconcile(jobs_dir: Path, exp_id: str) -> Dict[str, Any]:
                 "action": "failed",
                 "exp_id": exp_id,
                 "detail": "One or more declared artifacts are missing or empty.",
+                # Surface where each declaration actually resolved: a bare
+                # basename resolving to the cwd root instead of the job's
+                # output directory is a declaration defect, not a lost artifact.
+                "invalid_artifacts": [
+                    {
+                        "path": item.get("path"),
+                        "resolved": item.get("resolved"),
+                    }
+                    for item in invalid
+                ],
             }
         return {
             "action": "completed",
@@ -331,17 +384,10 @@ def _run_worker(jobs_dir: Path, exp_id: str) -> Dict[str, Any]:
             exit_code = 124
             timed_out = True
             stderr_handle.write(b"\nJob exceeded its wall-clock timeout.\n")
-    artifact_records = []
-    base = Path(spec.get("cwd") or os.getcwd()).resolve()
-    for relative in spec.get("artifacts", []):
-        path = (base / relative).resolve()
-        contained = base == path or base in path.parents
-        artifact_records.append(
-            {
-                "path": relative,
-                "valid": contained and path.is_file() and path.stat().st_size > 0,
-            }
-        )
+    artifact_records = _artifact_records(
+        Path(spec.get("cwd") or os.getcwd()).resolve(),
+        list(spec.get("artifacts", [])),
+    )
     result = {
         "exit_code": exit_code,
         "timed_out": timed_out,
@@ -350,6 +396,65 @@ def _run_worker(jobs_dir: Path, exp_id: str) -> Dict[str, Any]:
     }
     _write_json(job_dir / "result.json", result)
     return result
+
+
+def recheck(jobs_dir: Path, exp_id: str, *, reason: str) -> Dict[str, Any]:
+    """Re-evaluate a completed job's artifact contract without re-executing it.
+
+    A declaration can be malformed in a way that only becomes visible at
+    completion time (for example bare basenames resolving to the project root
+    instead of the job's output directory). Re-running the job to fix the
+    record would destroy the very computation the record describes, so this
+    action recomputes the artifact verdict from the stored ``spec.json`` while
+    preserving every execution fact, and records the previous declaration and
+    verdict verbatim as provenance. Nothing about the executed work changes.
+    """
+    job_dir = jobs_dir / exp_id
+    spec_path = job_dir / "spec.json"
+    result_path = job_dir / "result.json"
+    if not spec_path.is_file():
+        return {"action": "no_spec", "exp_id": exp_id, "detail": "No spec.json to recheck"}
+    if not result_path.is_file():
+        return {
+            "action": "no_result",
+            "exp_id": exp_id,
+            "detail": "No result.json; the worker has not recorded this job yet",
+        }
+    if not reason or not reason.strip():
+        return {
+            "action": "blocked",
+            "exp_id": exp_id,
+            "detail": "recheck requires a non-empty --reason for the audit trail",
+        }
+
+    spec = _read_json(spec_path)
+    previous = _read_json(result_path)
+    declared = [str(item) for item in spec.get("artifacts", [])]
+    records = _artifact_records(
+        Path(spec.get("cwd") or os.getcwd()).resolve(), declared
+    )
+    invalid = [item for item in records if not item["valid"]]
+    repaired = {
+        "exit_code": previous.get("exit_code"),
+        "timed_out": previous.get("timed_out"),
+        "wall_seconds": previous.get("wall_seconds"),
+        "artifacts": records,
+        "artifact_recheck": {
+            "repaired_at": _now(),
+            "reason": reason.strip(),
+            "declaration_evaluated": declared,
+            "previous_artifacts": previous.get("artifacts", []),
+            "still_invalid": [item["path"] for item in invalid],
+        },
+    }
+    _write_json(result_path, repaired)
+    return {
+        "action": "rechecked",
+        "exp_id": exp_id,
+        "artifacts_valid": not invalid,
+        "invalid": [item["path"] for item in invalid],
+        "handle": str(result_path),
+    }
 
 
 # ── CLI ─────────────────────────────────────────────────────────────
@@ -384,6 +489,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     # reconcile
     p_rec = subparsers.add_parser("reconcile")
     p_rec.add_argument("--exp-id", required=True)
+    # recheck: re-evaluate the artifact contract of a completed job without
+    # re-executing it, for repairing a malformed declaration in the record.
+    p_recheck = subparsers.add_parser("recheck")
+    p_recheck.add_argument("--exp-id", required=True)
+    p_recheck.add_argument("--reason", required=True)
     p_worker = subparsers.add_parser("_worker", help=argparse.SUPPRESS)
     p_worker.add_argument("--exp-id", required=True)
 
@@ -404,6 +514,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         result = status(jobs_dir, args.exp_id)
     elif args.action == "reconcile":
         result = reconcile(jobs_dir, args.exp_id)
+    elif args.action == "recheck":
+        result = recheck(jobs_dir, args.exp_id, reason=args.reason)
     elif args.action == "_worker":
         result = _run_worker(jobs_dir, args.exp_id)
     else:
@@ -413,7 +525,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if (
         "error" in result
         or result.get("status") in ("blocked", "config_changed", "error", "FAILED")
-        or result.get("action") == "failed"
+        or result.get("action") in ("failed", "blocked")
     ):
         sys.exit(1)
 
