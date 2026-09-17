@@ -1,0 +1,6 @@
+{
+  "approach": "Run 64 matched seed pairs (canonical vs permuted row order over one physical state) as sixteen OMP=1 CPU reference processes at the reference temperature.",
+  "evidence_role": "numerical diagnostic",
+  "evidence_boundary": "V1G quantifies one numerical channel at the reference temperature; it produces no scientific evidence about any E1/E2 landscape effect and must not be cited as such.",
+  "supports_core_claim": false
+}
