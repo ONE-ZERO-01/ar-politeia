@@ -404,3 +404,66 @@ SHA，且只允许跑冻结的参考 binary（S14 检查）。预注册、脚本
 前者的上游，因为一个未验证通道"能不能被打开"最终由配置面决定。两处的修复都排在
 E1-C4 之后：声明补齐会改变生成的 cfg（按 S15 不能追溯应用到已授权实验），
 消除 `cell_cutoff` 隐式耦合会改动 C++（需重跑校准）。
+
+## 4.9 E1-C4 完成与归档（2026-09-17）
+
+### 执行结果（实测）
+
+E1-C4 在 umi 完成 **128/128 runs、0 失败**，64 个种子 × {clustered, shuffled} 匹配对。
+34.97 CPU 小时 / 18512 秒墙钟（有效并行度 6.8×，parallel=8），单 run 最长 3654.9 秒。
+六个分析 Gate 全过：`v1f_numerical_calibration`、`matched_inputs`、`execution_invariants`、
+`tail_stationarity`、`adjacent_window_stability`、`independent_replicate_precision`。
+
+paired clustered-minus-shuffled 主效应（10000 次 bootstrap，Holm 族内校正）：
+
+| 指标 | 效应 | 95% CI | Holm p | 冻结 SESOI |
+|---|---|---|---|---|
+| resource_density_spearman_rho | +0.2297 | (0.2125, 0.2461) | 3.0e-5 | 0.05 |
+| density_morans_i | +0.5525 | (0.5330, 0.5705) | 3.0e-5 | 0.05 |
+| occupancy_entropy | −0.0818 | (−0.0901, −0.0735) | 3.0e-5 | 0.025 |
+| wealth_gini（次要） | +0.00303 | 含 0 | 不拒绝 | 0.025 |
+
+三个必需空间指标全部远超冻结 SESOI 且 Holm 显著，故 C2-LANDSCAPE-C4 的
+**证伪条件一条都不成立**——"supported"是预注册逻辑的结论，不是事后判断。
+次要的 `wealth_gini` 区间含 0，与 S12 登记的合成效应限定一致（当前参考工作点下
+景观效应主要体现在空间结构而非财富尺度）。作用域仅限已校准的参考配置；
+尺度/密度/网格/留出景观的泛化仍归 C4-ROBUSTNESS-C4（E3-C4，deferred）。
+
+`temporal_ess_diagnostic_pass` 为 false——按冻结策略该诊断不参与判定，仅登记。
+
+### 流程偏离：归档契约是在跑完之后补写的
+
+Cycle 4 的 promotion 模块（`prepare_cycle4_confirmation.py`）只实现了 `archive-v1f`，
+**没有 E1 的归档路径**。后果是：E1-C4 跑完后，其唯一完整副本只存在于 umi 的
+`workspace/`（git 忽略），而 `result.json`、`paired_effects.json` 等结论并不在 git 里。
+这是一条真实的证据丢失风险，本次补齐。
+
+新增 `archive-e1`。方向安全性论证：
+
+1. **只可能拒绝，不可能放宽。** 归档不重算任何效应、不设任何阈值、不解释任何 Gate；
+   判定词逐字节复制（`paired_effects.json` 原样落入 git）。它只能因不一致而失败。
+2. **不触及 `change_control`。** 策略禁止的是"结果已知后改动模型/阈值/必需指标/分析"。
+   归档既不改模型也不改分析，只是校验并紧凑化，因此不需要新锁或独立数据。
+3. **校验强度高于 V1F。** 除 V1F 已有的项外，额外把**每个 completion marker 与其
+   `final_snapshot` 的 SHA-256 绑定**：marker 必须对得上真实数值载荷，而不只是一个计数
+   （128 × 204 KB 快照，约 26 MB 哈希开销）。并强制
+   `analysis_gate_pass == ∧(6 个 gate)`，禁止在 Gate 失败时声称支持。
+4. **执行出的设计必须复现预注册。** E1-C4 的 config 不含 `conditions` 键（两条件匹配矩阵
+   由 runner 施加），因此归档以最终锁的 `design_contract` 为权威，要求
+   `run_specs` 恰好覆盖 64 seeds × 2 条件，而不是从 config 反推。
+
+未申报的 `ensemble_stationarity_report.json` 只作只读一致性输入与 provenance 哈希，
+不进入 Gate——不追溯扩写已执行的产物契约。
+
+测试 26 项，含变异检验（丢快照载荷、marker 绑定他 binary、未授权锁、Gate 与其自身声明
+不一致、声明契约不符、越界产物、锁冻结了别的设计）。变异检验确认：禁用快照校验或
+禁用 Gate 合取校验后，对应测试确实失败。
+
+### 遗留残余
+
+S18（存储顺序界限在 temperature=0.0 标定、参考配置运行在 0.5）仍未关闭，由已冻结的
+V1G-ORDER-THERMAL-C4 探针负责判定。定量上看它不威胁本次结论：E1-C4 的最小主效应
+（occupancy_entropy，+0.0818）是最小 SESOI（0.025）的 3.3×，而 S18 涉及的是数值误差界限，
+需要该界限再增长一个数量级才可能侵入判定。E1-C4 jobctl 台账中的提交时刻（08:10）
+与实际不符（run 目录创建于 10:09、结果写于 15:17），属记账瑕疵，不影响证据链。
+

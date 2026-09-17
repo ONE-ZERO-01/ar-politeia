@@ -249,6 +249,34 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   premise (the original comparability target of `w_ref = 5` turned out
   unreachable), and the resulting action narrows rather than widens any claim.
   V1F's `numerical_calibration.json` has not been read.
+- E1-C4, the Cycle 4 confirmatory matched-landscape run, completed on umi:
+  128/128 runs, 0 failures, 34.97 CPU-hours over 18,512 s wall, and a longest
+  single run of 3,655 s. All six analysis gates passed, and the paired
+  clustered-minus-shuffled effects exceed the frozen SESOI on all three required
+  spatial metrics: `resource_density_spearman_rho` +0.2297, `density_morans_i`
+  +0.5525, `occupancy_entropy` -0.0818, each Holm-significant at p=3.0e-5. None
+  of C2-LANDSCAPE-C4's pre-registered falsification conditions hold, so the claim
+  is supported at the calibrated reference configuration. The secondary
+  `wealth_gini` effect is +0.00303 with an interval containing zero, consistent
+  with the registered S12 synthetic-effect caveat. System-size, density,
+  grid-discretization and holdout-landscape generalisation remain with
+  C4-ROBUSTNESS-C4 (deferred). The `temporal_ess` diagnostic is false, which the
+  frozen policy registers but does not gate on.
+- E1-C4's verdicts are now archived in git. The promotion module shipped without
+  an E1 archival path, so the only complete copy of the result lived in the
+  git-ignored umi workspace; a new `archive-e1` command closes that exposure. It
+  is a validation-and-compaction step only: it recomputes no effect, applies no
+  threshold, copies the verdict byte-for-byte, and can only refuse. Beyond the
+  V1F checks it binds every completion marker to its final-snapshot digest and
+  requires `analysis_gate_pass` to equal the conjunction of its six gates. The
+  contract was authored after the run finished; that deviation is recorded in
+  `simulator-remediation-status.md` section 4.9, and because it changes no model,
+  threshold, required metric or analysis it does not trigger the `change_control`
+  clause and requires no new lock.
+- `plan.json` now matches the evidence: V1F, V0G and E1-C4 are `executed_passed`,
+  C1-NUM-C4 and C2-LANDSCAPE-C4 are `supported`, and C3-CHANNELS-C4 /
+  C4-ROBUSTNESS-C4 remain pending and deferred. S18 stays open and is covered by
+  the already frozen V1G-ORDER-THERMAL-C4 probe.
 
 ## Cycle 3 E3 correction
 

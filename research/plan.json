@@ -40,7 +40,8 @@
       "text": "The remediated simulator has a declared and testable numerical process: exchange preserves total wealth and non-negativity, invalid state fails explicitly, random streams are seed- and stable-ID-keyed, controls execute the process named in the design, and required metrics have valid stationarity and precision diagnostics.",
       "type": "calibration",
       "priority": "P0",
-      "status": "pending",
+      "status": "supported",
+      "resolution": "V1F passed all six frozen calibration layers on 64 unseen seeds, including non-flat timestep convergence and a valid status for every required metric. Open residual S18: the frozen storage-order bound was measured at temperature 0.0 while the confirmatory reference configuration runs at temperature 0.5; V1G-ORDER-THERMAL-C4 is the frozen test for that gap.",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
       "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V0E-SIMULATOR-TESTS-C4", "V0F-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4", "V1ED-SAMPLING-DIAGNOSTIC-C4", "V1F-NONFLAT-CALIBRATION-C4"]
     },
@@ -49,7 +50,8 @@
       "text": "Under matched resource totals, histograms, accessible area, population, and initial wealth, clustered versus shuffled resource landscapes produce a numerically resolvable difference in preregistered steady-window spatial metrics.",
       "type": "core",
       "priority": "P0",
-      "status": "pending",
+      "status": "supported",
+      "resolution": "None of the pre-registered falsification conditions hold: the calibration is valid and non-flat (V1F), the paired effects sit far outside the frozen equivalence region, multiplicity control passes, and every required stationarity/precision gate passes. Scope is the calibrated reference configuration; system-size, density, grid-discretization and holdout-landscape generalization remain with C4-ROBUSTNESS-C4 (E3-ROBUSTNESS-C4, deferred).",
       "falsification": "After a valid non-flat calibration, paired effects are within the frozen numerical equivalence region, fail multiplicity control, or required runs fail stationarity/precision requirements.",
       "experiments": ["V0G-SIMULATOR-TESTS-C4", "E1-MATCHED-LANDSCAPES-C4"]
     },
@@ -254,8 +256,9 @@
       "objective": "Independently repeat the unchanged V1E calibration with 64 unseen seeds selected by the conservative V1ED upper-SD rule.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "running",
-      "blocked_by": "none; V0F and preflight passed",
+      "status": "executed_passed",
+      "blocked_by": "cleared: the run completed and passed every frozen calibration layer.",
+      "result": "Completed 960/960 runs on umi and passed all six frozen calibration layers (invariants, timestep_convergence, storage_order_sensitivity, tail_stationarity, adjacent_window_stability, independent_replicate_precision). Archived as tracked evidence by prepare_cycle4_confirmation.py archive-v1f.",
       "execution": "Submitted on umi at 2026-09-15T10:01:13+08:00 under jobctl pid 2647912; 960 run directories were created and eight single-thread simulator processes entered execution with zero startup stderr failures.",
       "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
     },
@@ -266,8 +269,9 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "preregistered_blocked",
-      "blocked_by": "V1F must pass and promotion prepare must create a committed candidate Cycle 4 lock plus V0G/E1-C4 declarations."
+      "status": "executed_passed",
+      "blocked_by": "cleared: V1F passed and promotion prepare/finalize froze the final Cycle 4 lock.",
+      "result": "Passed and produced the OpenMP-OFF reference binary with SHA-256 87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3, which the final Cycle 4 lock binds and which E1-C4 executed against."
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",
@@ -275,9 +279,11 @@
       "objective": "Independently rerun the clustered-versus-shuffled comparison using new seeds, the remediated simulator, the frozen non-flat calibration, and required stationarity plus precision gates.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "implementation_ready",
-      "blocked_by": "V1F must pass; promotion prepare must create the non-authorizing candidate; V0G must pass; promotion finalize must bind the reference binary and freeze the final Cycle 4 lock; compute is authorized.",
-      "design": "research/e1-cycle4-design.md"
+      "status": "executed_passed_claim_supported",
+      "blocked_by": "cleared: the final Cycle 4 lock authorized E1-C4 and bound the calibrated reference binary.",
+      "result": "Completed 128/128 runs on umi (64 seeds x matched clustered/shuffled), 0 failures, 34.97 CPU-hours over 18512 s wall, and passed all six analysis gates. Paired clustered-minus-shuffled effects exceed the frozen SESOI on all three required spatial metrics (resource_density_spearman_rho +0.2297, density_morans_i +0.5525, occupancy_entropy -0.0818; Holm p=3.0e-5). The secondary wealth_gini effect is +0.00303 with an interval containing zero, consistent with the registered S12 synthetic-effect caveat. Archived by the new archive-e1 command, which binds every completion marker to its final snapshot digest and cross-checks the lock, the jobctl contract, both audits and all three reports.",
+      "design": "research/e1-cycle4-design.md",
+      "evidence": ["research/jobs/E1-MATCHED-LANDSCAPES-C4/result.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/manifest.json"]
     },
     {
       "id": "E2-CHANNEL-SEMANTICS-C4",
