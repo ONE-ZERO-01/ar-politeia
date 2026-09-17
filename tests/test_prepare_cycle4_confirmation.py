@@ -402,3 +402,361 @@ def test_archive_v1f_cross_checks_runs_and_writes_tracked_evidence(tmp_path):
     manifest = json.loads((job_dir / "manifest.json").read_text())
     assert manifest["jobctl_reconcile"] == "completed"
     assert len(manifest["artifacts"]) == len(promotion.V1F_WORKSPACE_ARTIFACTS)
+
+
+def _e1_fixture(root: Path) -> tuple[Path, Path]:
+    """Build a minimal but internally consistent finished E1-C4 run.
+
+    The fixture mirrors the shape of the real workspace: 64 seeds x 2 matched
+    conditions, one completion marker and health file per run, the eight
+    jobctl-declared artifacts, and a paired-effects verdict that agrees with the
+    steady and ensemble reports it was derived from.
+    """
+    binary = (
+        root
+        / "research/jobs/V0G-SIMULATOR-TESTS-C4/workspace/build-off/src/politeia"
+    )
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_bytes(b"cycle4 calibrated reference executable")
+    binary_sha256 = _sha256(binary)
+
+    lock_path = root / "research/parameter_lock.cycle4.json"
+    _write_json(
+        lock_path,
+        {
+            "lock_id": "ar-politeia-cycle4-confirmatory-v1",
+            "status": "final",
+            "confirmatory_execution_authorized": True,
+            "authorized_experiments": [promotion.E1_ID],
+            "source_commit": V0G_COMMIT,
+            "numerical_calibration": {"reference_binary_sha256": binary_sha256},
+        },
+    )
+
+    job_dir = root / f"research/jobs/{promotion.E1_ID}"
+    config_path = job_dir / "config.json"
+    _write_json(
+        config_path,
+        {
+            "experiment_id": promotion.E1_ID,
+            "binary": binary.relative_to(root).as_posix(),
+            "binary_sha256": binary_sha256,
+            "parameter_lock_sha256": _sha256(lock_path),
+            "seeds": list(range(promotion.E1_SEED_COUNT)),
+            "conditions": [{"name": name} for name in promotion.E1_CONDITIONS],
+        },
+    )
+
+    workspace = job_dir / "workspace"
+    runs = []
+    for seed in range(promotion.E1_SEED_COUNT):
+        for condition in promotion.E1_CONDITIONS:
+            run_id = f"seed-{seed}--{condition}"
+            run_dir = workspace / "runs" / run_id
+            run_dir.mkdir(parents=True)
+            snapshot = run_dir / "snap_00000010.csv"
+            snapshot.write_text(f"gid,w\n{seed},1.0\n", encoding="utf-8")
+            _write_json(
+                run_dir / "completion.json",
+                {
+                    "status": "completed",
+                    "run_id": run_id,
+                    "binary_sha256": binary_sha256,
+                    "omp_threads": 1,
+                    "final_snapshot": snapshot.name,
+                    "final_snapshot_sha256": _sha256(snapshot),
+                    "elapsed_seconds": 2.0,
+                },
+            )
+            _write_json(run_dir / "health.json", {"windows": []})
+            runs.append({"run_id": run_id, "seed": seed, "condition": condition})
+
+    _write_json(workspace / "run_specs.json", {"runs": runs})
+    _write_json(workspace / "matched_input_audit.json", {"pass": True})
+    _write_json(
+        workspace / "parameter_lock_audit.json",
+        {
+            "pass": True,
+            "parameter_lock_sha256": _sha256(lock_path),
+            "parameter_lock_status": "final",
+        },
+    )
+    (workspace / "replicate_metrics.csv").write_text("run_id\n", encoding="utf-8")
+    _write_json(
+        workspace / "stationarity_report.json",
+        {"experiment": promotion.E1_ID, "pass": True},
+    )
+    _write_json(
+        workspace / "ensemble_stationarity_report.json",
+        {"experiment": promotion.E1_ID, "stationarity_valid": True},
+    )
+    _write_json(
+        workspace / "steady_estimand_report.json",
+        {
+            "experiment": promotion.E1_ID,
+            "replicates_per_condition": promotion.E1_SEED_COUNT,
+            "tail_stationarity_valid": True,
+            "adjacent_window_stability_valid": True,
+            "independent_replicate_precision_valid": True,
+            "conditions": {
+                name: {"condition": name} for name in promotion.E1_CONDITIONS
+            },
+        },
+    )
+    _write_json(
+        workspace / "paired_effects.json",
+        {
+            "experiment": promotion.E1_ID,
+            "comparison": "clustered-minus-shuffled",
+            "analysis_gate_pass": True,
+            "claim_supported": True,
+            "valid_null_or_equivalence": False,
+            "gates": {key: True for key in promotion.E1_PAIRED_GATES},
+            "execution_invariant_checks": {"wealth_nonnegative": True},
+            "temporal_ess_diagnostic_pass": False,
+        },
+    )
+    _write_json(
+        workspace / "result.json",
+        {
+            "experiment": promotion.E1_ID,
+            "status": "completed",
+            "pass": True,
+            "config_sha256": _sha256(config_path),
+            "parameter_lock_sha256": _sha256(lock_path),
+            "evidence_boundary": "Synthetic generative mechanism only.",
+        },
+    )
+
+    jobctl_dir = root / f".autoresearcher/jobs/{promotion.E1_ID}"
+    _write_json(jobctl_dir / "spec.json", {"commit_id": V0G_COMMIT})
+    _write_json(
+        jobctl_dir / "result.json",
+        {
+            "exit_code": 0,
+            "timed_out": False,
+            "wall_seconds": 60.0,
+            "artifacts": [
+                {
+                    "path": f"research/jobs/{promotion.E1_ID}/workspace/{name}",
+                    "contained_in_cwd": True,
+                    "valid": True,
+                }
+                for name in promotion.E1_WORKSPACE_ARTIFACTS
+            ],
+        },
+    )
+    return job_dir, jobctl_dir
+
+
+def test_archive_e1_archives_a_passing_run(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+
+    result = promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+    assert result["status"] == "completed_passed_gate_claim_supported"
+    assert result["analysis_gate_pass"] is True
+    assert result["claim_supported"] is True
+    assert result["runs_completed"] == promotion.E1_RUN_COUNT
+    assert result["run_failures"] == 0
+    assert all(result["gates"].values())
+    assert result["elapsed_cpu_hours"] == pytest.approx(
+        promotion.E1_RUN_COUNT * 2.0 / 3600.0
+    )
+    # The verdict is copied verbatim, never recomputed or reinterpreted.
+    assert (job_dir / "paired_effects.json").read_bytes() == (
+        job_dir / "workspace/paired_effects.json"
+    ).read_bytes()
+    assert result["paired_effects_sha256"] == _sha256(job_dir / "paired_effects.json")
+    assert json.loads((job_dir / "result.json").read_text()) == result
+    assert set(result["workspace_artifact_sha256"]) == set(
+        promotion.E1_WORKSPACE_ARTIFACTS
+    ) | set(promotion.E1_UNDECLARED_PROVENANCE)
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert manifest["archived_after_run"] is True
+    assert len(manifest["artifacts"]) == len(promotion.E1_WORKSPACE_ARTIFACTS)
+    assert set(manifest["undeclared_provenance_sha256"]) == set(
+        promotion.E1_UNDECLARED_PROVENANCE
+    )
+
+
+def test_archive_e1_is_idempotent(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    first = promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+    first_bytes = (job_dir / "result.json").read_bytes()
+
+    second = promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+    assert second == first
+    assert (job_dir / "result.json").read_bytes() == first_bytes
+
+
+def test_archive_e1_rejects_a_marker_whose_payload_was_lost(tmp_path):
+    """A marker must be tied to the snapshot it claims, not just to a count."""
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    victim = job_dir / "workspace/runs/seed-7--shuffled/snap_00000010.csv"
+    victim.write_text("gid,w\n7,999.0\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="final snapshot is missing or does not match"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_incomplete_markers(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    (job_dir / "workspace/runs/seed-7--shuffled/completion.json").unlink()
+
+    with pytest.raises(RuntimeError, match="completion markers are incomplete: 127/128"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_a_marker_bound_to_another_binary(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    marker_path = job_dir / "workspace/runs/seed-7--shuffled/completion.json"
+    marker = json.loads(marker_path.read_text())
+    marker["binary_sha256"] = "d" * 64
+    _write_json(marker_path, marker)
+
+    with pytest.raises(RuntimeError, match="do not bind the calibrated reference binary"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_an_unauthorized_lock(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    lock_path = tmp_path / "research/parameter_lock.cycle4.json"
+    lock = json.loads(lock_path.read_text())
+    lock["status"] = "candidate"
+    lock["confirmatory_execution_authorized"] = False
+    lock["authorized_experiments"] = []
+    _write_json(lock_path, lock)
+
+    with pytest.raises(RuntimeError, match="not authorized by a final"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_verdict_disagreeing_with_steady_report(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    steady_path = job_dir / "workspace/steady_estimand_report.json"
+    steady = json.loads(steady_path.read_text())
+    steady["independent_replicate_precision_valid"] = False
+    _write_json(steady_path, steady)
+
+    with pytest.raises(RuntimeError, match="disagree on independent_replicate_precision"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_gate_verdict_disagreeing_with_its_own_gate_block(tmp_path):
+    """The archive must never let a verdict be edited independently of its gates."""
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    paired_path = job_dir / "workspace/paired_effects.json"
+    paired = json.loads(paired_path.read_text())
+    paired["analysis_gate_pass"] = False
+    paired["claim_supported"] = False
+    _write_json(paired_path, paired)
+
+    with pytest.raises(RuntimeError, match="verdict disagrees with its gate block"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_a_claim_that_fails_a_gate(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    paired_path = job_dir / "workspace/paired_effects.json"
+    paired = json.loads(paired_path.read_text())
+    paired["gates"]["tail_stationarity"] = False
+    _write_json(paired_path, paired)
+
+    with pytest.raises(RuntimeError, match="verdict disagrees with its gate block"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_a_declared_artifact_mismatch(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    result_path = jobctl_dir / "result.json"
+    payload = json.loads(result_path.read_text())
+    payload["artifacts"] = payload["artifacts"][:-1]
+    _write_json(result_path, payload)
+
+    with pytest.raises(RuntimeError, match="artifact declaration differs"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_an_artifact_declared_outside_the_workspace(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    result_path = jobctl_dir / "result.json"
+    payload = json.loads(result_path.read_text())
+    payload["artifacts"][3]["contained_in_cwd"] = False
+    _write_json(result_path, payload)
+
+    with pytest.raises(RuntimeError, match="outside its workspace"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_a_failed_matched_input_audit(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    audit_path = job_dir / "workspace/matched_input_audit.json"
+    _write_json(audit_path, {"pass": False})
+
+    with pytest.raises(RuntimeError, match="matched-input audit did not pass"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_records_a_valid_null_without_a_claim(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    paired_path = job_dir / "workspace/paired_effects.json"
+    paired = json.loads(paired_path.read_text())
+    paired["claim_supported"] = False
+    paired["valid_null_or_equivalence"] = True
+    _write_json(paired_path, paired)
+
+    result = promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+    assert result["status"] == "completed_passed_gate_valid_null"
+    assert result["analysis_gate_pass"] is True
+    assert result["claim_supported"] is False
+    assert result["valid_null_or_equivalence"] is True
+
+
+def test_archive_e1_records_a_failed_gate_without_a_claim(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    paired_path = job_dir / "workspace/paired_effects.json"
+    paired = json.loads(paired_path.read_text())
+    paired["analysis_gate_pass"] = False
+    paired["claim_supported"] = False
+    paired["gates"]["tail_stationarity"] = False
+    _write_json(paired_path, paired)
+    steady_path = job_dir / "workspace/steady_estimand_report.json"
+    steady = json.loads(steady_path.read_text())
+    steady["tail_stationarity_valid"] = False
+    _write_json(steady_path, steady)
+    ensemble_path = job_dir / "workspace/ensemble_stationarity_report.json"
+    ensemble = json.loads(ensemble_path.read_text())
+    ensemble["stationarity_valid"] = False
+    _write_json(ensemble_path, ensemble)
+
+    result = promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+    assert result["status"] == "completed_failed_gate"
+    assert result["analysis_gate_pass"] is False
+    assert result["claim_supported"] is False
+    assert result["gates"]["tail_stationarity"] is False
+
+
+def test_archive_e1_rejects_a_run_outside_the_frozen_design(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    specs_path = job_dir / "workspace/run_specs.json"
+    specs = json.loads(specs_path.read_text())
+    specs["runs"][0]["condition"] = "flat"
+    _write_json(specs_path, specs)
+
+    with pytest.raises(RuntimeError, match="do not cover the frozen seed x condition design"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_cli_exposes_archive_e1():
+    module = importlib.util.module_from_spec(SPEC)
+    SPEC.loader.exec_module(module)
+    parser_source = (MODULE_PATH).read_text(encoding="utf-8")
+    assert '"archive-e1"' in parser_source
+    assert "archive_e1(" in parser_source
+    assert module.E1_RUN_COUNT == 128
+

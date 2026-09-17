@@ -5,6 +5,9 @@ This module creates declarations only.  It never executes the simulator and is
 safe to test locally.  ``prepare`` creates a non-authorizing candidate lock and
 the V0G/E1 declarations.  ``finalize`` requires a passing V0G result and its
 rebuilt OpenMP-OFF binary before it makes the lock final and E1 executable.
+``archive-v1f`` and ``archive-e1`` cross-check a finished run against its own
+declarations and compact it into tracked evidence; neither recomputes an effect
+or has any authority to relax a gate.
 """
 
 from __future__ import annotations
@@ -88,6 +91,33 @@ V1F_WORKSPACE_ARTIFACTS = (
     "numerical_calibration.json",
     "result.json",
 )
+
+# The eight artifacts jobctl declared for E1-C4.  This tuple is the executed
+# contract, so it is *not* extended after the fact.  The ensemble report is
+# produced by the same run but was never declared; it is used as an additional
+# read-only consistency input and hashed as provenance, never as a gate.
+E1_WORKSPACE_ARTIFACTS = (
+    "result.json",
+    "replicate_metrics.csv",
+    "paired_effects.json",
+    "matched_input_audit.json",
+    "stationarity_report.json",
+    "steady_estimand_report.json",
+    "parameter_lock_audit.json",
+    "run_specs.json",
+)
+E1_PAIRED_GATES = (
+    "v1f_numerical_calibration",
+    "matched_inputs",
+    "execution_invariants",
+    "tail_stationarity",
+    "adjacent_window_stability",
+    "independent_replicate_precision",
+)
+E1_UNDECLARED_PROVENANCE = ("ensemble_stationarity_report.json",)
+E1_CONDITIONS = ("clustered", "shuffled")
+E1_SEED_COUNT = 64
+E1_RUN_COUNT = E1_SEED_COUNT * len(E1_CONDITIONS)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -522,6 +552,326 @@ def archive_v1f(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
     return compact_result
 
 
+def archive_e1(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
+    """Validate and compact a completed E1-C4 workspace into tracked evidence.
+
+    This is a validation-and-compaction step, not an analysis step.  The
+    confirmatory verdict is produced by the frozen E1-C4 runner and is copied
+    verbatim; nothing here recomputes an effect, applies a threshold, or can
+    relax a gate.  Every branch either reproduces a number that the run already
+    recorded or refuses.
+
+    Unlike ``archive_v1f`` this contract was authored *after* the E1-C4 run had
+    already finished, because the promotion module shipped without an E1
+    archival path.  That is recorded as a process deviation in the remediation
+    ledger.  The direction of the omission is safe: a missing archive could only
+    have lost evidence, and adding one can only refuse or copy.
+    """
+    root = root.resolve()
+    job_dir = job_dir.resolve()
+    jobctl_dir = jobctl_dir.resolve()
+    _relative(root, job_dir)
+    _relative(root, jobctl_dir)
+    if job_dir.name != E1_ID or jobctl_dir.name != E1_ID:
+        raise ValueError("archive-e1 requires the E1-C4 job and jobctl directories")
+
+    config_path = job_dir / "config.json"
+    workspace = job_dir / "workspace"
+    config = _read_json(config_path)
+    if config.get("experiment_id") != E1_ID:
+        raise RuntimeError("E1-C4 config has the wrong experiment_id")
+
+    lock_path = (root / "research/parameter_lock.cycle4.json").resolve()
+    _relative(root, lock_path)
+    lock = _read_json(lock_path)
+    if (
+        lock.get("status") != "final"
+        or lock.get("confirmatory_execution_authorized") is not True
+    ):
+        raise RuntimeError("E1-C4 was not authorized by a final Cycle 4 parameter lock")
+    if E1_ID not in (lock.get("authorized_experiments") or []):
+        raise RuntimeError("the final Cycle 4 lock does not authorize E1-C4")
+    lock_sha256 = _sha256(lock_path)
+    if config.get("parameter_lock_sha256") != lock_sha256:
+        raise RuntimeError("E1-C4 config does not bind the final Cycle 4 lock")
+    calibration = lock.get("numerical_calibration")
+    if not isinstance(calibration, Mapping):
+        raise RuntimeError("the final Cycle 4 lock has no numerical calibration block")
+    reference_binary_sha256 = calibration.get("reference_binary_sha256")
+    if (
+        not isinstance(reference_binary_sha256, str)
+        or len(reference_binary_sha256) != 64
+    ):
+        raise RuntimeError("the final Cycle 4 lock does not bind a calibrated binary")
+    if config.get("binary_sha256") != reference_binary_sha256:
+        raise RuntimeError("E1-C4 config does not bind the calibrated reference binary")
+
+    raw_result = _read_json(workspace / "result.json")
+    if raw_result.get("experiment") != E1_ID or raw_result.get("status") != "completed":
+        raise RuntimeError("E1-C4 workspace result is not complete")
+    if not isinstance(raw_result.get("pass"), bool):
+        raise RuntimeError("E1-C4 workspace result has no boolean verdict")
+    if raw_result.get("config_sha256") != _sha256(config_path):
+        raise RuntimeError("E1-C4 workspace result does not bind its config")
+    if raw_result.get("parameter_lock_sha256") != lock_sha256:
+        raise RuntimeError("E1-C4 workspace result does not bind the final lock")
+
+    jobctl_result = _read_json(jobctl_dir / "result.json")
+    jobctl_spec = _read_json(jobctl_dir / "spec.json")
+    if jobctl_spec.get("commit_id") != lock.get("source_commit"):
+        raise RuntimeError("jobctl spec does not bind the finalized source commit")
+    artifacts = jobctl_result.get("artifacts", [])
+    if (
+        jobctl_result.get("exit_code") != 0
+        or jobctl_result.get("timed_out") is not False
+        or not isinstance(artifacts, list)
+        or any(item.get("valid") is not True for item in artifacts)
+    ):
+        raise RuntimeError("jobctl did not record a clean E1-C4 execution")
+    recorded_artifacts = {Path(str(item.get("path", ""))).name for item in artifacts}
+    if recorded_artifacts != set(E1_WORKSPACE_ARTIFACTS):
+        raise RuntimeError("jobctl artifact declaration differs from E1-C4 outputs")
+    if any(item.get("contained_in_cwd") is not True for item in artifacts):
+        raise RuntimeError("jobctl recorded an E1-C4 artifact outside its workspace")
+
+    for name in E1_WORKSPACE_ARTIFACTS + E1_UNDECLARED_PROVENANCE:
+        path = workspace / name
+        if not path.is_file() or path.stat().st_size == 0:
+            raise RuntimeError(f"E1-C4 workspace artifact is missing or empty: {name}")
+    artifact_hashes = {
+        name: _sha256(workspace / name)
+        for name in E1_WORKSPACE_ARTIFACTS + E1_UNDECLARED_PROVENANCE
+    }
+
+    seeds = config.get("seeds", [])
+    if len(seeds) != E1_SEED_COUNT or len(set(seeds)) != E1_SEED_COUNT:
+        raise RuntimeError(f"E1-C4 must bind exactly {E1_SEED_COUNT} seeds")
+    conditions = config.get("conditions", [])
+    if not all(isinstance(item, Mapping) for item in conditions):
+        raise RuntimeError("E1-C4 conditions are malformed")
+    condition_names = [str(item.get("name")) for item in conditions]
+    if set(condition_names) != set(E1_CONDITIONS) or len(condition_names) != 2:
+        raise RuntimeError("E1-C4 must contain exactly the clustered and shuffled conditions")
+
+    run_specs_payload = _read_json(workspace / "run_specs.json")
+    run_specs = run_specs_payload.get("runs")
+    if not isinstance(run_specs, list) or len(run_specs) != E1_RUN_COUNT:
+        raise RuntimeError(f"E1-C4 must contain exactly {E1_RUN_COUNT} run specs")
+    expected_run_ids = {str(spec.get("run_id")) for spec in run_specs}
+    if len(expected_run_ids) != E1_RUN_COUNT or "None" in expected_run_ids:
+        raise RuntimeError("E1-C4 run IDs are missing or duplicated")
+    declared_design = {
+        (int(spec.get("seed")), str(spec.get("condition"))) for spec in run_specs
+    }
+    if declared_design != {
+        (int(seed), name) for seed in seeds for name in E1_CONDITIONS
+    }:
+        raise RuntimeError("E1-C4 run specs do not cover the frozen seed x condition design")
+
+    marker_paths = sorted((workspace / "runs").glob("*/completion.json"))
+    if len(marker_paths) != E1_RUN_COUNT:
+        raise RuntimeError(
+            f"E1-C4 completion markers are incomplete: {len(marker_paths)}/{E1_RUN_COUNT}"
+        )
+    markers = [_read_json(path) for path in marker_paths]
+    if {str(marker.get("run_id")) for marker in markers} != expected_run_ids:
+        raise RuntimeError("E1-C4 completion markers do not match run specs")
+    if any(marker.get("status") != "completed" for marker in markers):
+        raise RuntimeError("E1-C4 contains a non-completed marker")
+    if {marker.get("binary_sha256") for marker in markers} != {
+        reference_binary_sha256
+    }:
+        raise RuntimeError(
+            "E1-C4 completion markers do not bind the calibrated reference binary"
+        )
+    if {marker.get("omp_threads") for marker in markers} != {1}:
+        raise RuntimeError("E1-C4 completion markers do not all use OMP=1")
+
+    # Tie every marker to the numerical payload it claims: the recorded final
+    # snapshot must be present and hash to the value the marker bound.
+    for path, marker in zip(marker_paths, markers):
+        health = path.parent / "health.json"
+        if not health.is_file() or not isinstance(_read_json(health), Mapping):
+            raise RuntimeError("E1-C4 has a completed run without a valid health.json")
+        snapshot = path.parent / str(marker.get("final_snapshot", ""))
+        if not snapshot.is_file() or _sha256(snapshot) != marker.get(
+            "final_snapshot_sha256"
+        ):
+            raise RuntimeError(
+                "E1-C4 final snapshot is missing or does not match its marker"
+            )
+
+    binary_path = (root / str(config.get("binary", ""))).resolve()
+    _relative(root, binary_path)
+    if not binary_path.is_file() or _sha256(binary_path) != reference_binary_sha256:
+        raise RuntimeError("E1-C4 config does not point at the calibrated reference binary")
+
+    matched_audit = _read_json(workspace / "matched_input_audit.json")
+    if matched_audit.get("pass") is not True:
+        raise RuntimeError("E1-C4 matched-input audit did not pass")
+    lock_audit = _read_json(workspace / "parameter_lock_audit.json")
+    if lock_audit.get("pass") is not True:
+        raise RuntimeError("E1-C4 parameter-lock audit did not pass")
+    if lock_audit.get("parameter_lock_sha256") != lock_sha256:
+        raise RuntimeError("E1-C4 parameter-lock audit does not bind the final lock")
+    if lock_audit.get("parameter_lock_status") != "final":
+        raise RuntimeError("E1-C4 parameter-lock audit did not run against a final lock")
+
+    paired = _read_json(workspace / "paired_effects.json")
+    if paired.get("experiment") != E1_ID:
+        raise RuntimeError("E1-C4 paired-effects report has the wrong experiment")
+    if paired.get("comparison") != "clustered-minus-shuffled":
+        raise RuntimeError("E1-C4 paired-effects report has the wrong comparison")
+    if not isinstance(paired.get("analysis_gate_pass"), bool) or not isinstance(
+        paired.get("claim_supported"), bool
+    ):
+        raise RuntimeError("E1-C4 paired-effects report has no boolean verdict")
+    gates = paired.get("gates")
+    if not isinstance(gates, Mapping) or any(
+        not isinstance(gates.get(key), bool) for key in E1_PAIRED_GATES
+    ):
+        raise RuntimeError("E1-C4 paired-effects gate block is incomplete")
+    invariant_checks = paired.get("execution_invariant_checks")
+    if not isinstance(invariant_checks, Mapping) or not invariant_checks:
+        raise RuntimeError("E1-C4 paired-effects report has no invariant block")
+    if gates.get("execution_invariants") is not all(invariant_checks.values()):
+        raise RuntimeError("E1-C4 invariant gate disagrees with its own checks")
+    if gates.get("matched_inputs") is not matched_audit.get("pass"):
+        raise RuntimeError("E1-C4 matched-input gate disagrees with the input audit")
+    if paired.get("analysis_gate_pass") is not all(
+        gates.get(key) is True for key in E1_PAIRED_GATES
+    ):
+        raise RuntimeError("E1-C4 analysis gate verdict disagrees with its gate block")
+    if paired.get("claim_supported") is True and paired.get("analysis_gate_pass") is not True:
+        raise RuntimeError("E1-C4 claims support while failing its analysis gate")
+
+    steady = _read_json(workspace / "steady_estimand_report.json")
+    if steady.get("experiment") != E1_ID:
+        raise RuntimeError("E1-C4 steady report has the wrong experiment")
+    if steady.get("replicates_per_condition") != E1_SEED_COUNT:
+        raise RuntimeError("E1-C4 steady report must contain 64 replicates per condition")
+    steady_conditions = steady.get("conditions")
+    if (
+        not isinstance(steady_conditions, Mapping)
+        or set(steady_conditions) != set(E1_CONDITIONS)
+    ):
+        raise RuntimeError("E1-C4 steady report does not cover both conditions")
+    for gate_key, steady_key in {
+        "tail_stationarity": "tail_stationarity_valid",
+        "adjacent_window_stability": "adjacent_window_stability_valid",
+        "independent_replicate_precision": "independent_replicate_precision_valid",
+    }.items():
+        if gates.get(gate_key) is not steady.get(steady_key):
+            raise RuntimeError(
+                f"E1-C4 paired-effects and steady report disagree on {gate_key}"
+            )
+
+    ensemble = _read_json(workspace / "ensemble_stationarity_report.json")
+    if ensemble.get("experiment") != E1_ID:
+        raise RuntimeError("E1-C4 ensemble report has the wrong experiment")
+    if gates.get("tail_stationarity") is not ensemble.get("stationarity_valid"):
+        raise RuntimeError(
+            "E1-C4 paired-effects and ensemble report disagree on stationarity"
+        )
+
+    stationarity = _read_json(workspace / "stationarity_report.json")
+    if stationarity.get("experiment") != E1_ID:
+        raise RuntimeError("E1-C4 stationarity report has the wrong experiment")
+    if not isinstance(stationarity.get("pass"), bool):
+        raise RuntimeError("E1-C4 stationarity report has no boolean verdict")
+
+    source_commit = jobctl_spec.get("commit_id")
+    if (
+        not isinstance(source_commit, str)
+        or len(source_commit) != 40
+        or any(character not in "0123456789abcdef" for character in source_commit)
+    ):
+        raise RuntimeError("jobctl spec does not contain a full lowercase source commit")
+    elapsed_seconds = [float(marker.get("elapsed_seconds", 0.0)) for marker in markers]
+    if any(not math.isfinite(value) or value < 0.0 for value in elapsed_seconds):
+        raise RuntimeError("E1-C4 completion markers contain invalid elapsed time")
+    jobctl_wall_seconds = float(jobctl_result.get("wall_seconds", 0.0))
+    if not math.isfinite(jobctl_wall_seconds) or jobctl_wall_seconds < 0.0:
+        raise RuntimeError("jobctl result contains invalid wall time")
+
+    tracked_paired_path = job_dir / "paired_effects.json"
+    tracked_paired_temp = tracked_paired_path.with_suffix(".json.tmp")
+    shutil.copyfile(workspace / "paired_effects.json", tracked_paired_temp)
+    os.replace(tracked_paired_temp, tracked_paired_path)
+
+    gate_pass = paired.get("analysis_gate_pass") is True
+    claim_supported = paired.get("claim_supported") is True
+    if not gate_pass:
+        status = "completed_failed_gate"
+    elif claim_supported:
+        status = "completed_passed_gate_claim_supported"
+    else:
+        status = "completed_passed_gate_valid_null"
+    compact_result = {
+        "experiment": E1_ID,
+        "status": status,
+        "analysis_gate_pass": gate_pass,
+        "claim_supported": claim_supported,
+        "valid_null_or_equivalence": bool(paired.get("valid_null_or_equivalence", False)),
+        "execution_completed": True,
+        "runs_planned": E1_RUN_COUNT,
+        "runs_completed": len(markers),
+        "run_failures": 0,
+        "execution_host": "umi",
+        "source_commit": source_commit,
+        "binary_sha256": reference_binary_sha256,
+        "config_sha256": _sha256(config_path),
+        "parameter_lock_sha256": lock_sha256,
+        "comparison": paired.get("comparison"),
+        "elapsed_cpu_hours": sum(elapsed_seconds) / 3600.0,
+        "maximum_single_run_seconds": max(elapsed_seconds),
+        "jobctl_wall_seconds": jobctl_wall_seconds,
+        "gates": {key: bool(gates.get(key)) for key in E1_PAIRED_GATES},
+        "temporal_ess_diagnostic_pass": paired.get("temporal_ess_diagnostic_pass"),
+        "paired_effects_sha256": _sha256(tracked_paired_path),
+        "workspace_artifact_sha256": artifact_hashes,
+        "conclusion": (
+            "E1-C4 completed 128/128 runs and supported the frozen matched-landscape claim."
+            if claim_supported
+            else (
+                "E1-C4 completed 128/128 runs and returned a valid null/equivalence result."
+                if gate_pass
+                else "E1-C4 completed 128/128 runs but failed one or more frozen analysis gates."
+            )
+        ),
+        "evidence_boundary": raw_result.get("evidence_boundary")
+        or "Synthetic generative mechanism only; no historical-state claim.",
+    }
+    compact_result_path = job_dir / "result.json"
+    _write_json(compact_result_path, compact_result)
+
+    manifest = {
+        "exit_code": 0,
+        "timed_out": False,
+        "wall_seconds": jobctl_result.get("wall_seconds"),
+        "jobctl_reconcile": "completed",
+        "archived_after_run": True,
+        "artifacts": [
+            {
+                "path": f"workspace/{name}",
+                "sha256": artifact_hashes[name],
+                "valid": True,
+            }
+            for name in E1_WORKSPACE_ARTIFACTS
+        ],
+        "undeclared_provenance_sha256": {
+            name: artifact_hashes[name] for name in E1_UNDECLARED_PROVENANCE
+        },
+    }
+    _write_json(job_dir / "manifest.json", manifest)
+
+    if _sha256(workspace / "paired_effects.json") != compact_result[
+        "paired_effects_sha256"
+    ]:
+        raise RuntimeError("archived E1-C4 verdict does not match the workspace verdict")
+    return compact_result
+
+
 def _candidate_lock(source_commit: str, v1f: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "lock_id": "ar-politeia-cycle4-confirmatory-v1",
@@ -885,6 +1235,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     archive_parser.add_argument(
         "--jobctl-dir", default=f".autoresearcher/jobs/{V1F_ID}"
     )
+    archive_e1_parser = subparsers.add_parser("archive-e1")
+    archive_e1_parser.add_argument("--job-dir", default=f"research/jobs/{E1_ID}")
+    archive_e1_parser.add_argument(
+        "--jobctl-dir", default=f".autoresearcher/jobs/{E1_ID}"
+    )
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--calibration", required=True)
     prepare_parser.add_argument("--result", required=True)
@@ -896,6 +1251,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
+            PROJECT_ROOT,
+            (PROJECT_ROOT / args.job_dir).resolve(),
+            (PROJECT_ROOT / args.jobctl_dir).resolve(),
+        )
+    elif args.command == "archive-e1":
+        archive_e1(
             PROJECT_ROOT,
             (PROJECT_ROOT / args.job_dir).resolve(),
             (PROJECT_ROOT / args.jobctl_dir).resolve(),
