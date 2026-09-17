@@ -833,10 +833,13 @@ def _seed_job(
     seeds_txt: str | None = None,
     config: dict | None = None,
     result: dict | None = None,
+    waiver: bool = False,
 ) -> Path:
     """Materialise one job directory with only the seed channels a test needs."""
     job_dir = root / "research/jobs" / name
     job_dir.mkdir(parents=True, exist_ok=True)
+    if waiver:
+        (job_dir / "seed_waiver.txt").write_text("declared in test\n", encoding="utf-8")
     if seeds_txt is not None:
         (job_dir / "seeds.txt").write_text(seeds_txt, encoding="utf-8")
     elif seeds is not None:
@@ -870,16 +873,43 @@ def test_seed_ledger_harvests_every_channel(tmp_path):
 
 
 def test_seed_ledger_recovers_seeds_from_run_ids_alone(tmp_path):
-    """A seed-waiver job leaves its seeds only inside run identifiers."""
+    """An undeclared run-identifier seed counts as consumption by default."""
     job_dir = _seed_job(
         tmp_path,
-        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        "JOB-A",
         seeds_txt="",
         result={"runs": ["seed-6101--smooth", "seed-6203--smooth"]},
     )
     record = promotion._harvest_job_seeds(job_dir)
     assert record["seeds"] == [6101, 6203]
     assert "runids:result.json" in record["channels"]
+
+
+def test_seed_ledger_reclassifies_a_declared_reanalysis_job(tmp_path):
+    """V1D labels its inputs with V1's runs; those are not its own draws."""
+    job_dir = _seed_job(
+        tmp_path,
+        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        seeds_txt="",
+        config={"source_experiment": "V1-NONFLAT-CALIBRATION-C4"},
+        result={"runs": ["seed-6101--smooth", "seed-6203--smooth"]},
+    )
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == []
+    assert record["references"]["result.json:run_ids"] == [6101, 6203]
+    assert record["reference_job"] is True
+
+
+def test_seed_ledger_requires_a_reanalysis_to_name_its_source(tmp_path):
+    """A reference declaration must be corroborated by the job's own config."""
+    job_dir = _seed_job(
+        tmp_path,
+        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        seeds_txt="",
+        result={"runs": ["seed-6101--smooth"]},
+    )
+    with pytest.raises(RuntimeError, match="registered as a reanalysis"):
+        promotion._harvest_job_seeds(job_dir)
 
 
 def test_seed_ledger_records_sentinels_without_counting_them(tmp_path):
@@ -913,7 +943,6 @@ def test_audit_rejects_a_stale_seeds_txt(tmp_path):
     with pytest.raises(RuntimeError, match="one of the two is stale"):
         _audit(tmp_path)
 
-
 def test_audit_rejects_an_unregistered_seed_overlap(tmp_path):
     """Two unrelated jobs sharing a seed breaks run independence."""
     _seed_job(tmp_path, "JOB-A", seeds=[11])
@@ -934,7 +963,60 @@ def test_audit_accepts_a_registered_overlap(tmp_path):
     _seed_job(tmp_path, "V1G-ORDER-THERMAL-C4", seeds=[11003, 11027])
     report = _audit(tmp_path)
     assert report["used_seed_count"] == 2
-    assert [entry["registered"] for entry in report["overlaps"]] == [True, True]
+    assert [entry["status"] for entry in report["overlaps"]] == ["intended", "intended"]
+
+
+def test_audit_authorises_by_membership_not_by_status_label(tmp_path):
+    """The status field is descriptive; only component membership authorises.
+
+    Inverting the label on a grandfathered component must not change the verdict,
+    which is what stops a reader from mistaking ``status`` for a gate.
+    """
+    _seed_job(tmp_path, "E1-MATCHED-LANDSCAPES", seeds=[101])
+    _seed_job(tmp_path, "E2-CHANNEL-ABLATION", seeds=[101])
+    relabelled = tuple(
+        {**entry, "status": "intended"} if len(entry["jobs"]) == 5 else entry
+        for entry in promotion.SEED_REUSE_COMPONENTS
+    )
+    original = promotion.SEED_REUSE_COMPONENTS
+    promotion.SEED_REUSE_COMPONENTS = relabelled
+    try:
+        report = _audit(tmp_path)
+    finally:
+        promotion.SEED_REUSE_COMPONENTS = original
+    assert [entry["status"] for entry in report["overlaps"]] == ["intended"]
+
+
+def test_audit_rejects_a_job_with_no_seed_evidence_and_no_waiver(tmp_path):
+    """Silence is not proof of determinism; the job must declare a reason."""
+    _seed_job(tmp_path, "JOB-A", seeds_txt="")
+    with pytest.raises(RuntimeError, match="no seed evidence and holds no seed_waiver"):
+        _audit(tmp_path)
+
+
+def test_audit_accepts_a_waived_job_with_no_seed_evidence(tmp_path):
+    """V0's deterministic tests legitimately record no seeds."""
+    _seed_job(tmp_path, "JOB-A", seeds_txt="none\n", waiver=True)
+    report = _audit(tmp_path)
+    assert report["used_seed_count"] == 0
+    assert report["jobs_without_seed_evidence"] == ["JOB-A"]
+
+
+def test_audit_does_not_count_a_reanalysis_as_a_consumer(tmp_path):
+    """V1D must not appear as a consumer of V1's seeds."""
+    _seed_job(tmp_path, "V1-NONFLAT-CALIBRATION-C4", seeds=[6101])
+    _seed_job(
+        tmp_path,
+        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        seeds_txt="",
+        waiver=True,
+        config={"source_experiment": "V1-NONFLAT-CALIBRATION-C4"},
+        result={"runs": ["seed-6101--smooth"]},
+    )
+    report = _audit(tmp_path)
+    assert report["used_seed_count"] == 1
+    assert report["overlaps"] == []
+    assert report["references"]["V1D-STATIONARITY-DIAGNOSTIC-C4"]
 
 
 def test_audit_detects_a_leak_hidden_from_the_config(tmp_path):
@@ -988,4 +1070,19 @@ def test_repository_ledger_holds_no_unregistered_overlap():
     assert report["used_seed_count"] >= 211
     assert set(promotion.E1_SEEDS) <= set(report["used_seeds"])
     assert all(entry["reason"] is not None for entry in report["overlaps"])
+
+    # V1D reanalyses V1's snapshots. Its run identifiers name the source runs, so
+    # it must never be recorded as a consumer: doing so once manufactured a bogus
+    # V1/V1D seed overlap and a component entry invented to legitimate it.
+    v1d = report["jobs"]["V1D-STATIONARITY-DIAGNOSTIC-C4"]
+    assert v1d["seeds"] == []
+    assert v1d["reference_job"] is True
+    assert v1d["references"]["result.json:run_ids"] == [6101, 6203, 6301, 6407, 6503]
+    assert not any(
+        "V1D-STATIONARITY-DIAGNOSTIC-C4" in entry["jobs"] for entry in report["overlaps"]
+    )
+
+    # Every job that records no seed provenance must justify that with a waiver.
+    for job in report["jobs_without_seed_evidence"]:
+        assert report["jobs"][job]["has_seed_waiver"] is True
 

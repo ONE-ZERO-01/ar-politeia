@@ -1062,10 +1062,15 @@ SEED_SENTINELS = frozenset({"none", "not-applicable-deterministic-tests"})
 
 # Jobs that are allowed to share seeds, grouped by the reason they may.
 #
+# Membership in a component is the authorisation. The ``status`` field is purely
+# descriptive and neither gates nor relaxes anything: ``intended`` marks a reuse
+# chosen when the design was frozen, ``grandfathered`` marks a historical defect
+# that is recorded but not rewritten.
+#
 # Every seed found anywhere in the repository must have all of its consumers
-# inside one single component below. A consumer outside every component is a
-# leak: it means a job silently reused another job's random stream, which
-# breaks the independence assumption behind the pooled precision estimates.
+# inside one single component. A consumer outside every component is a leak: it
+# means a job silently reused another job's random stream, which breaks the
+# independence assumption behind the pooled precision estimates.
 # Post-V1F experiments are deliberately absent from this table, so any overlap
 # they introduce fails the audit until it is registered explicitly.
 SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
@@ -1075,7 +1080,7 @@ SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
             "B0-DYNAMICS-PILOT-C2",
             "B0-DYNAMICS-PILOT-C3",
         ),
-        "registered": True,
+        "status": "intended",
         "reason": "cycle repeats of one pilot; seeds held fixed across C1-C3 on purpose",
     },
     {
@@ -1086,7 +1091,7 @@ SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
             "E1-MATCHED-LANDSCAPES",
             "E2-CHANNEL-ABLATION",
         ),
-        "registered": False,
+        "status": "grandfathered",
         "reason": (
             "Cycle 1-3 lineage: the Cycle 3 E2 ablation re-ran E1's seeds, and seed 1103 "
             "additionally collides with E0. The 1103 collision is a grandfathered "
@@ -1094,26 +1099,38 @@ SEED_REUSE_COMPONENTS: tuple[dict[str, Any], ...] = (
         ),
     },
     {
-        "jobs": (
-            "V1-NONFLAT-CALIBRATION-C4",
-            "V1D-STATIONARITY-DIAGNOSTIC-C4",
-            "V1P-RUNTIME-PILOT-C4",
-        ),
-        "registered": True,
-        "reason": (
-            "V1 lineage: the stationarity and runtime diagnostics re-run V1's seeds so "
-            "their runs stay paired with the calibration they diagnose"
-        ),
-    },
-    {
         "jobs": ("V1F-NONFLAT-CALIBRATION-C4", "V1G-ORDER-THERMAL-C4"),
-        "registered": True,
+        "status": "intended",
         "reason": (
             "V1G re-runs V1F's exact 64 seeds at the same time points; the seed pairing "
             "is the estimand, since storage order must be the only difference"
         ),
     },
 )
+
+# Jobs whose ``seed-<n>`` run-identifier tokens name pre-existing source runs
+# rather than seeds they drew themselves.
+#
+# A token such as ``seed-6101--smooth-dt-0.02`` appears in a reanalysis job's
+# results as a *label* for which upstream run it read. Counting it as that job's
+# own consumption would over-count the ledger and manufacture a seed overlap
+# between two jobs that never shared a random stream.
+#
+# The default is deliberately the opposite: an undeclared run-identifier token is
+# counted as consumption. That direction fails closed, because over-counting can
+# only raise a spurious overlap (which forces someone to declare the truth),
+# whereas under-counting would hide a real reuse silently. Each entry must name
+# the ``source_experiment`` its config points at, so the claim is corroborated by
+# the job's own declaration instead of being taken on trust.
+SEED_REFERENCE_JOBS: dict[str, dict[str, str]] = {
+    "V1D-STATIONARITY-DIAGNOSTIC-C4": {
+        "source_experiment": "V1-NONFLAT-CALIBRATION-C4",
+        "reason": (
+            "V1D performs a deterministic reanalysis of V1's completed snapshots and "
+            "draws no new random numbers; its run identifiers name the V1 source runs"
+        ),
+    },
+}
 
 _NUMERIC_SEED = re.compile(r"^\d+$")
 _RUN_ID_SEED = re.compile(r"seed-(\d+)")
@@ -1197,12 +1214,14 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
     * ``seeds.txt``, the declared list that preflight checks;
     * a top-level ``seeds``/``seed`` field in a job JSON file;
     * ``seed-<n>`` tokens inside run identifiers in ``result.json`` or
-      ``manifest.json``, which is the only trace left behind by jobs that
-      shipped with a seed waiver.
+      ``manifest.json``.
 
-    The third channel is what catches a job like
-    ``V1D-STATIONARITY-DIAGNOSTIC-C4``, whose ``seeds.txt`` is empty yet whose
-    results were produced from five specific seeds.
+    ``seeds.txt`` and the top-level fields are declarations of what the job drew,
+    so they are taken as consumption. A nested block such as V1P's
+    ``target_design.seeds`` names a design the job points at, so it is recorded as
+    a reference. Run-identifier tokens are counted as consumption *unless* the job
+    is declared in ``SEED_REFERENCE_JOBS``, because a reanalysis job labels its
+    inputs with the upstream runs it read.
     """
     sentinels: list[str] = []
     channels: dict[str, list[int]] = {}
@@ -1219,6 +1238,8 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
         sentinels = [token for token in tokens if not _NUMERIC_SEED.match(token)]
         if from_file:
             channels["seeds.txt"] = from_file
+
+    reference_declaration = SEED_REFERENCE_JOBS.get(job_dir.name)
 
     for path in sorted(job_dir.glob("*.json")):
         payload = _load_seed_json(path)
@@ -1248,13 +1269,35 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
         # once per replicate and once per condition.
         run_ids = sorted(set(_collect_run_id_seeds(payload)))
         if run_ids:
-            channels[f"runids:{path.name}"] = run_ids
+            if reference_declaration:
+                references[f"{path.name}:run_ids"] = run_ids
+            else:
+                channels[f"runids:{path.name}"] = run_ids
+
+    if reference_declaration:
+        # Corroborate the declaration against the job's own config rather than
+        # trusting the register: a reanalysis job must name its source.
+        declared_sources = set()
+        for path in sorted(job_dir.glob("*.json")):
+            payload = _load_seed_json(path)
+            if isinstance(payload, dict):
+                source = payload.get("source_experiment")
+                if isinstance(source, str):
+                    declared_sources.add(source)
+        expected = reference_declaration["source_experiment"]
+        if expected not in declared_sources:
+            raise RuntimeError(
+                f"{job_dir.name} is registered as a reanalysis of {expected}, but its "
+                f"config names {sorted(declared_sources) or 'no source_experiment'}"
+            )
 
     return {
         "sentinels": sentinels,
         "seeds": sorted({seed for group in channels.values() for seed in group}),
         "channels": {name: list(group) for name, group in channels.items()},
         "references": references,
+        "reference_job": bool(reference_declaration),
+        "has_seed_waiver": (job_dir / "seed_waiver.txt").is_file(),
         # A seed repeated inside one declaration list is a typo, because it
         # silently shrinks the realised seed count below the registered one.
         # Run-identifier channels are excluded: repeats there are expected.
@@ -1317,11 +1360,24 @@ def audit_seeds(
                 f"{sorted(declared)}; one of the two is stale"
             )
 
+    # A job that records no seed provenance at all is invisible to this ledger,
+    # so it must at least declare why it needed none. Without this, a job could
+    # consume randomness, record nothing, and never appear in the mutual
+    # exclusion set.
+    for job, record in jobs.items():
+        if not record["seeds"] and not record["references"] and not record["has_seed_waiver"]:
+            raise RuntimeError(
+                f"{job} records no seed evidence and holds no seed_waiver.txt; its seed "
+                f"provenance is unverifiable"
+            )
+
     consumers: dict[int, set[str]] = {}
     for job, record in jobs.items():
         for seed in record["seeds"]:
             consumers.setdefault(seed, set()).add(job)
 
+    # Membership in a component authorises the reuse; the entry's ``status`` is a
+    # label for readers and never affects this test.
     components = [set(entry["jobs"]) for entry in SEED_REUSE_COMPONENTS]
     overlaps: list[dict[str, Any]] = []
     for seed, users in sorted(consumers.items()):
@@ -1333,8 +1389,8 @@ def audit_seeds(
                 "seed": seed,
                 "jobs": sorted(users),
                 "reason": SEED_REUSE_COMPONENTS[owner]["reason"] if owner is not None else None,
-                "registered": (
-                    SEED_REUSE_COMPONENTS[owner]["registered"] if owner is not None else False
+                "status": (
+                    SEED_REUSE_COMPONENTS[owner]["status"] if owner is not None else "leak"
                 ),
             }
         )
@@ -1347,9 +1403,12 @@ def audit_seeds(
         raise RuntimeError(f"unregistered seed reuse breaks run independence: {detail}")
 
     used = sorted(consumers)
-    # Primality is a project convention, not a scientific requirement, and three
-    # frozen historical seeds break it (6407 and 6503 in V1, 9071 in V1C). They
-    # are reported rather than rejected so the ledger stays usable as evidence.
+    # Primality is a selection convention, not a requirement the simulator
+    # enforces: ``random_seed`` only initialises ``mt19937_64`` streams, so the
+    # one property that matters is that distinct jobs draw distinct streams.
+    # Three frozen historical seeds are not prime (6407 and 6503 in V1, 9071 in
+    # V1C); they are reported rather than rejected so the ledger stays usable as
+    # evidence, and primality is only enforced when proposing new seeds.
     non_prime = [seed for seed in used if not _is_prime(seed)]
 
     report: dict[str, Any] = {
@@ -1364,8 +1423,13 @@ def audit_seeds(
             for job, record in sorted(jobs.items())
             if record["references"]
         },
+        "jobs_without_seed_evidence": sorted(
+            job
+            for job, record in jobs.items()
+            if not record["seeds"] and not record["references"]
+        ),
         "grandfathered_overlaps": [
-            entry for entry in overlaps if entry["reason"] is not None and not entry["registered"]
+            entry for entry in overlaps if entry["status"] == "grandfathered"
         ],
     }
 
@@ -1657,13 +1721,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         for entry in report["overlaps"]:
             grouped.setdefault(tuple(entry["jobs"]), []).append(entry)
         for jobs_in_common, entries in sorted(grouped.items()):
-            tag = "registered" if entries[0]["registered"] else "grandfathered"
+            tag = entries[0]["status"]
             print(f"  [{tag}] {len(entries)} seeds shared by {', '.join(jobs_in_common)}")
         if report["non_prime_seeds"]:
             print(f"non-prime seeds (convention violation): {report['non_prime_seeds']}")
         for job, refs in report["references"].items():
             for name, seeds in refs.items():
                 print(f"referenced (not consumed): {job} {name} = {seeds}")
+        if report["jobs_without_seed_evidence"]:
+            print(
+                "jobs with no seed evidence (waiver held, nothing to exclude): "
+                f"{report['jobs_without_seed_evidence']}"
+            )
         if "pool" in report:
             pool = report["pool"]
             print(

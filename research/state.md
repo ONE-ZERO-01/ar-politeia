@@ -248,20 +248,30 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   (`research/src/experiments/prepare_cycle4_confirmation.py`). It replaces a gap:
   preflight only checked that `seeds.txt` exists and is non-empty, and the E1-C4
   helper guarded only E1's own 64 seeds through `config.json` alone. The audit
-  reads three channels per job and treats a top-level `seeds`/`seed` field, a
-  `seeds.txt` list, and `seed-<n>` tokens inside run identifiers as consumed,
-  while a nested declaration such as V1P's `target_design.seeds` is recorded as a
-  reference instead. The run-identifier channel is what recovers the seeds of
-  `V1D`/`V1BD`/`V1CD`, three `seed_waiver` jobs whose `seeds.txt` is empty yet
-  whose results came from `6101/6203/6301/6407/6503`. The ledger now holds 211
-  distinct seeds across 28 jobs and 96 overlap groups, all inside four registered
-  or grandfathered components; unregistered reuse fails the audit, and E2-C4 is
-  deliberately absent from the register so it cannot silently reuse one. Two
-  historical accounting defects are recorded without rewriting them: seed `1103`
-  is shared by `E0-NUMERICS` and `E1-MATCHED-LANDSCAPES`, and `6407`, `6503` (V1)
-  and `9071` (V1C) are not prime. The available-pool window is left unset on
-  purpose (`--pool-min/--pool-max` have no defaults) because that boundary must be
-  frozen explicitly alongside R.
+  reads three channels per job: a top-level `seeds`/`seed` field, a `seeds.txt`
+  list, and `seed-<n>` tokens inside run identifiers. Top-level fields and
+  `seeds.txt` are declarations of what a job drew, so they count as consumption; a
+  nested declaration such as V1P's `target_design.seeds` names a design the job
+  points at, so it is recorded as a reference. Run-identifier tokens count as
+  consumption by default, with an explicit register for jobs whose tokens label
+  upstream runs instead. That default fails closed on purpose: over-counting can
+  only raise a spurious overlap that forces a declaration, whereas under-counting
+  would hide a real reuse. The ledger now holds 211 distinct seeds across 28 jobs
+  and 91 overlap groups in three components; unregistered reuse fails the audit,
+  and E2-C4 is deliberately absent from the register so it cannot silently reuse
+  one. A job that records no seed provenance at all must hold a `seed_waiver.txt`,
+  and the 10 such waived jobs are listed explicitly so the ledger's coverage is
+  visible rather than implied. Two historical accounting defects are recorded
+  without rewriting them: seed `1103` is shared by `E0-NUMERICS` and
+  `E1-MATCHED-LANDSCAPES`, and `6407`, `6503` (V1) and `9071` (V1C) are not prime.
+  Primality was checked against the code rather than assumed: `random_seed` only
+  initialises `mt19937_64` streams and serves as the base of `rank`-derived
+  offsets, so nothing depends on the base being prime; the primes in the codebase
+  are offsets, and the convention was carried over to base selection with no
+  recorded rationale. Uniqueness is the only requirement that can be demonstrated.
+  The available-pool window is left unset on purpose
+  (`--pool-min/--pool-max` have no defaults) because that boundary must be frozen
+  explicitly alongside R.
 - Reading mean wealth during the V1F run is disclosed as a protocol deviation in
   both `e1-cycle4-readiness.md` and `e2-cycle4-channel-design.md` section 5. The
   quantity read is a non-primary structural one, the purpose was to check a design

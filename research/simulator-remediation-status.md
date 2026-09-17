@@ -475,17 +475,43 @@ E2-C4 的设计契约要求 seeds 全新且互斥，而**此前并不存在覆�
 `prepare_cycle4_confirmation._assert_e1_seeds_unused` 只单向护住 E1 的 64 个，且只看
 `config.json` 的 `seeds` 字段。本次把该审计实现为 `seeds-audit` 子命令。
 
-**三条通道，缺一不可。** 审计扫描每个 job 的
+**三条通道。** 审计扫描每个 job 的
 （1）`seeds.txt`；（2）job JSON 的**顶层** `seeds`/`seed` 字段；
 （3）`result.json`/`manifest.json` 运行标识里的 `seed-<n>` 子串。
-第三条不是冗余：`V1D-STATIONARITY-DIAGNOSTIC-C4`、`V1BD-ENSEMBLE-DIAGNOSTIC-C4`、
-`V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4` 三个 job 的 `seeds.txt` 是**空的**（带 `seed_waiver.txt`），
-只在运行标识里留痕，却实际消耗了 `6101/6203/6301/6407/6503`。前两条通道都会漏掉它们。
+前两条是"我抽了什么"的声明，按**消耗**记账；嵌套块（如 V1P 的 `target_design.seeds`）
+命名的是被指向的设计，按**引用**记账。
 
-**实测台账。** 28 个 job、**211 个不同 seed**（范围 101–12241）、96 个重叠组，
-全部归属于 4 个 component（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1 谱系、V1F↔V1G 配对）。
-审计对未登记的跨 job 复用直接报错，而 E2-C4 故意不在 `SEED_REUSE_COMPONENTS` 内，
-因此它一旦撞用旧 seed 会在提交前失败，而不是在后续分析里才暴露。
+**更正：运行标识里的 seed 默认是"消耗"，但它可以是"引用"，两者不能混。**
+本节初稿曾断言 `V1D`/`V1BD`/`V1CD` 三个 job"实际消耗了 `6101/6203/6301/6407/6503`"——
+**此说法错误**。经查证：`V1BD` 与 `V1CD` 的 `result.json` 里 **一个 `seed-<n>` token 都没有**；
+`V1D` 有 108 处，但只是**标识它重分析的上游 V1 run**——其 `config.json` 声明了
+`source_experiment`/`source_workspace`/`expected_source_runs`，其 `seed_waiver.txt` 亦明写
+"确定性重分析…不产生随机数"。因此这 5 个 seed 是 **V1D 的引用，不是它的消耗**。
+
+这个错误有连带后果：初稿把 V1D 的引用当作消耗，于是凭空造出一个 `V1 ↔ V1D` 的
+"seed 重叠"，并为此在 `SEED_REUSE_COMPONENTS` 里加了一个"V1 谱系"component 去合法化它
+——而**这个重叠根本不存在**，V1P 实际只消耗 `6007`（唯一，无重叠）。这正是"先归纳约定、
+再为它的例外编理由"的典型失误。**该 component 已删除**，重叠组由 96 降为 91，component
+由 4 个降为 3 个。
+
+处置改为显式声明而非静默推断：
+
+- **默认按消耗记账**，方向刻意选在 fail-closed 一侧：多算只会产生一个**假重叠**（报错逼人
+  声明真相），少算则会**静默掩盖**真实复用。
+- `SEED_REFERENCE_JOBS` 登记"运行标识是引用"的 job，并**要求其 config 里确有
+  `source_experiment`** 与登记值相符——声明必须被 job 自身的记录佐证，而不是凭登记表取信。
+
+**实测台账。** 28 个 job、**211 个不同 seed**（范围 101–12241）、**91 个重叠组**，
+归属于 **3 个 component**（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1F↔V1G 配对；后两者为
+`intended`，E0/E1/E2 为 `grandfathered`）。审计对未登记的跨 job 复用直接报错，而 E2-C4
+故意不在 `SEED_REUSE_COMPONENTS` 内，因此它一旦撞用旧 seed 会在提交前失败。
+component 的 `status` 字段**纯描述、不参与放行**——放行只看"成员集合是否包含全部消费者"，
+有一条测试专门反转标签以锁住这一点。
+
+**另一处缺口：沉默不等于确定性。** 一个既无 seed 证据、又无 `seed_waiver.txt` 的 job，
+其 seed 来源不可核验，审计直接报错。同时把"无 seed 证据"的 10 个 job（V0 系列、V1BD、
+V1CD、V1ED）显式列进报告，使台账的覆盖范围**可被看见**，而不是被一句"覆盖全部 job"
+掩盖——一 job 若什么都没记录，任何审计都看不见它。
 
 **顺带发现的两处历史记账缺陷（仅登记，不追溯修改）。**
 
@@ -494,15 +520,27 @@ E2-C4 的设计契约要求 seeds 全新且互斥，而**此前并不存在覆�
 | seed 撞用 | `E0-NUMERICS` 与 `E1-MATCHED-LANDSCAPES` 共用 `1103` | 登记为 grandfathered |
 | 非素数 seed | `6407`、`6503`（V1）与 `9071`（V1C）不是素数 | 报告而非报错 |
 
-两者都落在 Cycle 1–3 / V1 的**非确认性**实验里，不承载任何确认性结论，且三个 job 已冻结
-不可改。素数性是项目约定而非科学要求（唯一硬要求是唯一性），因此审计**报告**非素数 seed
-而不失败，只在生成新 seed 时保证素数。
+**非素数的问题已查实，不再以"约定"含糊带过。** `cfg.random_seed` 只作为 `mt19937_64`
+的初始状态、以及 `random_seed + rank × 1000003` / `+ rank × 999983` 的**派生基点**被使用
+（`main.cpp:171/331/537`，`config.hpp:167`，`config.cpp:172`），代码中**没有任何对基点
+素性的依赖**。仓库里出现的素数（`1000003`、`999983`、`2^40` 间距，以及
+`DEVELOPMENT_PLAN.md:789` 的 `base_seed + rank_id × large_prime`）都是**派生偏移**，被误
+沿用到了**基点选取**上。因此唯一能证成的硬要求是**唯一性**（不同 job 必须抽到不同流）；
+素数性对基点无功能作用，其选取理由在仓库中**无记载**。三者落在非确认性实验里且已冻结，
+故报告而不失败，仅在生成新 seed 时保证素数。
+
+（附带一条**已查实**、对冻结 pool 有用的事实：rank 派生偏移为 `1`、`1000003`、`999983`，
+所以多 rank 跑时两个 seed 若相差恰为偏移量的整数倍，会在相邻 rank 上撞到同一流。E2-C4
+声明 `nprocs=1`，rank 恒为 0，该别名不可能发生；对将来多 rank 的 job，pool 窗口宽度应远
+小于最小偏移量。）
 
 **一个刻意留下的显式决策。** `--pool-min/--pool-max` **没有默认值**：E2 设计文档只写了
 "未出现的素数"而未给窗口，把这个边界隐式定下来正是要避免的事。它应与 R 一同写入
 E2-C4 的 lock。示例：`12300–13000` 含 77 个未用素数，`--propose 32` 确定性地给出最小的 32 个。
 
-**测试**：`tests/test_prepare_cycle4_confirmation.py` 新增 15 项（三条通道各自的抓取、
-sentinel 处理、嵌套 `seeds` 判为引用而非消耗、单文件内重复、`seeds.txt` 与 config 不一致、
-未登记复用报错、已登记复用通过、未注册 sentinel、非素数不报错、池与提议的边界，
-以及一项对真实仓库跑全量审计的集成守护）。全库 256 项测试通过。
+**测试**：`tests/test_prepare_cycle4_confirmation.py` 新增 **21 项**（三条通道各自的抓取、
+sentinel 处理、嵌套 `seeds` 判为引用、重分析 job 的重分类与其 `source_experiment` 佐证、
+单文件内重复、`seeds.txt` 与 config 不一致、未登记复用报错、已登记复用通过、`status` 标签
+不参与放行、无证据且无 waiver 报错、无证据但有 waiver 通过、非素数不报错、池与提议的边界，
+以及一项对真实仓库跑全量审计的集成守护，其中显式锁住"V1D 不得被记为消费者"）。
+全库 **262 项**测试通过。

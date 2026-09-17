@@ -297,15 +297,20 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 
 - **seeds 必须全新且互斥**。审计已实现为 `seeds-audit` 子命令
   （`research/src/experiments/prepare_cycle4_confirmation.py`），扫描**全部** `research/jobs/*/`
-  的三条通道：`seeds.txt`、job JSON 的**顶层** `seeds`/`seed` 字段，以及 `result.json`/`manifest.json`
-  运行标识里的 `seed-<n>`。第三条是唯一能抓住 `V1D`/`V1BD`/`V1CD` 这类带 `seed_waiver` 的 job 的通道
-  （其 `seeds.txt` 为空，却实际消耗了 `6101/6203/6301/6407/6503`）。未登记的跨 job 复用**直接报错**；
-  新实验故意不在 `SEED_REUSE_COMPONENTS` 内，因此 E2-C4 一旦撞用旧 seed 会在提交前失败。
-- **实测台账（2026-09-17）**：全库 28 个 job 共消耗 **211 个不同 seed**（范围 101–12241），
-  96 个重叠组，全部归属 4 个已登记或历史 component（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1 谱系、
-  V1F↔V1G 配对）。两处**历史记账缺陷**已登记、不追溯修改，且不承载任何确认性结论：
+  的三条通道：`seeds.txt`、job JSON 的**顶层** `seeds`/`seed` 字段，以及
+  `result.json`/`manifest.json` 运行标识里的 `seed-<n>`。前两条是"抽了什么"的声明，按**消耗**
+  记账；嵌套块按**引用**记账。运行标识默认也按消耗记账，方向刻意 fail-closed（多算只会产生
+  假重叠并报错逼人声明，少算会静默掩盖真实复用），只有显式登记在 `SEED_REFERENCE_JOBS` 的
+  重分析 job 才把其标识改判为引用——且必须被该 job config 里的 `source_experiment` 佐证。
+  未登记的跨 job 复用**直接报错**；新实验故意不在 `SEED_REUSE_COMPONENTS` 内，因此 E2-C4
+  一旦撞用旧 seed 会在提交前失败。
+- **实测台账（2026-09-17）**：全库 28 个 job 共 **211 个不同 seed**（范围 101–12241）、
+  **91 个重叠组**，归属 **3 个 component**（B0 谱系、E0/E1/E2 Cycle 1–3 谱系、V1F↔V1G 配对）。
+  两处**历史记账缺陷**已登记、不追溯修改，且不承载任何确认性结论：
   `E0-NUMERICS` 与 `E1-MATCHED-LANDSCAPES` 撞用 seed `1103`；三个冻结 seed 非素数
-  —— `6407`、`6503`（V1）与 `9071`（V1C）。
+  —— `6407`、`6503`（V1）与 `9071`（V1C）。素数性已对照代码查实：`random_seed` 只作为
+  `mt19937_64` 初始状态与 rank 派生偏移的基点，**无任何依赖基点素性的逻辑**，仓库里的素数
+  是**偏移量**；故唯一可证成的硬要求是唯一性，素数性对基点无功能作用且选取理由无记载。
 - **可用池的上界尚未冻结，这是 R 冻结前必须补的显式决策**。本节只说了"未出现的素数"，未给窗口；
   审计的 `--pool-min/--pool-max` 刻意**没有默认值**，以免该边界被隐式决定。应与 R 一同写入 E2-C4 的 lock：
   例如 `12300–13000` 含 77 个未用素数，`--propose 32` 确定性地给出最小的 32 个（自 `12301` 起）。
@@ -352,7 +357,7 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] `mean_source_rate`（P2 源总量核算量）（2026-09-17，代码）
 - [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
-- [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 15 项测试；台账 211 seeds / 28 jobs / 96 重叠组）
+- [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 21 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component；重分析 job 的标识按引用记账，见 §8 更正）
 - [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
