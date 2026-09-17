@@ -1,6 +1,6 @@
 # 模拟器改进台账（simulator-remediation-status）
 
-日期：2026-09-17。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已通过；V1F 64-seed 独立校准已完成并**全部 Gate 通过**（2026-09-17 08:09 +08:00，960/960 runs，0 失败，340.95 CPU 小时 / 46.13 墙钟小时）；promotion `archive-v1f` → `prepare` → V0G → `finalize` 已完成，Cycle 4 最终参数锁已冻结并授权 `E1-MATCHED-LANDSCAPES-C4`。确认性实验尚未执行。
+日期：2026-09-17。状态：Cycle 4 代码级修复、顺序敏感性和非平坦步长误差界已通过；V1F 64-seed 独立校准已完成并**全部 Gate 通过**（2026-09-17 08:09 +08:00，960/960 runs，0 失败，340.95 CPU 小时 / 46.13 墙钟小时）；promotion `archive-v1f` → `prepare` → V0G → `finalize` 已完成，Cycle 4 最终参数锁已冻结并授权 `E1-MATCHED-LANDSCAPES-C4`。**E1-C4 已于 2026-09-17 08:10 +08:00 在 umi 提交并运行**（128 runs，8 并发，当前无失败），其分析代码在运行期间不再改动。
 
 本文件是 `simulator-improvement-plan.md`（下称"计划"）的执行台账，按问题（S01–S11）记录证据、本次代码修改、回归测试、完成状态与残余限制。它不覆盖或修改 `plan.json`、`parameter_lock.json`、`findings.json` 与服务器任务状态；旧结果目录不变。
 
@@ -33,6 +33,7 @@
 | S12 | P0 | A/C | 参考过程运行在深度次饱和区，且运动通道泄漏到财富尺度 | 已实测登记；E1-C4 次要家族预注册限定；E2-C4 P3 增设尺度不变性检验 | 部分（文档与限定已完成；参数层修复未开展） | `w/w_ref = 0.12–0.40`；穿越 `w_ref` 的水平扫描需新校准（P3b） |
 | S13 | P1 | B | V1F 的 jobctl artifact 声明用裸文件名，被解析到项目根而非作业 workspace，48 小时后全部记为 valid=false | jobctl 提交期越界/重复拦截 + 记录 resolved 绝对路径 + 新增 `recheck`（按已存声明重算契约、保留执行事实、旧判定留作溯源）；V1F 声明已修正并 reconcile 为 completed | 已完成（2026-09-17） | 提交时产物尚不存在，故"路径写错但界内"的笔误无法在提交期拦下；只能靠 recheck 与 resolved 字段暴露 |
 | S14 | P0 | A/C | `finalize` 静默绑定了非校准的 binary：0f4ac29 在 V1F 提交后改了 `ic_loader.cpp`，V0G 重建出 `1e3f052f…` 而非校准所用 `87eafa4e…` | `validate_v1f` 读出并校验校准 binary SHA；候选锁新增 `reference_binary_sha256`；`finalize` 强制"binary 在 V0G workspace 内"且 SHA 等于校准对象，否则拒绝写 final；`ic_loader.cpp` 恢复到校准提交 | 已完成（2026-09-17；V0G 重建实测复现 `87eafa4e…`，无需重跑 V1F） | 若未来确需引入模拟器源码改动，必须重跑校准；编译告警修复推迟到 E1-C4 之后 |
+| S15 | P1 | A/B | E2-C4 需要的 per-run `base_production` 被无条件加进共享 spec 构造器，使**已授权实验** E1-C4 的 `run_specs.json`（已声明产物）多出一个键，该产物不再可由其冻结 `source_commit`（b6d24b7）的源码复现 | 键收窄到 `E2_C4_EXPERIMENT` 分支；E2-C4 源项核算缺键时在**任何磁盘 IO 之前** fail-fast（不再默认 0，否则 P2 源总量核算会空过）；E1-C4 spec schema 以冻结字面量入测试（经变异检验确认会失败） | 已完成（2026-09-17） | 跨版本等价性探针只覆盖**输入生成**（128 specs / 706 产物逐字节相同），不逐字节复核分析路径；探针绕过 `require_umi()` 直接在本地调用库函数，仅写临时目录、不执行模拟器 |
 | S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
 
@@ -56,6 +57,10 @@
   强制可比性 Gate；E2-C4 稳态指标集排除在 `flat` 上退化的 `resource_density_spearman_rho`。
   旧 `aggregate_e2` 与 Cycle 3 归档结果逐字不动。本地 190/190 通过（详见
   `e2-cycle4-channel-design.md` §12）。
+- S15（2026-09-17，本地纯代码、无 C++ 改动）：E2-C4 的 per-run `base_production` 收窄到
+  `E2_C4_EXPERIMENT` 分支，E1-C4 的 `run_specs.json` schema 恢复为冻结状态；E2-C4 源项核算
+  缺键时前置 fail-fast；`tests/test_run_landscape_study_gates.py` 新增
+  `E1_C4_FROZEN_RUN_SPEC_KEYS` 契约与两条回归（schema 冻结、源项缺键拒绝）。本地 192/192 通过。
 
 ## 4. 复审修复（R01–R12 · 阶段 A+B 本地，2026-09-08）
 

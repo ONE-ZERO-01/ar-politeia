@@ -371,9 +371,48 @@ Cycle 3 E2 是已归档的冻结结果，改写其聚合器会让同一份归档
 的语义更正落在本文件与 `model-specification-c4.md`（即 §P5 要求的"只改解释"）。
 若后续要连旧聚合器的 payload 一起改，需要作为一次显式的、留痕的解释性变更来做。
 
-**验证。** 本地 `python3 -m pytest -q` 为 **190 passed**（改动前 176），新增 14 项覆盖：
+**验证。** 本地 `python3 -m pytest -q` 为 **192 passed**（改动前 176），新增 16 项覆盖：
 五单元矩阵与 `base/d = 0.5` 常数线、结构护栏的三种拒绝、稳态指标集排除退化 Spearman、
 双线性插值与 C++ 约定逐点一致、源项核算等于 `base × scale × resource × eps`、
 三条件审计的四类破坏、P1 位级 viol 的 fail-fast 与留痕、未校准指标的 claim-ineligible
 标记、可比性政策缺失时拒绝分析、单元间水平失配降级为 inconclusive、五单元两步窗 Gate。
 这些检查**不执行模拟器**，不构成数值证据。
+
+## 13. 实现期回归：共享 spec 构造器与已授权实验的产物契约（2026-09-17，本地）
+
+**发生了什么。** P2 的源项核算要求逐单元 `base_production` 可从 spec 单独重算（§12），
+于是该键被无条件加进 `prepare_inputs` 里共享的 `run_specs.append({...})`。后果是
+`E1-MATCHED-LANDSCAPES-C4` 的 `run_specs.json` 也多出一个键——而它是**已授权实验的已声明
+产物**，其冻结 `source_commit` 是 `b6d24b7`。加上这个键之后，归档的
+`run_specs.json` 就不再能由它自己声明的提交复现。
+
+**为什么这必须修而不是记一笔。** 这正是 S13/S14 的同一类缺陷：绑定从**恒等**退化成
+需要论证的等价。键本身是元数据、物理上无影响（E1-C4 的 `base_production = 0.01` 一直
+经由 `common_cpp_config` 写进每个 `politeia.cfg`，与 spec 无关），但"归档产物能否由声明的
+提交复现"是确认性证据链的一部分，不能靠一次口头论证保留下来。
+
+**怎么发现的。** 为回答"E2-C4 的改动有没有碰坏 E1-C4 的路径"，做了一次**跨版本等价性探针**：
+把 `HEAD~1` 与 `HEAD` 的 `run_landscape_study.py` + `landscape_study.py` 分别放进独立目录，
+用同一份真实 E1-C4 config 各跑一次 `default_conditions` / `prepare_inputs` /
+`stationary_metrics_for_experiment` / `confirmatory_metrics_for_experiment` /
+`load_confirmatory_calibration`，再比对 128 条 spec 与 706 个生成产物。探针只把自身临时输出
+目录的名字归一化，其余逐字节比较。首轮即报出 129 个文件与全部 spec 不同，由此定位到该键。
+
+**处置。**
+1. 该键收窄到 `experiment == E2_C4_EXPERIMENT` 分支，E1-C4 保持原 schema；
+2. E2-C4 源项核算改为**必须有**该键，且校验前移到任何磁盘 IO 之前——原来的
+   `spec.get("base_production", 0.0)` 会在缺键时把每个单元的实际源总量都算成 0，
+   使 P2 的"匹配源总量"前提**空过**（一个静默的错误 PASS）；
+3. `tests/test_run_landscape_study_gates.py` 把 E1-C4 的 spec 键集固化为冻结字面量
+   `E1_C4_FROZEN_RUN_SPEC_KEYS`，并新增两条回归：E2-C4 的键集恰为该集合加一个
+   `base_production`、E2-C4 源项缺键时在无文件系统依赖下即抛错。后者经**变异检验**确认会失败
+   （把分支条件改成恒真后测试立刻报 extra key），即护栏确实咬人，不是装饰。
+
+**结论与残余。** 最终版下探针报告 `differing keys: NONE`（128 specs / 706 产物逐字节相同），
+即 E2-C4 的代码改动对 E1-C4 的输入生成**零扰动**，同时 E2-C4 拿到它需要的 sink 参数。
+残余两点如实登记：(a) 探针只覆盖**输入生成**与校准加载，没有逐字节复核分析路径
+（分析路径走的是另一套共享函数，本文件 §12 列出的单测覆盖其契约）；(b) 探针绕过
+`require_umi()` 直接在本地调用库函数——这是项目铁律下非法的执行路径，此处仅因它
+只写临时目录、不执行模拟器、不产生任何数值证据才被采用，且临时目录已删除。
+后续若再有实验需要新的 spec 键，必须挂在自己 experiment id 的分支下；上面那条冻结字面量
+就是为了让"顺手加在共享构造器里"这种改法立刻失败。

@@ -811,6 +811,127 @@ def test_e2_c4_conditions_are_the_five_unit_channel_separation_matrix():
     assert sorted({c["wealth_decay_rate"] for c in conditions}) == [0.01, 0.02, 0.04]
 
 
+# The exact ``run_specs.json`` key set E1-C4 was declared and archived under
+# (its frozen ``source_commit`` is b6d24b7). ``run_specs.json`` is a declared
+# artifact of an authorized confirmatory experiment, so every key is part of a
+# contract: adding one silently makes the archived generated inputs
+# unreproducible from the commit that produced them. This literal exists to fail
+# loudly if a later experiment's needs leak into the shared spec builder.
+E1_C4_FROZEN_RUN_SPEC_KEYS = frozenset(
+    {
+        "calibration_component",
+        "condition",
+        "cpp_config",
+        "dt",
+        "epsilon_log_sigma",
+        "exchange_enabled",
+        "exchange_noise_strength",
+        "exchange_rate",
+        "exchange_reversion_rate",
+        "explicit_phase_state",
+        "initial_conditions",
+        "initial_conditions_sha256",
+        "landscape",
+        "resource_npy",
+        "resource_sha256",
+        "run_dir",
+        "run_id",
+        "seed",
+        "storage_order",
+        "temperature",
+        "terrain_force_enabled",
+        "terrain_production_enabled",
+        "terrain_sha256",
+        "wealth_decay_rate",
+    }
+)
+
+
+def _prepare_inputs_config() -> dict[str, object]:
+    return {
+        "seeds": [11, 12],
+        "population": 16,
+        "grid_shape": [16, 16],
+        "bounds": [0.0, 100.0, 0.0, 100.0],
+        "dt": 0.005,
+        "total_time": 1.0,
+        "output_time_interval": 0.5,
+        "temperature": 0.5,
+        "friction": 1.0,
+        "social_strength": 0.0,
+        "exchange_rate": 0.5,
+        "exchange_noise_strength": 0.05,
+        "exchange_reversion_rate": 1.0,
+        "epsilon_log_sigma": 0.5,
+        "wealth_decay_rate": 0.02,
+        "base_production": 0.01,
+        "mean_wealth": 5.0,
+        "terrain_production_scale": 1.0,
+        "terrain_force_scale": 1.0,
+        "strict_numerics": True,
+        "confirmative_mode": True,
+    }
+
+
+def test_prepare_inputs_keeps_e1_c4_schema_frozen_and_e2_c4_sink_aware(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(run_landscape_study, "PROJECT_ROOT", tmp_path)
+    config = _prepare_inputs_config()
+
+    e1_specs = run_landscape_study.prepare_inputs(
+        "E1-MATCHED-LANDSCAPES-C4", config, tmp_path / "e1"
+    )
+    assert len(e1_specs) == 4  # two seeds x (clustered, shuffled)
+    for spec in e1_specs:
+        assert frozenset(spec) == E1_C4_FROZEN_RUN_SPEC_KEYS
+        # E1-C4 has no per-run sink override, but the config-level source rate
+        # must still reach the simulator through the generated cfg.
+        cfg = run_landscape_study.project_path(spec["cpp_config"]).read_text()
+        assert "base_production = 0.01" in cfg
+
+    e2_specs = run_landscape_study.prepare_inputs(
+        "E2-CHANNEL-ABLATION-C4", config, tmp_path / "e2"
+    )
+    assert len(e2_specs) == 10  # two seeds x five deduplicated units
+    for spec in e2_specs:
+        # E2-C4's realized source rate must be recomputable from the spec, so
+        # it carries exactly one extra key -- and only that one.
+        assert frozenset(spec) == E1_C4_FROZEN_RUN_SPEC_KEYS | {"base_production"}
+        assert spec["base_production"] / spec["wealth_decay_rate"] == pytest.approx(0.5)
+        cfg = run_landscape_study.project_path(spec["cpp_config"]).read_text()
+        assert f"base_production = {spec['base_production']:g}" in cfg
+
+
+def test_e2_c4_mean_metrics_requires_spec_source_rate():
+    # P2's realized-source accounting scales with base_production; a spec that
+    # lacks it would account zero source for every unit and let the
+    # matched-source premise "pass" vacuously. The guard fires before any
+    # filesystem work, so the bogus paths below are never reached.
+    spec = {
+        "run_id": "seed-1--clustered-d0.02",
+        "run_dir": "does/not/exist",
+        "resource_npy": "does/not/exist.npy",
+    }
+    kwargs = {
+        "bounds": (0.0, 100.0, 0.0, 100.0),
+        "steady_snapshots": 1,
+        "stationarity_max_drift": 0.1,
+        "stationarity_min_ess": 4.0,
+        "stationary_metrics": ("wealth_gini",),
+    }
+    with pytest.raises(RuntimeError, match="without base_production"):
+        run_landscape_study.mean_metrics_for_run(
+            spec, experiment="E2-CHANNEL-ABLATION-C4", **kwargs
+        )
+    # Scoped: E1-C4 must keep the historical behaviour of reaching its run dir
+    # (here the missing path surfaces), never the E2-C4 source-rate contract.
+    with pytest.raises(FileNotFoundError):
+        run_landscape_study.mean_metrics_for_run(
+            spec, experiment="E1-MATCHED-LANDSCAPES-C4", **kwargs
+        )
+
+
 def test_e2_c4_structure_guard_rejects_wealth_dependent_movement():
     config = {"social_strength": 0.0}
     conditions = run_landscape_study.default_conditions(

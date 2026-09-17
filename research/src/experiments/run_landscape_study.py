@@ -850,11 +850,24 @@ def prepare_inputs(
                             config.get("wealth_decay_rate", 0.0),
                         )
                     ),
-                    "base_production": float(
-                        condition.get(
-                            "base_production",
-                            config.get("base_production", 0.01),
-                        )
+                    # E2-C4's sink ladder varies the per-unit source rate, so the
+                    # realized source rate (P2's accounting) has to be
+                    # recomputable from the spec alone. E1-C4 deliberately keeps
+                    # the exact schema it was declared and archived under: adding
+                    # a key here would change ``run_specs.json`` and break
+                    # byte-reproducibility of an already-authorized experiment's
+                    # generated inputs from its frozen ``source_commit``.
+                    **(
+                        {
+                            "base_production": float(
+                                condition.get(
+                                    "base_production",
+                                    config.get("base_production", 0.01),
+                                )
+                            )
+                        }
+                        if experiment == E2_C4_EXPERIMENT
+                        else {}
                     ),
                     "exchange_rate": float(condition["exchange_rate"]),
                     "exchange_noise_strength": float(
@@ -1209,6 +1222,15 @@ def mean_metrics_for_run(
     experiment: Optional[str] = None,
     terrain_production_scale: float = 1.0,
 ) -> Dict[str, Any]:
+    if experiment == E2_C4_EXPERIMENT and "base_production" not in spec:
+        # Checked before any filesystem work. Never fall back to a default: a
+        # missing source rate would make every unit's realized total evaluate to
+        # zero, and the matched-source premise audit (P2) would then "pass"
+        # vacuously instead of reporting an unaccountable source.
+        raise RuntimeError(
+            f"{spec.get('run_id', '<unknown>')} is an {E2_C4_EXPERIMENT} spec "
+            "without base_production; source-rate accounting would silently be zero"
+        )
     run_dir = project_path(spec["run_dir"], must_exist=True)
     snapshots = sorted(run_dir.glob("snap_*.csv"))
     if len(snapshots) < steady_snapshots:
@@ -1227,8 +1249,9 @@ def mean_metrics_for_run(
         # E2-C4 P2 accounts for the *realized* source rate on the same tail
         # snapshots as every other metric, so the design's "matched source
         # totals by construction" premise is audited rather than assumed. It is
-        # a diagnostic/accounting quantity and enters no gate.
-        base_production = float(spec.get("base_production", 0.0))
+        # a diagnostic/accounting quantity and enters no gate. The presence of
+        # ``base_production`` was already enforced before any filesystem work.
+        base_production = float(spec["base_production"])
         for row, snapshot in zip(rows, snapshots_read):
             row.update(
                 source_rate_metrics(
