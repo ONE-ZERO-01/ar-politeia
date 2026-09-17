@@ -430,6 +430,11 @@ def _e1_fixture(root: Path) -> tuple[Path, Path]:
             "authorized_experiments": [promotion.E1_ID],
             "source_commit": V0G_COMMIT,
             "numerical_calibration": {"reference_binary_sha256": binary_sha256},
+            "design_contract": {
+                "conditions": list(promotion.E1_CONDITIONS),
+                "run_count": promotion.E1_RUN_COUNT,
+                "seed_count": promotion.E1_SEED_COUNT,
+            },
         },
     )
 
@@ -443,7 +448,6 @@ def _e1_fixture(root: Path) -> tuple[Path, Path]:
             "binary_sha256": binary_sha256,
             "parameter_lock_sha256": _sha256(lock_path),
             "seeds": list(range(promotion.E1_SEED_COUNT)),
-            "conditions": [{"name": name} for name in promotion.E1_CONDITIONS],
         },
     )
 
@@ -749,6 +753,50 @@ def test_archive_e1_rejects_a_run_outside_the_frozen_design(tmp_path):
     _write_json(specs_path, specs)
 
     with pytest.raises(RuntimeError, match="do not cover the frozen seed x condition design"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def _resync_lock_sha(root: Path, job_dir: Path) -> None:
+    """Re-point every lock-hash binding after the lock itself was mutated."""
+    lock_sha = _sha256(root / "research/parameter_lock.cycle4.json")
+    config_path = job_dir / "config.json"
+    config = json.loads(config_path.read_text())
+    config["parameter_lock_sha256"] = lock_sha
+    _write_json(config_path, config)
+    workspace = job_dir / "workspace"
+    result_path = workspace / "result.json"
+    result = json.loads(result_path.read_text())
+    result["config_sha256"] = _sha256(config_path)
+    result["parameter_lock_sha256"] = lock_sha
+    _write_json(result_path, result)
+    audit_path = workspace / "parameter_lock_audit.json"
+    audit = json.loads(audit_path.read_text())
+    audit["parameter_lock_sha256"] = lock_sha
+    _write_json(audit_path, audit)
+
+
+def test_archive_e1_rejects_a_lock_that_froze_another_design(tmp_path):
+    """An executed design may not be re-pointed at a different pre-registration."""
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    lock_path = tmp_path / "research/parameter_lock.cycle4.json"
+    lock = json.loads(lock_path.read_text())
+    lock["design_contract"]["run_count"] = 256
+    _write_json(lock_path, lock)
+    _resync_lock_sha(tmp_path, job_dir)
+
+    with pytest.raises(RuntimeError, match="does not freeze the E1-C4 design"):
+        promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
+
+
+def test_archive_e1_rejects_a_lock_without_a_design_contract(tmp_path):
+    job_dir, jobctl_dir = _e1_fixture(tmp_path)
+    lock_path = tmp_path / "research/parameter_lock.cycle4.json"
+    lock = json.loads(lock_path.read_text())
+    lock.pop("design_contract")
+    _write_json(lock_path, lock)
+    _resync_lock_sha(tmp_path, job_dir)
+
+    with pytest.raises(RuntimeError, match="has no design contract"):
         promotion.archive_e1(tmp_path, job_dir, jobctl_dir)
 
 

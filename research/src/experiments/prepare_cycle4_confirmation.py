@@ -646,12 +646,18 @@ def archive_e1(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
     seeds = config.get("seeds", [])
     if len(seeds) != E1_SEED_COUNT or len(set(seeds)) != E1_SEED_COUNT:
         raise RuntimeError(f"E1-C4 must bind exactly {E1_SEED_COUNT} seeds")
-    conditions = config.get("conditions", [])
-    if not all(isinstance(item, Mapping) for item in conditions):
-        raise RuntimeError("E1-C4 conditions are malformed")
-    condition_names = [str(item.get("name")) for item in conditions]
-    if set(condition_names) != set(E1_CONDITIONS) or len(condition_names) != 2:
-        raise RuntimeError("E1-C4 must contain exactly the clustered and shuffled conditions")
+    # E1-C4's matched two-condition matrix is imposed by the runner and is not
+    # repeated in the job config, so the pre-registered design is read from the
+    # final lock and the executed run specs are required to reproduce it exactly.
+    design = lock.get("design_contract")
+    if not isinstance(design, Mapping):
+        raise RuntimeError("the final Cycle 4 lock has no design contract")
+    if (
+        design.get("conditions") != list(E1_CONDITIONS)
+        or design.get("run_count") != E1_RUN_COUNT
+        or design.get("seed_count") != E1_SEED_COUNT
+    ):
+        raise RuntimeError("the final Cycle 4 lock does not freeze the E1-C4 design")
 
     run_specs_payload = _read_json(workspace / "run_specs.json")
     run_specs = run_specs_payload.get("runs")
