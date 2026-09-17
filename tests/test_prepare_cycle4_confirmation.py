@@ -33,7 +33,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _v1f_inputs(root: Path) -> tuple[Path, Path, Path]:
+def _v1f_inputs(root: Path, *, binary_sha256: str | None = None) -> tuple[Path, Path, Path]:
     calibration_path = root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json"
     calibration = {
         "experiment": promotion.V1F_ID,
@@ -94,6 +94,7 @@ def _v1f_inputs(root: Path) -> tuple[Path, Path, Path]:
             "execution_completed": True,
             "runs_completed": 960,
             "run_failures": 0,
+            "binary_sha256": binary_sha256 or "b" * 64,
             "calibration_sha256": _sha256(calibration_path),
             "config_sha256": _sha256(config_path),
         },
@@ -141,7 +142,12 @@ def test_prepare_rejects_failed_or_incomplete_v1f(tmp_path, monkeypatch):
 
 def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path, monkeypatch):
     monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
-    calibration, result, config = _v1f_inputs(tmp_path)
+    binary = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/build-off/src/politeia"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_bytes(b"cycle4 reference executable")
+    calibration, result, config = _v1f_inputs(
+        tmp_path, binary_sha256=_sha256(binary)
+    )
     promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
     v0g_result = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/result.json"
     _write_json(
@@ -162,9 +168,6 @@ def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path, monkeypatch):
             ],
         },
     )
-    binary = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/build-off/src/politeia"
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    binary.write_bytes(b"cycle4 reference executable")
     promotion.finalize(tmp_path, v0g_result, binary)
 
     lock = json.loads((tmp_path / "research/parameter_lock.cycle4.json").read_text())
@@ -175,6 +178,7 @@ def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path, monkeypatch):
     assert lock["confirmatory_execution_authorized"] is True
     assert lock["authorized_experiments"] == [promotion.E1_ID]
     assert lock["source_commit"] == V0G_COMMIT
+    assert lock["numerical_calibration"]["reference_binary_sha256"] == _sha256(binary)
     assert lock["simulator_validation"]["binary_sha256"] == _sha256(binary)
     assert e1_config["binary_sha256"] == _sha256(binary)
     assert e1_config["parameter_lock_sha256"] == _sha256(
@@ -183,6 +187,79 @@ def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="final Cycle 4 parameter lock"):
         promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+
+def test_finalize_rejects_binary_that_is_not_the_calibrated_one(tmp_path, monkeypatch):
+    """A post-calibration simulator source change yields a different binary.
+
+    The V1F numerical resolution limits were measured on one exact artifact, so
+    binding a rebuilt binary to E1-C4 must fail loudly instead of silently
+    producing a lock whose calibration and executable do not correspond.
+    """
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
+    calibrated_sha = "c" * 64
+    calibration, result, config = _v1f_inputs(tmp_path, binary_sha256=calibrated_sha)
+    promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+    v0g_result = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/result.json"
+    _write_json(
+        v0g_result,
+        {
+            "experiment": promotion.V0G_ID,
+            "status": "completed",
+            "pass": True,
+            "environment": {
+                "host": "umi",
+                "working_tree_clean": True,
+                "source_commit": V0G_COMMIT,
+            },
+            "pytest": {"returncode": 0},
+            "builds": [
+                {"openmp": False, "pass": True},
+                {"openmp": True, "pass": True},
+            ],
+        },
+    )
+    rebuilt = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/build-off/src/politeia"
+    rebuilt.parent.mkdir(parents=True, exist_ok=True)
+    rebuilt.write_bytes(b"a source change after calibration produced this")
+    assert _sha256(rebuilt) != calibrated_sha
+
+    with pytest.raises(RuntimeError, match="not the calibrated reference binary"):
+        promotion.finalize(tmp_path, v0g_result, rebuilt)
+    # The lock must remain an unexecuted candidate.
+    lock = json.loads((tmp_path / "research/parameter_lock.cycle4.json").read_text())
+    assert lock["status"] == "candidate"
+    assert lock["confirmatory_execution_authorized"] is False
+
+
+def test_finalize_rejects_binary_outside_v0g_workspace(tmp_path, monkeypatch):
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
+    stray = tmp_path / "elsewhere/politeia"
+    stray.parent.mkdir(parents=True)
+    stray.write_bytes(b"stray binary")
+    calibration, result, config = _v1f_inputs(tmp_path, binary_sha256=_sha256(stray))
+    promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+    v0g_result = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/result.json"
+    _write_json(
+        v0g_result,
+        {
+            "experiment": promotion.V0G_ID,
+            "status": "completed",
+            "pass": True,
+            "environment": {
+                "host": "umi",
+                "working_tree_clean": True,
+                "source_commit": V0G_COMMIT,
+            },
+            "pytest": {"returncode": 0},
+            "builds": [
+                {"openmp": False, "pass": True},
+                {"openmp": True, "pass": True},
+            ],
+        },
+    )
+    with pytest.raises(RuntimeError, match="inside the V0G workspace"):
+        promotion.finalize(tmp_path, v0g_result, stray)
 
 
 def test_promotion_refuses_to_rewrite_after_e1_outcomes_exist(tmp_path, monkeypatch):

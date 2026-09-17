@@ -85,9 +85,7 @@ Index load_initial_conditions(
 
     std::vector<int> iculture;
     for (int d = 0; d < cfg.culture_dim; ++d) {
-        std::string column_name{"c"};
-        column_name += std::to_string(d);
-        iculture.push_back(get_col(column_name));
+        iculture.push_back(get_col("c" + std::to_string(d)));
     }
 
     std::normal_distribution<Real> dist_cv(0.0, 1.0);

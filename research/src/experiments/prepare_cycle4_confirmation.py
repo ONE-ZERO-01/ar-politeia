@@ -228,11 +228,19 @@ def validate_v1f(
         raise RuntimeError("V1F condition matrix differs from the frozen 15-cell design")
     if set(E1_SEEDS) & set(seeds):
         raise RuntimeError("E1 seeds overlap V1F calibration seeds")
+    calibrated_binary_sha256 = result.get("binary_sha256")
+    if (
+        not isinstance(calibrated_binary_sha256, str)
+        or len(calibrated_binary_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in calibrated_binary_sha256)
+    ):
+        raise RuntimeError("V1F archive does not bind the calibrated reference binary")
     return {
         "calibration": calibration,
         "calibration_sha256": actual_calibration_sha,
         "result_sha256": _sha256(result_path),
         "config_sha256": _sha256(config_path),
+        "binary_sha256": calibrated_binary_sha256,
     }
 
 
@@ -530,6 +538,10 @@ def _candidate_lock(source_commit: str, v1f: Mapping[str, Any]) -> dict[str, Any
             "sha256": v1f["calibration_sha256"],
             "result_sha256": v1f["result_sha256"],
             "config_sha256": v1f["config_sha256"],
+            # The numerical resolution limits were measured by executing this exact
+            # binary. E1-C4 must execute the same artifact, so the SHA is carried
+            # forward and enforced at finalize time.
+            "reference_binary_sha256": v1f["binary_sha256"],
             "numerical_resolution_limits": v1f["calibration"]["numerical_resolution_limits"],
         },
         "parameters": {
@@ -815,6 +827,34 @@ def finalize(root: Path, v0g_result: Path, binary: Path) -> None:
     ):
         raise RuntimeError("V0G did not record a full clean-checkout source commit")
     binary_sha256 = _sha256(binary)
+    # The lock binds a SHA-256 of the simulator binary that E1-C4 will execute, so
+    # the artifact must be the one the numerical calibration was measured on. Any
+    # simulator source change after V1F silently produces a different binary; that
+    # must fail loudly here rather than produce a lock whose calibration and
+    # executable do not correspond.
+    reference_binary_sha256 = (
+        lock.get("numerical_calibration", {}).get("reference_binary_sha256")
+        if isinstance(lock.get("numerical_calibration"), Mapping)
+        else None
+    )
+    if (
+        not isinstance(reference_binary_sha256, str)
+        or len(reference_binary_sha256) != 64
+    ):
+        raise RuntimeError("candidate lock does not bind a calibrated reference binary")
+    v0g_dir = (root / f"research/jobs/{V0G_ID}").resolve()
+    resolved_binary = binary.resolve()
+    if v0g_dir != resolved_binary and v0g_dir not in resolved_binary.parents:
+        raise RuntimeError("finalize must bind a binary built inside the V0G workspace")
+    if binary_sha256 != reference_binary_sha256:
+        raise RuntimeError(
+            "the binary bound for E1-C4 is not the calibrated reference binary: "
+            f"calibrated {reference_binary_sha256}, rebuilt {binary_sha256}. "
+            "The V1F numerical resolution limits were measured on the calibrated "
+            "binary, so a simulator source change after calibration breaks the "
+            "binding. Revert the simulator change (or recalibrate) before "
+            "authorizing E1."
+        )
     lock["status"] = "final"
     lock["confirmatory_execution_authorized"] = True
     lock["authorized_experiments"] = [E1_ID]
