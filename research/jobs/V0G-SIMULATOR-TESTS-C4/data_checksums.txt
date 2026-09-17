@@ -1,2 +1,0 @@
-source_tree=git_commit_6c720d8f35548936a36a014cdab62f0f6cfe2a13
-external_data=none

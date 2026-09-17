@@ -1,6 +1,0 @@
-{
-  "approach": "Run the full Python suite and rebuild/test the C++ reference with OpenMP OFF and ON on umi.",
-  "evidence_role": "implementation validation",
-  "evidence_boundary": "V0G validates code and bindings only and produces no scientific evidence.",
-  "supports_core_claim": false
-}

@@ -1,4 +1,0 @@
-external_data=none
-dependency_calibration=143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5
-parameter_lock=12ccf9dd1fbfaf6cadb561e633784e79042c8f7013a2bb1aaa2e43ca3d87ca0f
-reference_binary=pending V0G

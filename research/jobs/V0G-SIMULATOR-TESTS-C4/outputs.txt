@@ -1,5 +1,0 @@
-result.json
-environment.json
-pytest.log
-ctest-off.log
-ctest-on.log
