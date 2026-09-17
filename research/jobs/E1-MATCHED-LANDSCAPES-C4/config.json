@@ -5,7 +5,7 @@
   "numerical_calibration": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
   "numerical_calibration_sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
   "parameter_lock": "research/parameter_lock.cycle4.json",
-  "parameter_lock_sha256": "69e272203e39b836783bec053df719e9209d2f92d94f89d9b49915b265cdc2b8",
+  "parameter_lock_sha256": "bee66e70a1a9406bc4c1712df4fe3317a0856ce0392f7debbe64e69a9826127d",
   "seeds": [
     11657,
     11677,
@@ -141,5 +141,6 @@
   },
   "adjacent_window_relative_bounds": {
     "wealth_variance": 0.1
-  }
+  },
+  "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3"
 }

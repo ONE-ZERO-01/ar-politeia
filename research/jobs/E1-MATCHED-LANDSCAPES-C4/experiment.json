@@ -22,8 +22,8 @@
     "research/jobs/E1-MATCHED-LANDSCAPES-C4/workspace"
   ],
   "config": "research/jobs/E1-MATCHED-LANDSCAPES-C4/config.json",
-  "config_sha256": "a6c432b4515671315bb28390937d92809b8a365d6d736855616b097deca99da6",
-  "commit_id": "9424b211053642ce8facfe2083c7b632b6a99749",
+  "config_sha256": "9ad1be9cc183fcdfc4ab081e3a2bf4fafb434ee72296efe46861867695c58cbf",
+  "commit_id": "b6d24b76a50529965469332644e7bed251c49eb1",
   "env_snapshot": "research/jobs/E1-MATCHED-LANDSCAPES-C4/env.txt",
   "seeds": [
     11657,
@@ -95,8 +95,8 @@
     "external_data": "none",
     "generated_inputs": "SHA-256 values are written to workspace/matched_input_audit.json before execution",
     "dependency_calibration": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
-    "parameter_lock": "69e272203e39b836783bec053df719e9209d2f92d94f89d9b49915b265cdc2b8",
-    "reference_binary": "pending V0G"
+    "parameter_lock": "bee66e70a1a9406bc4c1712df4fe3317a0856ce0392f7debbe64e69a9826127d",
+    "reference_binary": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3"
   },
   "artifacts": [
     "result.json",

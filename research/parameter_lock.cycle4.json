@@ -1,12 +1,14 @@
 {
   "lock_id": "ar-politeia-cycle4-confirmatory-v1",
-  "status": "candidate",
-  "confirmatory_execution_authorized": false,
+  "status": "final",
+  "confirmatory_execution_authorized": true,
   "locked_before_confirmatory_outcomes": true,
   "promotion_base_commit": "9424b211053642ce8facfe2083c7b632b6a99749",
-  "source_commit": "pending clean V0G checkout",
-  "analysis_commit": "pending clean V0G checkout",
-  "authorized_experiments": [],
+  "source_commit": "b6d24b76a50529965469332644e7bed251c49eb1",
+  "analysis_commit": "b6d24b76a50529965469332644e7bed251c49eb1",
+  "authorized_experiments": [
+    "E1-MATCHED-LANDSCAPES-C4"
+  ],
   "numerical_calibration": {
     "experiment": "V1F-NONFLAT-CALIBRATION-C4",
     "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
@@ -114,5 +116,13 @@
     "temporal_ess_role": "diagnostic_only",
     "valid_null_policy": "A passed analysis gate without a primary effect beyond the effective threshold is retained as valid null/equivalence evidence."
   },
-  "amendment_policy": "After finalization, any outcome-informed change requires a new lock version and research cycle."
+  "amendment_policy": "After finalization, any outcome-informed change requires a new lock version and research cycle.",
+  "simulator_validation": {
+    "experiment": "V0G-SIMULATOR-TESTS-C4",
+    "result_sha256": "aba7488fe7a9a27c15d1c79f54eb4b0375189b20e6e30c9e5d19f91f9fd43418",
+    "validated_commit": "b6d24b76a50529965469332644e7bed251c49eb1",
+    "binary": "research/jobs/V0G-SIMULATOR-TESTS-C4/workspace/build-off/src/politeia",
+    "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+    "openmp_execution_mode": "OFF reference binary; OMP_NUM_THREADS=1"
+  }
 }
