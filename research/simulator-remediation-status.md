@@ -34,7 +34,10 @@
 | S13 | P1 | B | V1F 的 jobctl artifact 声明用裸文件名，被解析到项目根而非作业 workspace，48 小时后全部记为 valid=false | jobctl 提交期越界/重复拦截 + 记录 resolved 绝对路径 + 新增 `recheck`（按已存声明重算契约、保留执行事实、旧判定留作溯源）；V1F 声明已修正并 reconcile 为 completed | 已完成（2026-09-17） | 提交时产物尚不存在，故"路径写错但界内"的笔误无法在提交期拦下；只能靠 recheck 与 resolved 字段暴露 |
 | S14 | P0 | A/C | `finalize` 静默绑定了非校准的 binary：0f4ac29 在 V1F 提交后改了 `ic_loader.cpp`，V0G 重建出 `1e3f052f…` 而非校准所用 `87eafa4e…` | `validate_v1f` 读出并校验校准 binary SHA；候选锁新增 `reference_binary_sha256`；`finalize` 强制"binary 在 V0G workspace 内"且 SHA 等于校准对象，否则拒绝写 final；`ic_loader.cpp` 恢复到校准提交 | 已完成（2026-09-17；V0G 重建实测复现 `87eafa4e…`，无需重跑 V1F） | 若未来确需引入模拟器源码改动，必须重跑校准；编译告警修复推迟到 E1-C4 之后 |
 | S15 | P1 | A/B | E2-C4 需要的 per-run `base_production` 被无条件加进共享 spec 构造器，使**已授权实验** E1-C4 的 `run_specs.json`（已声明产物）多出一个键，该产物不再可由其冻结 `source_commit`（b6d24b7）的源码复现 | 键收窄到 `E2_C4_EXPERIMENT` 分支；E2-C4 源项核算缺键时在**任何磁盘 IO 之前** fail-fast（不再默认 0，否则 P2 源总量核算会空过）；E1-C4 spec schema 以冻结字面量入测试（经变异检验确认会失败） | 已完成（2026-09-17） | 跨版本等价性探针只覆盖**输入生成**（128 specs / 706 产物逐字节相同），不逐字节复核分析路径；探针绕过 `require_umi()` 直接在本地调用库函数，仅写临时目录、不执行模拟器 |
-| S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计待办 | 部分 | MPI/checkpoint 待审计 |
+| S16 | P1 | A | `main.cpp` 从不调用 `exchange_halos`（两套分解类都只定义未使用），`discover_neighbors` 的邻居表无处消费：`nprocs>1` 时粒子只与**同 rank** 粒子作用，跨 rank 对被静默丢弃。确认性模式已拒绝 `nprocs>1`，但非确认性 `mpirun -np N` 仍会跑出不同物理 | 审计完成；修复为 C++ 层"`nprocs>1` 一律拒绝，除非显式 `allow_unvalidated_mpi`"，**待 E1-C4 后**（任何 C++ 改动都会使参考 binary SHA 变化，需重跑校准） | 审计完成（2026-09-17，静态） | 修复未实施；MPI halo 的接入本身另立工作包 |
+| S17 | P1 | A | restart 不能复现连续运行：① checkpoint 只存粒子字段，**不存 RNG 状态**，而 `LangevinIntegrator` 的热噪声来自有状态 RNG（成员 `rng_` 与"每步按线程数抽种子"的每线程 RNG）且按**数组下标**消费；② checkpoint 里嵌入了 config 块，但 `read_checkpoint` 无返回 config 的接口、`main.cpp` 用命令行传入的 cfg，**嵌入配置被静默忽略**；③ `id_seed` 不入 checkpoint | 审计完成；修复为 C++ 层"非显式 opt-in 时拒绝 `--restart`"以及（或）在 read 侧校验嵌入 config 与运行时 cfg 一致，**待 E1-C4 后** | 审计完成（2026-09-17，静态） | 修复未实施；确认性模式已拒绝 `--restart`（R11），故不影响任何确认性结论 |
+| S18 | P1 | A/C | V1F 的 `order` 层以 `temperature = 0.0` 运行，因此**存储顺序误差界从未在有热噪声（`temperature = 0.5`，即 E1-C4/E2-C4 的实际配置）时被检验**：热噪声按数组下标消费，而 `redistribute`/`migrate_particles` 在 `nprocs=1` 时直接返回，故参考配置下数组顺序恒等于 IC 文件行序，换行序即换噪声指派。该层实测恰好 0.0，与 R08"原地交换依赖存储/遍历顺序"并存，两者至少有一个需要澄清 | 审计定位；需一次 V0 规模的廉价实测（T=0.5 下 canonical vs permuted 的尾部指标差）来判定该界是"有界"还是"构造上空过" | 审计完成（2026-09-17，静态）；实测待 umi | 若不通过，需把存储顺序纳入参考配置的误差界或改为不依赖行序的噪声指派 |
+| S10 | P1 | C | 邻域/MPI/重启/完整模型验证不充分 | 邻域 cell 修复 + 配置校验（本轮）；MPI/checkpoint 审计已完成（见 S16/S17/S18 与 §4.7） | 部分（审计完成，修复待 E1-C4 后） | MPI halo 接入、restart 修复均未实施 |
 | S11 | P2 | C | 高密度交换计算成本快速增加 | 基线冻结后优化 | 待办 | 性能报告待 umi |
 
 ## 3. 本次代码级修改清单（随实现回填）
@@ -299,3 +302,66 @@ artifact。该等价性是被实测的，不是被论证的。最终锁的两处
 实验声明的 `data_checksums.reference_binary`。同时钉住 `source_commit` 三方一致、
 config/artifacts 哈希、以及"有效阈值 = max(数值上限, SESOI)"且 SESOI 在四项上严格占优。
 任何一层被改动而其余未同步，测试立即失败。
+
+### 4.7 S10 残余：MPI 与 checkpoint/restart 静态审计（2026-09-17，纯读代码）
+
+本节全部结论来自阅读活动源码，**未执行模拟器、未构造任何数值证据**。分类按 §2 的约定，
+A=代码可直接确认。
+
+**A1. `nprocs>1` 会静默跑出不同物理（S16）。** `main.cpp` 使用 `SFCDecomposition`，在
+启动、每 `compact_interval` 与自动触发时调用 `compute_keys` / `rebalance` / `redistribute` /
+`migrate_particles`，并在 `main.cpp:578` 调用 `discover_neighbors`。但**两套分解类的
+`exchange_halos` 都没有任何调用点**（`decomposition.cpp`、`sfc_decomposition.cpp` 各定义一处，
+`grep` 全仓核实），所以 `discover_neighbors` 算出的邻居 rank 表没有任何消费方。作用域内的
+力/密度/交换因此只遍历本 rank 的粒子：**落在 rank 边界另一侧的粒子对被整段丢弃**。
+确认性模式已用 `nprocs=1` 硬拒绝这一路径（R10），实验执行器也从不传 rank 数，
+但非确认性 `mpirun -np N` 仍可进入。SFC 按 Morton 键范围切分，所以 rank 边界就是空间边界，
+丢失的是邻域内真实的相互作用，不是边角噪声。
+
+**A2. 参考配置下数组顺序恒等于 IC 文件行序。** `redistribute` 与 `migrate_particles` 的
+函数体首行都是 `if (is_serial()) return;`，而参考构建（`nprocs=1`）恒为 serial。
+因此参考配置**在整个运行期间不发生任何 SFC 重排**，粒子数组顺序就是
+`load_initial_conditions` 的行序。这一条对参考实现是**正面**的：没有运行中重排，
+轨迹对给定 IC 文件完全确定、可复现；但它同时说明"存储顺序"这一轴在参考配置里
+只由**初始行序**决定，任何按数组下标消费的随机量都会随之改变（见 A3、S18）。
+
+**A3. 热噪声是有状态 RNG 且按数组下标消费。** `LangevinIntegrator` 持有成员
+`std::mt19937_64 rng_`；串行路径逐步调用 `normal_(rng_)`，OpenMP 路径每步先从 `rng_`
+抽 `nthreads` 个种子再让每线程各自推进。两条路径都不按粒子身份（GID）取随机量。
+这与 S07 修好的交换噪声不同——后者是 `splitmix64(GID 对, seed, step)` 的**无状态**函数，
+因此天然与存储顺序无关。§4.5 已记录：`order` 层显式设 `temperature = 0.0`
+（配 `initial_temperature = 0.5`），与 `timestep` 层的 `0.5` 不同，两层结论不可互相引用。
+
+**A4. restart 无法复现连续运行，且静默忽略嵌入配置（S17）。** `write_checkpoint` 把运行
+配置写入 checkpoint 的 config 块，但 `read_checkpoint` 的签名只回传粒子、
+`ckpt_step` 与 `ckpt_time`——**没有回传 config 的通道**，`main.cpp` 用的是命令行/默认加载的
+`cfg`。因此 restart 会静默采用与原始运行不同的参数。更根本的是：checkpoint 不含任何 RNG
+状态、也不含 `id_seed`（`main.cpp:156` 在读取前用 `rank` 重置），而按 A3 噪声流由
+RNG 状态与数组顺序共同决定，所以 restart 在原理上无法复现连续运行的噪声流。
+这与台账原先的措辞（"重启 RNG 恢复未验证"）相比更强：不是"没验证"，是**当前实现不具备**。
+确认性模式已拒绝 `--restart`（R11），故不影响任何确认性结论。
+
+**S18：存储顺序误差界的覆盖缺口。** V1F 的 `order` 层以 `temperature = 0.0` 运行
+（已从受控的 `research/jobs/V1F-NONFLAT-CALIBRATION-C4/config.json` 逐条核实），
+所以该界从未在有热噪声——即 E1-C4/E2-C4 实际使用的 `temperature = 0.5`——时被检验。
+按 A2/A3，`T=0` 关闭的恰是唯一与数组行序耦合的随机源——参考配置下人口/文化/技术/忠诚等
+子系统全部关闭，交换噪声虽仍开但它是无状态的。这解释了为什么该层实测**恰好 0.0**，
+同时也意味着**该 0.0 不能外推到参考配置**。
+
+需要澄清的一点，如实记录为**未决**：R08 曾用三粒子测试证实"串行原地交易仍依赖存储/
+遍历顺序"，而 `order` 层的 0.0 说明在本配置下 canonical 与 permuted 的轨迹完全一致。
+两者至少有一个需要修正，候选解释有二：(a) 本配置下成对更新对遍历顺序实际不敏感；
+(b) `permuted` 输入在进入主循环前的某处被规范化，使该比较在构造上退化。
+
+判定成本很低，且不需要新的模型代码：在 umi 上做一次 V0 规模的实测——固定
+`temperature = 0.5`，同一批 64 个 seed 各跑 canonical 与 permuted 两份
+按 GID 相同的显式相态输入，比较尾部指标差。若差落回数值上限内，则该界成立、
+只是"当初测错了层"；若超出，则参考配置的数值误差界缺一条腿，需要改为
+**不依赖行序的噪声指派**（例如按稳定 GID 取噪声，与 S07 对交换噪声的做法一致）。
+在定论之前，该缺口只作已登记项，不改变任何已冻结的阈值。
+
+**共有的结构成因。** S16、S17、S18 三条都不是"某个函数写错了"，而是同一种模式：
+**一个未接入/未验证的通道没有在入口处被拒绝**，于是它可以在没人注意时被打开。
+处理方向一致：让入口直接拒绝（MPI 与 restart 的非显式 opt-in 一律失败），而不是
+依赖文档警告。这三处的修复都改动 C++，因此都排在 E1-C4 之后；按 S14 的结论，
+任何 C++ 改动都会改变参考 binary 的 SHA，必须连带重跑校准。

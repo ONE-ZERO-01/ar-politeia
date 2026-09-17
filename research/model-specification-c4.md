@@ -388,9 +388,9 @@ E2-C4 的识别策略与 E1-C4 的次要家族限定都建立在这一条上。
 
 | 维度 | 受控参考 | 状态 |
 |---|---|---|
-| MPI rank 数 | `nprocs = 1` | 参考模式；`nprocs>1` 在 confirmative mode 被拒绝（halo 未接入，§4.5） |
+| MPI rank 数 | `nprocs = 1` | 参考模式；`nprocs>1` 在 confirmative mode 被拒绝，但非确认性 `mpirun -np N` 仍可进入并静默丢掉跨 rank 相互作用对（halo 未接入，台账 §4.7 A1/S16） |
 | 线程数 | `OMP_NUM_THREADS = 1` | 参考；OpenMP OFF/ON 的 CTest 与构建 Gate 已通过，逐位一致未验证 |
-| restart | 不支持 | `--restart` 在 confirmative mode 被拒绝；RNG 与已存配置不恢复 |
+| restart | 不支持 | `--restart` 在 confirmative mode 被拒绝；经审计更强：checkpoint 不存 RNG 状态与 `id_seed`，嵌入配置亦无回读通道，故**当前实现原理上无法**复现连续运行的噪声流（台账 §4.7 A4/S17） |
 | 河流 / 气候 / 文化 / 技术 / 人口 / 忠诚 / 征服 | 关闭 | 未验证；其 bug 只单独登记，不扩大当前受控实验的验证声明 |
 | 完整人口模型 | 关闭 | 死亡粒子、compact 后索引、继承、资源收支均未验证 |
 
@@ -422,12 +422,16 @@ C2/C3 的主效应解释受"生产—衰减组合"与"空间无反馈"两处影�
 
 1. S02 边界驻留的长期行为——需要 V1F/E1 的 `zero_wealth_fraction` 与边界驻留统计；
 2. S05 温控在**完整模型**（社会力非零）下的介入强度与力截断自洽性；
-3. S10 的 MPI halo 接入与 restart RNG 恢复（当前仅以拒绝模式规避）；
-4. S11 高密度交换的计算成本（尚无实测性能报告）；
-5. 完整人口模型的资源收支与不变量；
-6. 混合梯度/非平凡稳态的存在性——这是 Cycle 4 当前仍未验证的**科学前提**，
+3. S10 的 MPI halo 接入与 restart 修复——静态审计已完成（台账 §4.7），结论是
+   **两个通道都必须在入口被拒绝**（S16/S17），修复改动 C++，排在 E1-C4 之后；
+4. **存储顺序误差界的覆盖缺口（S18）**：V1F 的 `order` 层以 `temperature = 0.0` 运行，
+   而参考配置下（人口/文化/技术/忠诚等子系统全部关闭）按数组行序消费的随机源只剩热噪声，
+   故该界未覆盖参考配置实际使用的 `temperature = 0.5`；需一次廉价实测判定，见台账 §4.7；
+5. S11 高密度交换的计算成本（尚无实测性能报告）；
+6. 完整人口模型的资源收支与不变量；
+7. 混合梯度/非平凡稳态的存在性——这是 Cycle 4 当前仍未验证的**科学前提**，
    由 V1F 与 E1-C4 的稳态 Gate 判定。
 
-第 6 条是当前唯一的科学阻塞项：`research/state.md` 的记录为
+第 7 条是当前唯一的科学阻塞项：`research/state.md` 的记录为
 "the numerical error bounds are now empirically resolved, but the steady-state premise
 remains unvalidated. No Cycle 4 confirmatory claim is currently supported."
