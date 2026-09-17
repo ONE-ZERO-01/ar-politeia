@@ -101,7 +101,8 @@ def _v1f_inputs(root: Path) -> tuple[Path, Path, Path]:
     return calibration_path, result_path, config_path
 
 
-def test_prepare_creates_deterministic_non_authorizing_candidate(tmp_path):
+def test_prepare_creates_deterministic_non_authorizing_candidate(tmp_path, monkeypatch):
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
     calibration, result, config = _v1f_inputs(tmp_path)
     promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
 
@@ -125,7 +126,8 @@ def test_prepare_creates_deterministic_non_authorizing_candidate(tmp_path):
     assert lock_path.read_bytes() == first_lock
 
 
-def test_prepare_rejects_failed_or_incomplete_v1f(tmp_path):
+def test_prepare_rejects_failed_or_incomplete_v1f(tmp_path, monkeypatch):
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
     calibration, result, config = _v1f_inputs(tmp_path)
     payload = json.loads(calibration.read_text())
     payload["gate_layers"]["precision"] = False
@@ -137,7 +139,8 @@ def test_prepare_rejects_failed_or_incomplete_v1f(tmp_path):
         promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
 
 
-def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path):
+def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path, monkeypatch):
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
     calibration, result, config = _v1f_inputs(tmp_path)
     promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
     v0g_result = tmp_path / f"research/jobs/{promotion.V0G_ID}/workspace/result.json"
@@ -182,12 +185,36 @@ def test_finalize_requires_v0g_and_binds_exact_binary(tmp_path):
         promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
 
 
-def test_promotion_refuses_to_rewrite_after_e1_outcomes_exist(tmp_path):
+def test_promotion_refuses_to_rewrite_after_e1_outcomes_exist(tmp_path, monkeypatch):
+    monkeypatch.setattr(promotion, "_require_real_commit", lambda *_: None)
     calibration, result, config = _v1f_inputs(tmp_path)
     outcome = tmp_path / f"research/jobs/{promotion.E1_ID}/workspace/result.json"
     _write_json(outcome, {"experiment": promotion.E1_ID})
     with pytest.raises(RuntimeError, match="after E1 outcomes exist"):
         promotion.prepare(tmp_path, calibration, result, config, SOURCE_COMMIT)
+
+
+def test_require_real_commit_rejects_fabricated_sha(tmp_path):
+    """A well-formed but nonexistent SHA must fail loudly at prepare time."""
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "seed.txt").write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "t"],
+        cwd=tmp_path,
+        check=True,
+    )
+    real = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    promotion._require_real_commit(tmp_path, real)
+
+    fabricated = real[:7] + "0" * 33
+    assert fabricated != real
+    with pytest.raises(ValueError, match="does not resolve to a commit"):
+        promotion._require_real_commit(tmp_path, fabricated)
 
 
 def test_archive_v1f_cross_checks_runs_and_writes_tracked_evidence(tmp_path):

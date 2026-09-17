@@ -694,9 +694,39 @@ def _assert_e1_seeds_unused(root: Path) -> None:
             )
 
 
+def _require_real_commit(root: Path, source_commit: str) -> None:
+    """Reject a source commit that is well-formed but does not exist.
+
+    A fabricated or stale SHA would otherwise be written into the V0G
+    declaration and the candidate lock, where it is descriptive only and
+    therefore never fails loudly: V0G records its own live ``HEAD``, so the
+    mismatch would surface only later as an inexplicable record. Fail here.
+
+    The clean-working-tree requirement is deliberately *not* enforced here:
+    ``prepare`` itself writes tracked declarations, so its own output makes the
+    tree dirty and a second run would then refuse. That requirement belongs to
+    V0G, which records ``working_tree_clean`` at run time, and to ``finalize``,
+    which rejects a V0G result without it.
+    """
+    import subprocess
+
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{source_commit}^{{commit}}"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    resolved = probe.stdout.strip()
+    if probe.returncode != 0 or resolved != source_commit:
+        raise ValueError(
+            f"source_commit does not resolve to a commit in this repository: {source_commit}"
+        )
+
+
 def prepare(root: Path, calibration: Path, result: Path, v1f_config: Path, source_commit: str) -> None:
     if len(source_commit) != 40 or any(character not in "0123456789abcdef" for character in source_commit):
         raise ValueError("source_commit must be a full 40-character lowercase Git SHA")
+    _require_real_commit(root, source_commit)
     for path in (calibration, result, v1f_config):
         _relative(root, path)
     _assert_no_e1_outcomes(root)
