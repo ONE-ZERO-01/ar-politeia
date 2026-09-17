@@ -27,6 +27,7 @@ from landscape_study import (
     annotate_confirmatory_effect,
     audit_matched_landscapes,
     audit_parameter_lock,
+    audit_three_condition_landscapes,
     canonical_payload_sha256,
     completion_marker_is_reusable,
     generate_smooth_resource,
@@ -38,6 +39,7 @@ from landscape_study import (
     read_snapshot_csv,
     sha256_file,
     snapshot_metrics,
+    source_rate_metrics,
     stationarity_diagnostics,
     write_esri_ascii,
     write_initial_conditions,
@@ -47,12 +49,63 @@ from landscape_study import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 E1_C4_EXPERIMENT = "E1-MATCHED-LANDSCAPES-C4"
+E2_C4_EXPERIMENT = "E2-CHANNEL-ABLATION-C4"
 C4_CALIBRATION_EXPERIMENT = "V1F-NONFLAT-CALIBRATION-C4"
 C4_EFFECT_METRICS = (
     "resource_density_spearman_rho",
     "density_morans_i",
     "occupancy_entropy",
     "wealth_gini",
+)
+
+# E2-C4 (``e2-cycle4-channel-design.md`` v2) sink-rate ladder. ``base/d`` is held
+# at 0.5 across the three rungs, so the equilibrium level omega* = base*rbar/d is
+# matched and only the relaxation time tau = 1/d changes by a factor of four.
+E2_C4_SINK_LADDER = (
+    ("0.01", 0.01, 0.005),
+    ("0.02", 0.02, 0.010),
+    ("0.04", 0.04, 0.020),
+)
+# P1/P2 source-pattern units share the reference sink rate; P3 reuses the
+# clustered reference unit as its ``D_ref`` rung, which is why the deduplicated
+# matrix has five units rather than six.
+E2_C4_UNITS = (
+    (f"clustered-d{E2_C4_SINK_LADDER[1][0]}", "clustered", 0.02, 0.010),
+    (f"shuffled-d{E2_C4_SINK_LADDER[1][0]}", "shuffled", 0.02, 0.010),
+    (f"flat-d{E2_C4_SINK_LADDER[1][0]}", "flat", 0.02, 0.010),
+    (f"clustered-d{E2_C4_SINK_LADDER[0][0]}", "clustered", 0.01, 0.005),
+    (f"clustered-d{E2_C4_SINK_LADDER[2][0]}", "clustered", 0.04, 0.020),
+)
+# P1/P2 source-pattern units (shared reference sink rate) and the P3 sink-rate
+# ladder on the clustered source, which reuses ``clustered-d0.02`` as ``D_ref``.
+E2_C4_UNIT_NAMES = tuple(name for name, *_rest in E2_C4_UNITS)
+E2_C4_PATTERN_UNITS = (
+    f"clustered-d{E2_C4_SINK_LADDER[1][0]}",
+    f"shuffled-d{E2_C4_SINK_LADDER[1][0]}",
+    f"flat-d{E2_C4_SINK_LADDER[1][0]}",
+)
+E2_C4_SINK_UNITS = tuple(
+    f"clustered-d{label}" for label, _decay, _base in E2_C4_SINK_LADDER
+)
+# P1 identity guard: the two metrics that depend on particle positions alone.
+# ``resource_density_spearman_rho`` is deliberately excluded — it depends on the
+# resource field, so it is *allowed* to differ between source patterns (design
+# §4 P1), and it is undefined on the constant ``flat`` field.
+E2_C4_IDENTITY_METRICS = ("occupancy_entropy", "density_morans_i")
+# Wealth-structure family carrying the P2/P3 estimands. Spatial metrics never
+# carry a scientific conclusion in this experiment (design §4 P2, §9).
+E2_C4_EFFECT_METRICS = (
+    "wealth_gini",
+    "wealth_variance",
+    "zero_wealth_fraction",
+    "mean_wealth",
+)
+# Frozen pre-registered comparability policy (design §4 P4). Every key must be
+# present in the config before any effect is computed.
+E2_C4_COMPARABILITY_KEYS = (
+    "comparability_zero_wealth_fraction_max",
+    "comparability_wealth_variance_min",
+    "comparability_mean_wealth_relative_band",
 )
 
 
@@ -158,6 +211,38 @@ def validate_parameter_lock(
     return audit
 
 
+def validate_e2_c4_structure(
+    conditions: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
+) -> None:
+    """Constraint-3/1 guard for E2-C4, enforced instead of documented.
+
+    The frozen design (``e2-cycle4-channel-design.md`` §3) needs two structural
+    properties, and both are silent if violated: with terrain force on, the
+    movement channel leaks into the wealth scale (§1.2(d)) and the spatial
+    metrics stop being an identity guard; with production off, the unit collapses
+    to a degenerate absorbing state (§1.2(a)) instead of an comparable one.  A
+    comment cannot catch either, so submission fails fast here.
+    """
+    social_strength = float(config.get("social_strength", 0.0))
+    if social_strength != 0.0:
+        raise ValueError(
+            "E2-C4 requires social_strength = 0 so positions stay exogenous; "
+            f"got {social_strength!r}"
+        )
+    for condition in conditions:
+        name = condition.get("name")
+        if bool(condition.get("terrain_force_enabled", False)):
+            raise ValueError(
+                f"E2-C4 condition {name!r} enables terrain force; constraint 3 "
+                "requires it disabled in every unit"
+            )
+        if not bool(condition.get("terrain_production_enabled", False)):
+            raise ValueError(
+                f"E2-C4 condition {name!r} disables production; constraint 1 "
+                "requires source and sink in every unit"
+            )
+
+
 def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[str, Any]]:
     exchange_rate = float(config.get("exchange_rate", 0.003))
     noise_strength = float(config.get("exchange_noise_strength", 0.0))
@@ -249,6 +334,30 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
                 "dt": dt,
             }
             for landscape in ("clustered", "shuffled")
+        ]
+    if experiment == E2_C4_EXPERIMENT:
+        # Five deduplicated units (design §4/§8). Constraint 3: terrain force off
+        # and social_strength zero everywhere, so particle positions are
+        # exogenous to every wealth-family factor and bitwise shared across
+        # units. Constraint 1: source and sink are both on in every unit, since
+        # only then does a non-trivial stationary distribution exist at all.
+        return [
+            {
+                "name": name,
+                "landscape": landscape,
+                "terrain_force_enabled": False,
+                "terrain_production_enabled": True,
+                "exchange_rate": exchange_rate,
+                "exchange_noise_strength": noise_strength,
+                "wealth_log_sigma": 0.01,
+                "epsilon_log_sigma": epsilon_log_sigma,
+                # P3 holds base/d at 0.5 so omega* is matched across the ladder;
+                # only the relaxation time tau = 1/d differs.
+                "wealth_decay_rate": decay,
+                "base_production": base,
+                "dt": dt,
+            }
+            for name, landscape, decay, base in E2_C4_UNITS
         ]
     if experiment == "E1-MATCHED-LANDSCAPES":
         return [
@@ -582,6 +691,8 @@ def prepare_inputs(
     if len(seeds) < 1:
         raise ValueError("at least one seed is required")
     conditions = default_conditions(experiment, config)
+    if experiment == E2_C4_EXPERIMENT:
+        validate_e2_c4_structure(conditions, config)
     inputs_dir = output_dir / "inputs"
     runs_dir = output_dir / "runs"
     inputs_dir.mkdir(parents=True, exist_ok=True)
@@ -594,7 +705,14 @@ def prepare_inputs(
         seed_dir = inputs_dir / f"seed-{seed}"
         fields = make_matched_landscapes(shape, seed)
         fields = {**fields, "smooth": generate_smooth_resource(shape)}
-        audit = audit_matched_landscapes(fields["clustered"], fields["shuffled"])
+        if experiment == E2_C4_EXPERIMENT:
+            # Three-condition source audit (design §7.2): exact permutation,
+            # constant flat equal to the clustered mean, and matched totals.
+            audit = audit_three_condition_landscapes(
+                fields["clustered"], fields["shuffled"], fields["flat"]
+            )
+        else:
+            audit = audit_matched_landscapes(fields["clustered"], fields["shuffled"])
         audit["seed"] = seed
         matching_audits.append(audit)
         if not audit["pass"]:
@@ -732,6 +850,12 @@ def prepare_inputs(
                             config.get("wealth_decay_rate", 0.0),
                         )
                     ),
+                    "base_production": float(
+                        condition.get(
+                            "base_production",
+                            config.get("base_production", 0.01),
+                        )
+                    ),
                     "exchange_rate": float(condition["exchange_rate"]),
                     "exchange_noise_strength": float(
                         condition.get("exchange_noise_strength", 0.0)
@@ -775,6 +899,30 @@ def prepare_inputs(
                 condition: initial_checksums_by_condition[condition]
                 for condition in ("clustered", "shuffled")
             }
+            audit["initial_state_fields"] = [
+                "gid",
+                "position",
+                "momentum",
+                "wealth",
+                "ability",
+                "age",
+            ]
+            audit["pass"] = bool(audit["pass"] and initial_match)
+
+        if experiment == E2_C4_EXPERIMENT:
+            # Constraint 3 needs the *complete* phase state to be bitwise shared
+            # across units, not merely the summary metrics: with force off and
+            # social_strength zero the (x, p) trajectory is a function of
+            # (seed, dynamics) alone, so every condition must reuse one identical
+            # initial-condition file. Any divergence means a wealth-family factor
+            # reached the initial phase state and the identity guard is void.
+            distinct = sorted(set(initial_checksums_by_condition.values()))
+            initial_match = len(distinct) == 1
+            audit["initial_state_match"] = initial_match
+            audit["initial_state_sha256_by_condition"] = dict(
+                initial_checksums_by_condition
+            )
+            audit["distinct_initial_state_count"] = len(distinct)
             audit["initial_state_fields"] = [
                 "gid",
                 "position",
@@ -1058,6 +1206,8 @@ def mean_metrics_for_run(
     stationarity_min_ess: float,
     stationary_metrics: Sequence[str],
     stationarity_reversal_span_sigma: float = 1.0,
+    experiment: Optional[str] = None,
+    terrain_production_scale: float = 1.0,
 ) -> Dict[str, Any]:
     run_dir = project_path(spec["run_dir"], must_exist=True)
     snapshots = sorted(run_dir.glob("snap_*.csv"))
@@ -1067,14 +1217,28 @@ def mean_metrics_for_run(
         )
     selected = snapshots[-steady_snapshots:]
     resource = np.load(project_path(spec["resource_npy"], must_exist=True), allow_pickle=False)
+    bounds_tuple = tuple(float(value) for value in bounds)
+    snapshots_read = [read_snapshot_csv(snapshot) for snapshot in selected]
     rows = [
-        snapshot_metrics(
-            read_snapshot_csv(snapshot),
-            resource,
-            tuple(float(value) for value in bounds),
-        )
-        for snapshot in selected
+        snapshot_metrics(snapshot, resource, bounds_tuple)
+        for snapshot in snapshots_read
     ]
+    if experiment == E2_C4_EXPERIMENT:
+        # E2-C4 P2 accounts for the *realized* source rate on the same tail
+        # snapshots as every other metric, so the design's "matched source
+        # totals by construction" premise is audited rather than assumed. It is
+        # a diagnostic/accounting quantity and enters no gate.
+        base_production = float(spec.get("base_production", 0.0))
+        for row, snapshot in zip(rows, snapshots_read):
+            row.update(
+                source_rate_metrics(
+                    snapshot,
+                    resource,
+                    bounds_tuple,
+                    base_production=base_production,
+                    terrain_production_scale=terrain_production_scale,
+                )
+            )
     metric_names = rows[0].keys()
     metric_statuses = {
         name: metric_status(name, float(np.mean([row[name] for row in rows])))
@@ -1225,7 +1389,8 @@ def validate_c4_calibration_coverage(
     return thresholds
 
 
-def load_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+def _load_checksum_bound_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+    """Load the Cycle 4 calibration after binding it to its frozen checksum."""
     relative = config.get("numerical_calibration")
     if not isinstance(relative, str) or not relative:
         raise ValueError("Cycle 4 confirmatory analysis requires numerical_calibration")
@@ -1242,11 +1407,39 @@ def load_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
             f"Cycle 4 calibration checksum mismatch: expected {declared_sha256}, "
             f"got {actual_sha256}"
         )
-    calibration = load_json(calibration_path)
+    return load_json(calibration_path)
+
+
+def load_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+    calibration = _load_checksum_bound_calibration(config)
     validate_c4_calibration_coverage(
         calibration,
         config.get("scientific_sesoi", {}),
     )
+    return calibration
+
+
+def load_e2_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
+    """E2-C4 calibration loader: same binding, metric-dependent coverage.
+
+    E2-C4's estimand family is wealth structure, not the E1-C4 spatial family, so
+    the E1-C4 coverage requirement (which demands a calibrated limit for all four
+    spatial/wealth metrics) does not apply. Coverage for E2-C4 is decided per
+    metric inside the aggregator, where a metric without a frozen
+    numerical/SESOI pair is explicitly marked claim-ineligible instead of being
+    silently thresholded.
+    """
+    calibration = _load_checksum_bound_calibration(config)
+    if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:
+        raise RuntimeError(
+            f"Cycle 4 requires {C4_CALIBRATION_EXPERIMENT} calibration"
+        )
+    if calibration.get("pass") is not True:
+        raise RuntimeError("Cycle 4 numerical calibration did not pass")
+    if not isinstance(calibration.get("numerical_resolution_limits"), Mapping):
+        raise RuntimeError("Cycle 4 calibration has no numerical resolution limits")
+    if not isinstance(config.get("scientific_sesoi", {}), Mapping):
+        raise RuntimeError("Cycle 4 config has no scientific_sesoi")
     return calibration
 
 
@@ -1255,6 +1448,8 @@ def load_confirmatory_calibration(
 ) -> Dict[str, Any]:
     if experiment == E1_C4_EXPERIMENT:
         return load_c4_calibration(config)
+    if experiment == E2_C4_EXPERIMENT:
+        return load_e2_c4_calibration(config)
     return load_e0_calibration(config)
 
 
@@ -1273,6 +1468,13 @@ def confirmatory_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
             "occupancy_entropy",
             "wealth_gini",
         )
+    if experiment == E2_C4_EXPERIMENT:
+        # E2-C4's estimand family is wealth structure and its spatial family is a
+        # diagnostic only, so only ``wealth_gini`` must already carry a frozen
+        # numerical/SESOI pair before the runs are paid for. The remaining wealth
+        # metrics stay explicitly claim-ineligible until a non-evidence pilot
+        # freezes their thresholds (design §8/§11).
+        return ("wealth_gini",)
     return ()
 
 
@@ -1414,15 +1616,19 @@ def _adjacent_window_summary(
     }
 
 
-def _validate_c4_steady_contract(config: Mapping[str, Any]) -> None:
+def _validate_c4_steady_contract(
+    config: Mapping[str, Any], experiment: str = E1_C4_EXPERIMENT
+) -> None:
     if config.get("stationarity_gate_unit") != "condition_ensemble_two_window":
-        raise ValueError("E1-C4 requires condition_ensemble_two_window stationarity")
+        raise ValueError(
+            f"{experiment} requires condition_ensemble_two_window stationarity"
+        )
     window = int(config.get("steady_snapshots", 0))
     output_interval = float(config.get("output_time_interval", 0.0))
     total_time = float(config.get("total_time", 0.0))
     if window < 3 or output_interval <= 0.0 or total_time / output_interval < 2 * window:
-        raise ValueError("E1-C4 requires two complete adjacent steady windows")
-    metrics = set(stationary_metrics_for_experiment(E1_C4_EXPERIMENT))
+        raise ValueError(f"{experiment} requires two complete adjacent steady windows")
+    metrics = set(stationary_metrics_for_experiment(experiment))
     precision_absolute = config.get("independent_precision_absolute_half_widths")
     precision_relative = config.get("independent_precision_relative_half_widths")
     adjacent_absolute = config.get("adjacent_window_absolute_bounds")
@@ -1434,45 +1640,68 @@ def _validate_c4_steady_contract(config: Mapping[str, Any]) -> None:
         ("adjacent_window_relative_bounds", adjacent_relative),
     ):
         if not isinstance(value, Mapping):
-            raise ValueError(f"E1-C4 {name} must be an object")
+            raise ValueError(f"{experiment} {name} must be an object")
         for metric, threshold in value.items():
             if metric not in metrics:
-                raise ValueError(f"E1-C4 {name} contains unsupported metric {metric}")
+                raise ValueError(
+                    f"{experiment} {name} contains unsupported metric {metric}"
+                )
             if not math.isfinite(float(threshold)) or float(threshold) <= 0.0:
-                raise ValueError(f"E1-C4 {name}.{metric} must be finite and positive")
+                raise ValueError(
+                    f"{experiment} {name}.{metric} must be finite and positive"
+                )
     if set(precision_absolute) & set(precision_relative):
-        raise ValueError("E1-C4 precision bounds overlap")
+        raise ValueError(f"{experiment} precision bounds overlap")
     if set(adjacent_absolute) & set(adjacent_relative):
-        raise ValueError("E1-C4 adjacent-window bounds overlap")
+        raise ValueError(f"{experiment} adjacent-window bounds overlap")
     if set(precision_absolute) | set(precision_relative) != metrics:
-        raise ValueError("E1-C4 precision bounds must cover every steady metric")
+        raise ValueError(
+            f"{experiment} precision bounds must cover every steady metric"
+        )
     if set(adjacent_absolute) | set(adjacent_relative) != metrics:
-        raise ValueError("E1-C4 adjacent-window bounds must cover every steady metric")
+        raise ValueError(
+            f"{experiment} adjacent-window bounds must cover every steady metric"
+        )
 
 
 def aggregate_e1_c4_steady_estimand(
     specs: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
     output_dir: Path,
+    *,
+    experiment: str = E1_C4_EXPERIMENT,
+    expected_conditions: Sequence[str] = ("clustered", "shuffled"),
 ) -> Dict[str, Any]:
-    """Gate E1-C4 dynamics and seed precision on the matched two-condition ensemble."""
-    _validate_c4_steady_contract(config)
+    """Gate a Cycle 4 experiment on its matched condition-ensemble two-window contract.
+
+    Shared by E1-C4 (two matched conditions) and E2-C4 (five channel-separation
+    units). The contract, window arithmetic, drift/adjacent/precision policy and
+    emitted reports are identical; only the experiment name, its frozen
+    stationary metric set and the declared condition list vary, so the two
+    experiments cannot drift apart in how "steady" is decided.
+    """
+    _validate_c4_steady_contract(config, experiment)
     expected_seeds = {int(seed) for seed in config.get("seeds", [])}
     if len(expected_seeds) < 3:
-        raise ValueError("E1-C4 requires at least three distinct seeds")
+        raise ValueError(f"{experiment} requires at least three distinct seeds")
+    declared_conditions = set(expected_conditions)
     grouped: Dict[str, List[Mapping[str, Any]]] = defaultdict(list)
     for spec in specs:
         grouped[str(spec["condition"])].append(spec)
-    if set(grouped) != {"clustered", "shuffled"}:
-        raise RuntimeError("E1-C4 steady gate requires only clustered and shuffled")
+    if set(grouped) != declared_conditions:
+        raise RuntimeError(
+            f"{experiment} steady gate requires exactly {sorted(declared_conditions)}"
+        )
     for condition, condition_specs in grouped.items():
         seeds = [int(spec["seed"]) for spec in condition_specs]
         if len(seeds) != len(set(seeds)) or set(seeds) != expected_seeds:
-            raise RuntimeError(f"E1-C4 {condition} does not contain the exact seed set")
+            raise RuntimeError(
+                f"{experiment} {condition} does not contain the exact seed set"
+            )
 
     window = int(config["steady_snapshots"])
     bounds = tuple(float(value) for value in config["bounds"])
-    metrics = stationary_metrics_for_experiment(E1_C4_EXPERIMENT)
+    metrics = stationary_metrics_for_experiment(experiment)
     precision_absolute = config["independent_precision_absolute_half_widths"]
     precision_relative = config["independent_precision_relative_half_widths"]
     adjacent_absolute = config["adjacent_window_absolute_bounds"]
@@ -1584,7 +1813,7 @@ def aggregate_e1_c4_steady_estimand(
         condition["temporal_ess_diagnostic_pass"] for condition in conditions.values()
     )
     payload = {
-        "experiment": E1_C4_EXPERIMENT,
+        "experiment": experiment,
         "gate_unit": "condition_ensemble_two_window",
         "window_snapshots": window,
         "replicates_per_condition": len(expected_seeds),
@@ -1603,7 +1832,7 @@ def aggregate_e1_c4_steady_estimand(
     write_json(
         output_dir / "ensemble_stationarity_report.json",
         {
-            "experiment": E1_C4_EXPERIMENT,
+            "experiment": experiment,
             "gate_unit": "condition_ensemble_temporal_diagnostic",
             "window_snapshots": window,
             "replicates_per_condition": len(expected_seeds),
@@ -1647,6 +1876,20 @@ def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
         # R06: zero_wealth_fraction joins the wealth stationarity premise for
         # E0 (boundary-calibration role), alongside Gini and variance.
         return ("wealth_gini", "wealth_variance", "zero_wealth_fraction")
+    if experiment == E2_C4_EXPERIMENT:
+        # ``resource_density_spearman_rho`` is *undefined* on the E2-C4 ``flat``
+        # unit (a constant source field has zero variance, S04), and R01/R06
+        # make an undefined metric block the gate rather than pass it. The
+        # frozen design therefore excludes it from this experiment's
+        # stationarity premise: P1 checks the two pure-position metrics by
+        # identity, and Spearman is reported as a diagnostic only.
+        return (
+            "density_morans_i",
+            "occupancy_entropy",
+            "wealth_gini",
+            "wealth_variance",
+            "zero_wealth_fraction",
+        )
     return (
         "resource_density_spearman_rho",
         "density_morans_i",
@@ -2150,6 +2393,548 @@ def aggregate_b0(
     return payload
 
 
+def _e2_c4_paired_contrast(
+    by_seed: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    metric: str,
+    treatment: str,
+    control: str,
+    *,
+    bootstrap_seed: int,
+    bootstrap_samples: int,
+) -> Dict[str, float]:
+    """Paired seed-level contrast with a fail-fast guard on undefined metrics."""
+    treatment_values = [float(by_seed[seed][treatment][metric]) for seed in sorted(by_seed)]
+    control_values = [float(by_seed[seed][control][metric]) for seed in sorted(by_seed)]
+    if not np.all(np.isfinite(treatment_values)) or not np.all(np.isfinite(control_values)):
+        raise RuntimeError(
+            f"E2-C4 {metric} is non-finite for {treatment} - {control}; an "
+            "undefined metric cannot carry a contrast"
+        )
+    return paired_bootstrap_mean_difference(
+        treatment_values,
+        control_values,
+        seed=bootstrap_seed,
+        samples=bootstrap_samples,
+    )
+
+
+def _e2_c4_level_matching(
+    unit_means: Mapping[str, float], band: float
+) -> Dict[str, Any]:
+    """Check the frozen level-matching criterion *between* units (design §4 P4).
+
+    The design deliberately does not target ``w_ref``: the realized equilibrium
+    level is set by ``s/d`` and sits 2.5-8x below ``w_ref`` (§5). What must hold
+    is that the units being compared sit at the *same* level as each other, so a
+    wealth-scale shift cannot masquerade as a mechanism effect.
+    """
+    group_mean = float(np.mean(list(unit_means.values())))
+    if not math.isfinite(group_mean) or group_mean <= 0.0:
+        raise RuntimeError("E2-C4 comparability requires a positive group mean wealth")
+    deviations = {
+        unit: abs(float(value) - group_mean) / group_mean
+        for unit, value in unit_means.items()
+    }
+    worst = max(deviations.values())
+    return {
+        "group_mean_wealth": group_mean,
+        "unit_mean_wealth": dict(unit_means),
+        "relative_deviations": deviations,
+        "max_relative_deviation": worst,
+        "frozen_band": band,
+        "pass": bool(worst <= band),
+    }
+
+
+def _e2_c4_comparability(
+    by_seed: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    config: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """P4: mandatory comparability gate, frozen before any effect is computed."""
+    missing = [key for key in E2_C4_COMPARABILITY_KEYS if key not in config]
+    if missing:
+        raise RuntimeError(
+            "E2-C4 comparability policy must be frozen before analysis; missing "
+            f"{missing}"
+        )
+    zero_fraction_max = float(config["comparability_zero_wealth_fraction_max"])
+    variance_min = float(config["comparability_wealth_variance_min"])
+    band = float(config["comparability_mean_wealth_relative_band"])
+    for name, value in (
+        ("comparability_zero_wealth_fraction_max", zero_fraction_max),
+        ("comparability_wealth_variance_min", variance_min),
+        ("comparability_mean_wealth_relative_band", band),
+    ):
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError(f"E2-C4 {name} must be finite and positive")
+    ability_saturation_w = float(config.get("ability_saturation_w", 5.0))
+    if not math.isfinite(ability_saturation_w) or ability_saturation_w <= 0.0:
+        raise ValueError("ability_saturation_w must be finite and positive")
+
+    declared_units = [name for name, *_rest in E2_C4_UNITS]
+    per_unit: Dict[str, Any] = {}
+    for unit in declared_units:
+        unit_rows = [by_seed[seed][unit] for seed in sorted(by_seed)]
+        zero_fraction = [float(row["zero_wealth_fraction"]) for row in unit_rows]
+        variance = [float(row["wealth_variance"]) for row in unit_rows]
+        mean_wealth = [float(row["mean_wealth"]) for row in unit_rows]
+        minimum = [
+            float(row.get("minimum_wealth_observed", row["minimum_wealth"]))
+            for row in unit_rows
+        ]
+        finite_count = sum(
+            1
+            for series in (zero_fraction, variance, mean_wealth)
+            for value in series
+            if not math.isfinite(value)
+        )
+        mean_value = float(np.mean(mean_wealth))
+        per_unit[unit] = {
+            "replicates": len(unit_rows),
+            "mean_wealth": mean_value,
+            # Reported as an explanatory variable, never as a qualifying line.
+            "wealth_scale_ratio": mean_value / ability_saturation_w,
+            "mean_zero_wealth_fraction": float(np.mean(zero_fraction)),
+            "mean_wealth_variance": float(np.mean(variance)),
+            "minimum_wealth_observed": float(np.min(minimum)),
+            "non_finite_metric_count": finite_count,
+            "non_degenerate": bool(
+                finite_count == 0
+                and np.min(minimum) >= -1e-12
+                and float(np.mean(zero_fraction)) <= zero_fraction_max
+                and float(np.mean(variance)) >= variance_min
+            ),
+        }
+    groups = {
+        "P2_source_pattern": _e2_c4_level_matching(
+            {unit: per_unit[unit]["mean_wealth"] for unit in E2_C4_PATTERN_UNITS}, band
+        ),
+        "P3_sink_rate": _e2_c4_level_matching(
+            {unit: per_unit[unit]["mean_wealth"] for unit in E2_C4_SINK_UNITS}, band
+        ),
+    }
+    non_degenerate = all(item["non_degenerate"] for item in per_unit.values())
+    levels_matched = all(group["pass"] for group in groups.values())
+    return {
+        "pass": bool(non_degenerate and levels_matched),
+        "gate_role": (
+            "mandatory; a unit that fails comparability makes its contrast "
+            "inconclusive, never null, and no unit may be dropped or re-banded"
+        ),
+        "non_degenerate": non_degenerate,
+        "levels_matched": levels_matched,
+        "frozen_policy": {
+            "zero_wealth_fraction_max": zero_fraction_max,
+            "wealth_variance_min": variance_min,
+            "mean_wealth_relative_band": band,
+            "target": "matched between units, not matched to ability_saturation_w",
+        },
+        "units": per_unit,
+        "group_level_matching": groups,
+    }
+
+
+def _e2_c4_source_total_accounting(
+    rows: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
+) -> Dict[str, Any]:
+    """Realized source-total accounting behind the P2 matched-source premise."""
+    if not rows:
+        raise ValueError("source-total accounting requires at least one run")
+    if "total_source_rate" not in rows[0]:
+        raise RuntimeError("source-total accounting requires source-rate metrics")
+    per_unit: Dict[str, Any] = {}
+    for unit in E2_C4_PATTERN_UNITS:
+        unit_rows = [row for row in rows if str(row["condition"]) == unit]
+        if not unit_rows:
+            raise RuntimeError(f"source-total accounting is missing unit {unit}")
+        per_unit[unit] = {
+            "replicates": len(unit_rows),
+            "mean_source_rate": float(
+                np.mean([float(row["mean_source_rate"]) for row in unit_rows])
+            ),
+            "total_source_rate": float(
+                np.mean([float(row["total_source_rate"]) for row in unit_rows])
+            ),
+            "mean_resource_at_particles": float(
+                np.mean([float(row["mean_resource_at_particles"]) for row in unit_rows])
+            ),
+        }
+    totals = [item["total_source_rate"] for item in per_unit.values()]
+    spread = (
+        (max(totals) - min(totals)) / float(np.mean(totals)) if np.mean(totals) else None
+    )
+    return {
+        "units": per_unit,
+        "max_relative_total_spread": spread,
+        "expected_max_relative_total_spread": float(
+            config.get("source_total_spread_expectation", 0.0)
+        ),
+        "interpretation": (
+            "The three source patterns share an exact resource histogram and are "
+            "sampled at bitwise-identical particle positions, so the source total "
+            "is matched by construction; this block shows the realized spread of "
+            "that match instead of assuming it."
+        ),
+        "gate_role": "accounting only; never enters a gate",
+    }
+
+
+def aggregate_e2_c4(
+    rows: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    output_dir: Path,
+    steady_estimand: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Analyze the frozen E2-C4 channel-separation design (P1-P4).
+
+    P1 is an *identity guard*, not a scientific test: it runs first and aborts
+    the batch on any violation. P2 and P3 carry the estimands. P4 is a mandatory
+    comparability gate that can only downgrade a contrast to ``inconclusive`` —
+    it can never be relaxed after seeing an effect.
+    """
+    expected_seeds = {int(seed) for seed in config.get("seeds", [])}
+    if len(expected_seeds) < 3:
+        raise ValueError("E2-C4 requires at least three distinct seeds")
+    declared_units = [name for name, *_rest in E2_C4_UNITS]
+    by_seed: Dict[int, Dict[str, Mapping[str, Any]]] = defaultdict(dict)
+    for row in rows:
+        seed = int(row["seed"])
+        unit = str(row["condition"])
+        if seed not in expected_seeds:
+            raise RuntimeError(f"E2-C4 contains undeclared seed {seed}")
+        if unit not in declared_units:
+            raise RuntimeError(f"E2-C4 contains undeclared unit {unit}")
+        if unit in by_seed[seed]:
+            raise RuntimeError(f"E2-C4 duplicates unit {unit} for seed {seed}")
+        by_seed[seed][unit] = row
+    if set(by_seed) != expected_seeds:
+        raise RuntimeError("E2-C4 rows do not contain the exact declared seed set")
+    for seed, unit_rows in by_seed.items():
+        missing = sorted(set(declared_units) - set(unit_rows))
+        if missing:
+            raise RuntimeError(f"E2-C4 seed {seed} is missing units {missing}")
+
+    # --- P1: structural isolation identity guard (fail-fast, no effect entry) ---
+    identity_violations: List[Dict[str, Any]] = []
+    checked_pairs = 0
+    for seed in sorted(by_seed):
+        reference_unit = E2_C4_PATTERN_UNITS[0]
+        for metric in E2_C4_IDENTITY_METRICS:
+            reference = by_seed[seed][reference_unit][metric]
+            if reference is None:
+                raise RuntimeError(
+                    f"E2-C4 {metric} is undefined for {reference_unit} seed {seed}; "
+                    "the identity guard requires a numerically valid metric"
+                )
+            for unit in E2_C4_PATTERN_UNITS[1:]:
+                value = by_seed[seed][unit][metric]
+                checked_pairs += 1
+                if format(float(reference), ".17g") != format(float(value), ".17g"):
+                    identity_violations.append(
+                        {
+                            "seed": seed,
+                            "metric": metric,
+                            "reference_unit": reference_unit,
+                            "unit": unit,
+                            "reference_value": float(reference),
+                            "value": None if value is None else float(value),
+                        }
+                    )
+    identity = {
+        "role": (
+            "structural regression guard, not a scientific test: with terrain "
+            "force off and social_strength zero, particle positions are exogenous "
+            "to every wealth-family factor and must be bitwise identical across "
+            "source patterns"
+        ),
+        "metrics": list(E2_C4_IDENTITY_METRICS),
+        "units": list(E2_C4_PATTERN_UNITS),
+        "excluded_metrics": {
+            "resource_density_spearman_rho": (
+                "depends on the resource field, so it is allowed to differ and is "
+                "undefined on the constant flat field"
+            )
+        },
+        "seeds": len(expected_seeds),
+        "checked_comparisons": checked_pairs,
+        "violations": identity_violations,
+        "pass": not identity_violations,
+    }
+    if identity_violations:
+        write_json(
+            output_dir / "isolation_identity_report.json",
+            {"experiment": E2_C4_EXPERIMENT, **identity},
+        )
+        raise RuntimeError(
+            "E2-C4 P1 isolation identity failed for "
+            f"{len(identity_violations)} (seed, metric) comparisons; positions are "
+            "not exogenous, so no effect may be reported. This is an implementation "
+            "failure, not a result."
+        )
+    write_json(
+        output_dir / "isolation_identity_report.json",
+        {"experiment": E2_C4_EXPERIMENT, **identity},
+    )
+
+    # --- P4: mandatory comparability gate (computed before any effect) ---
+    comparability = _e2_c4_comparability(by_seed, config)
+
+    # --- Thresholds: only metrics with a frozen calibration can carry a claim ---
+    calibration = load_e2_c4_calibration(config)
+    numerical_limits = calibration.get("numerical_resolution_limits", {})
+    scientific_sesoi = config.get("scientific_sesoi", {})
+    claim_eligible = {
+        metric: bool(metric in numerical_limits and metric in scientific_sesoi)
+        for metric in E2_C4_EFFECT_METRICS
+    }
+    thresholds = {
+        metric: {
+            "numerical_resolution_limit": float(numerical_limits[metric]),
+            "scientific_sesoi": float(scientific_sesoi[metric]),
+            "effective_claim_threshold": max(
+                float(numerical_limits[metric]), float(scientific_sesoi[metric])
+            ),
+        }
+        for metric in E2_C4_EFFECT_METRICS
+        if claim_eligible[metric]
+    }
+    # ``apply_holm_and_sesoi`` takes the flat effective threshold per metric; the
+    # richer two-component record is kept for the payload's audit trail.
+    effective_thresholds = {
+        metric: values["effective_claim_threshold"]
+        for metric, values in thresholds.items()
+    }
+
+    bootstrap_seed = int(config.get("analysis_seed", 9173))
+    bootstrap_samples = int(config.get("bootstrap_samples", 10_000))
+    alpha = float(config.get("familywise_alpha", 0.05))
+
+    def _block(
+        contrasts: Sequence[tuple[str, str, str]], *, claim_bearing: bool = True
+    ) -> Dict[str, Any]:
+        raw = {
+            f"{metric}::{label}": _e2_c4_paired_contrast(
+                by_seed,
+                metric,
+                treatment,
+                control,
+                bootstrap_seed=bootstrap_seed,
+                bootstrap_samples=bootstrap_samples,
+            )
+            for label, treatment, control in contrasts
+            for metric in E2_C4_EFFECT_METRICS
+        }
+        eligible_keys = [
+            key
+            for key in raw
+            if claim_bearing and claim_eligible[key.split("::", 1)[0]]
+        ]
+        decisions: Dict[str, Dict[str, Any]] = {}
+        if eligible_keys:
+            decisions = apply_holm_and_sesoi(
+                {key: raw[key] for key in eligible_keys},
+                effective_thresholds,
+                alpha=alpha,
+                metric_for_key={key: key.split("::", 1)[0] for key in eligible_keys},
+            )
+        results: Dict[str, Any] = {}
+        for key, interval in raw.items():
+            metric = key.split("::", 1)[0]
+            entry: Dict[str, Any] = dict(interval)
+            entry["metric"] = metric
+            entry["claim_eligible"] = bool(claim_bearing and claim_eligible[metric])
+            if entry["claim_eligible"]:
+                entry.update(decisions[key])
+                entry["threshold_components"] = thresholds[metric]
+            else:
+                entry["claim_threshold_pass"] = False
+                entry["descriptive_only"] = (
+                    "the frozen design assigns this contrast a reference role "
+                    "only, so it never carries a claim"
+                    if not claim_bearing
+                    else "no frozen numerical calibration and scientific SESOI "
+                    "pair exists for this metric; reported descriptively"
+                )
+            results[key] = entry
+        return results
+
+    # The reference contrast changes the source histogram as well as its spatial
+    # arrangement, so the design assigns it a reference role only. Keeping it out
+    # of the primary Holm family prevents a reference comparison from inflating
+    # the correction applied to the primary contrast.
+    p2_primary = _block(
+        (("clustered-minus-shuffled", E2_C4_PATTERN_UNITS[0], E2_C4_PATTERN_UNITS[1]),)
+    )
+    p2_reference = _block(
+        (("clustered-minus-flat", E2_C4_PATTERN_UNITS[0], E2_C4_PATTERN_UNITS[2]),),
+        claim_bearing=False,
+    )
+    p2 = {**p2_primary, **p2_reference}
+    p3 = _block(
+        (
+            (
+                "d0.04-minus-d0.01",
+                E2_C4_SINK_UNITS[2],
+                E2_C4_SINK_UNITS[0],
+            ),
+        )
+    )
+
+    steady_metrics = stationary_metrics_for_experiment(E2_C4_EXPERIMENT)
+    p3_diagnostics: Dict[str, Any] = {}
+    for unit in E2_C4_SINK_UNITS:
+        unit_rows = [by_seed[seed][unit] for seed in sorted(by_seed)]
+        p3_diagnostics[unit] = {
+            "replicates": len(unit_rows),
+            "mean_wealth": float(
+                np.mean([float(row["mean_wealth"]) for row in unit_rows])
+            ),
+            "temporal_ess": {
+                metric: float(np.mean([float(row[f"{metric}__ess"]) for row in unit_rows]))
+                for metric in steady_metrics
+                if f"{metric}__ess" in unit_rows[0]
+            },
+            "integrated_autocorrelation_time": {
+                metric: float(np.mean([float(row[f"{metric}__iat"]) for row in unit_rows]))
+                for metric in steady_metrics
+                if f"{metric}__iat" in unit_rows[0]
+            },
+        }
+
+    ladder = {
+        f"clustered-d{label}": {
+            "wealth_decay_rate": decay,
+            "base_production": base,
+            "relaxation_time": 1.0 / decay,
+            "source_sink_ratio": base / decay,
+        }
+        for label, decay, base in E2_C4_SINK_LADDER
+    }
+    matched_levels = all(
+        abs(item["source_sink_ratio"] - 0.5) <= 1e-12 for item in ladder.values()
+    )
+    if not matched_levels:
+        raise RuntimeError("E2-C4 P3 ladder does not hold base/d constant")
+
+    scale_invariance_falsified = any(
+        bool(value.get("claim_threshold_pass", False)) for value in p3.values()
+    )
+    spatial_diagnostics = {
+        unit: {
+            "resource_density_spearman_rho": (
+                None
+                if by_seed[sorted(by_seed)[0]][unit]["resource_density_spearman_rho"] is None
+                else float(
+                    np.mean(
+                        [
+                            float(by_seed[seed][unit]["resource_density_spearman_rho"])
+                            for seed in sorted(by_seed)
+                        ]
+                    )
+                )
+            )
+        }
+        for unit in declared_units
+    }
+
+    steady_ok = bool(steady_estimand.get("pass", False))
+    matched_input_pass = bool(
+        load_json(output_dir / "matched_input_audit.json").get("pass", False)
+    )
+    gate_pass = bool(
+        identity["pass"]
+        and comparability["pass"]
+        and matched_input_pass
+        and steady_ok
+    )
+    eligible_claims = [
+        value
+        for block in (p2, p3)
+        for value in block.values()
+        if value.get("claim_eligible") and value.get("claim_threshold_pass")
+    ]
+    payload: Dict[str, Any] = {
+        "experiment": E2_C4_EXPERIMENT,
+        "design": "five-unit-source-pattern-by-sink-rate",
+        "design_reference": "research/e2-cycle4-channel-design.md",
+        "analysis_gate_pass": gate_pass,
+        "claim_supported": bool(gate_pass and eligible_claims),
+        "inconclusive": bool(not comparability["pass"]),
+        "gates": {
+            "v1f_numerical_calibration": True,
+            "three_condition_inputs": matched_input_pass,
+            "isolation_identity": bool(identity["pass"]),
+            "comparability": bool(comparability["pass"]),
+            "steady_estimand": steady_ok,
+        },
+        "P1_isolation_identity": identity,
+        "P4_comparability": comparability,
+        "P2_source_pattern": {
+            "estimand": (
+                "effect of the spatial organisation of the source on wealth "
+                "structure under one shared diffusion trajectory"
+            ),
+            "primary_contrast": "clustered-minus-shuffled",
+            "reference_contrast": "clustered-minus-flat",
+            "primary": p2_primary,
+            "reference": p2_reference,
+            "prohibited_interpretation": (
+                "not a landscape-changes-population effect: positions are shared "
+                "bitwise, so this is a same-trajectory source-organisation effect"
+            ),
+        },
+        "P3_sink_rate": {
+            "estimand": (
+                "effect of the sink rate on wealth structure and time-correlation "
+                "diagnostics at matched equilibrium level"
+            ),
+            "ladder": ladder,
+            "matched_equilibrium": bool(matched_levels),
+            "primary_contrast": "d0.04-minus-d0.01",
+            "contrasts": p3,
+            "time_correlation_diagnostics": p3_diagnostics,
+            "scale_invariance_assessment": (
+                "falsified_within_thresholds"
+                if scale_invariance_falsified
+                else "not_falsified_within_thresholds"
+            ),
+            "scale_invariance_limit": (
+                "with terrain force off the realized level is deep in the "
+                "sub-saturated region (w/w_ref well below one), where the w_ref "
+                "and share-clamping scale dependence is weak; this tests only that "
+                "region (design §4 P3, P3b reserves the crossing scan)"
+            ),
+        },
+        "source_total_accounting": _e2_c4_source_total_accounting(rows, config),
+        "diagnostic_spatial_metrics": spatial_diagnostics,
+        "threshold_provenance": {
+            "policy": (
+                "a contrast can only carry a claim when the metric has both a V1F "
+                "numerical resolution limit and a scientific SESOI frozen before "
+                "the confirmatory run"
+            ),
+            "claim_eligible_metrics": sorted(
+                metric for metric, value in claim_eligible.items() if value
+            ),
+            "descriptive_only_metrics": sorted(
+                metric for metric, value in claim_eligible.items() if not value
+            ),
+        },
+        "multiplicity": (
+            "Holm FWER within each block over its claim-eligible contrasts; "
+            "ineligible metrics are reported descriptively and carry no claim"
+        ),
+        "excluded_conclusions": [
+            "no pure-production or pure-decay effect is estimable; the sink makes "
+            "a stationary distribution exist, it is not a switchable channel",
+            "P1 identity results are regression evidence, never a finding",
+            "no extrapolation to landscape-changes-population effects",
+        ],
+    }
+    write_json(output_dir / "channel_separation.json", payload)
+    return payload
+
+
 def aggregate_e2(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
@@ -2471,6 +3256,8 @@ def analyze_runs(
             stationarity_reversal_span_sigma=float(
                 config.get("stationarity_reversal_span_sigma", 1.0)
             ),
+            experiment=experiment,
+            terrain_production_scale=float(config.get("terrain_production_scale", 1.0)),
         )
         for spec in run_specs
     ]
@@ -2513,9 +3300,10 @@ def analyze_runs(
             for row in rows
         ],
     }
-    if experiment == E1_C4_EXPERIMENT:
+    if experiment in {E1_C4_EXPERIMENT, E2_C4_EXPERIMENT}:
         stationarity_payload["gate_role"] = (
-            "per_run_diagnostic_only; the confirmatory gate is steady_estimand_report.json"
+            "per_run_diagnostic_only; the confirmatory gate is "
+            "steady_estimand_report.json"
         )
     write_json(output_dir / "stationarity_report.json", stationarity_payload)
     if experiment == "E0-NUMERICS":
@@ -2533,6 +3321,15 @@ def analyze_runs(
             run_specs, config, output_dir
         )
         aggregate_e1_c4(rows, config, output_dir, steady_estimand)
+    elif experiment == E2_C4_EXPERIMENT:
+        steady_estimand = aggregate_e1_c4_steady_estimand(
+            run_specs,
+            config,
+            output_dir,
+            experiment=E2_C4_EXPERIMENT,
+            expected_conditions=[name for name, *_rest in E2_C4_UNITS],
+        )
+        aggregate_e2_c4(rows, config, output_dir, steady_estimand)
     elif experiment == "E2-CHANNEL-ABLATION":
         aggregate_e2(rows, config, output_dir)
     elif experiment == "E3-ROBUSTNESS-HOLDOUT":
@@ -2577,7 +3374,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # R03: block before any expensive run if the calibration cannot cover
         # this experiment's confirmatory metrics (e.g. flat-terrain calibration
         # lacks spatial-correlation SESOI).
-        if args.experiment == E1_C4_EXPERIMENT:
+        if args.experiment in {E1_C4_EXPERIMENT, E2_C4_EXPERIMENT}:
             validate_c4_calibration_coverage(
                 calibration,
                 config.get("scientific_sesoi", {}),
@@ -2598,7 +3395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.analyze_only:
         binary = (
             validate_reference_binary(config)
-            if args.experiment == E1_C4_EXPERIMENT
+            if args.experiment in {E1_C4_EXPERIMENT, E2_C4_EXPERIMENT}
             else project_path(config["binary"], must_exist=True)
         )
         execution_summary = execute_runs(
@@ -2636,6 +3433,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
     elif args.experiment == E1_C4_EXPERIMENT:
         job_pass = bool(load_json(output_dir / "paired_effects.json")["analysis_gate_pass"])
+    elif args.experiment == E2_C4_EXPERIMENT:
+        job_pass = bool(
+            load_json(output_dir / "channel_separation.json")["analysis_gate_pass"]
+        )
     elif args.experiment == "E2-CHANNEL-ABLATION":
         job_pass = bool(load_json(output_dir / "channel_effects.json")["analysis_gate_pass"])
     elif args.experiment == "E3-ROBUSTNESS-HOLDOUT":

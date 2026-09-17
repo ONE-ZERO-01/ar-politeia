@@ -183,6 +183,89 @@ def audit_matched_landscapes(clustered: Array, shuffled: Array) -> Dict[str, Any
     }
 
 
+def audit_three_condition_landscapes(
+    clustered: Array,
+    shuffled: Array,
+    flat: Array,
+) -> Dict[str, Any]:
+    """Machine-check the E2-C4 three-condition source-matching claims.
+
+    The frozen E2-C4 design (``e2-cycle4-channel-design.md`` §4, P1/P2) rests on
+    three properties of the *inputs*; they are checked here instead of assumed:
+
+    - ``shuffled`` is an exact histogram permutation of ``clustered``, so the
+      contrast isolates spatial arrangement and nothing else;
+    - ``flat`` is a constant field whose value is ``clustered``'s mean, i.e. a
+      genuinely uniform source;
+    - all three fields carry the same total resource, so the *source total* is
+      matched by construction and any wealth-effect is not a source-total effect.
+
+    Positive-resource support is compared only between ``clustered`` and
+    ``shuffled``.  ``flat`` differs in support by definition, which is the point
+    of including it, not a defect to be flagged.
+    """
+    same_shape = clustered.shape == shuffled.shape == flat.shape
+    exact_permutation = bool(
+        same_shape
+        and np.array_equal(np.sort(clustered, axis=None), np.sort(shuffled, axis=None))
+    )
+    flat_value = float(flat.flat[0]) if flat.size else float("nan")
+    flat_constant = bool(flat.size > 0 and np.all(flat == flat.flat[0]))
+    clustered_mean = float(np.mean(clustered))
+    shuffled_mean = float(np.mean(shuffled))
+    flat_mean = float(np.mean(flat))
+    mean_tolerance = 1e-12 * max(1.0, abs(clustered_mean))
+    means_match = bool(
+        max(clustered_mean, shuffled_mean, flat_mean)
+        - min(clustered_mean, shuffled_mean, flat_mean)
+        <= mean_tolerance
+    )
+    flat_equals_clustered_mean = bool(
+        flat_constant and abs(flat_value - clustered_mean) <= mean_tolerance
+    )
+    finite_nonnegative = bool(
+        np.isfinite(clustered).all()
+        and np.isfinite(shuffled).all()
+        and np.isfinite(flat).all()
+        and np.min(clustered) >= 0.0
+        and np.min(shuffled) >= 0.0
+        and np.min(flat) >= 0.0
+    )
+    positive_resource_cells_clustered = int(np.count_nonzero(clustered > 0.0))
+    positive_resource_cells_shuffled = int(np.count_nonzero(shuffled > 0.0))
+    positive_resource_support_match = bool(
+        positive_resource_cells_clustered == positive_resource_cells_shuffled
+    )
+    passed = bool(
+        same_shape
+        and exact_permutation
+        and flat_constant
+        and flat_equals_clustered_mean
+        and means_match
+        and finite_nonnegative
+        and positive_resource_support_match
+    )
+    return {
+        "pass": passed,
+        "same_shape": same_shape,
+        "exact_permutation": exact_permutation,
+        "flat_constant": flat_constant,
+        "flat_value": flat_value,
+        "flat_equals_clustered_mean": flat_equals_clustered_mean,
+        "means_match": means_match,
+        "mean_clustered": clustered_mean,
+        "mean_shuffled": shuffled_mean,
+        "mean_flat": flat_mean,
+        "mean_tolerance": mean_tolerance,
+        "size": int(clustered.size),
+        "finite_nonnegative": finite_nonnegative,
+        "positive_resource_support_match": positive_resource_support_match,
+        "positive_resource_cells_clustered": positive_resource_cells_clustered,
+        "positive_resource_cells_shuffled": positive_resource_cells_shuffled,
+        "shape": list(clustered.shape),
+    }
+
+
 def audit_parameter_lock(
     config: Mapping[str, Any], lock: Mapping[str, Any]
 ) -> Dict[str, Any]:
@@ -410,6 +493,46 @@ def density_grid(
     return histogram.astype(np.float64, copy=False)
 
 
+def resource_at_particles(
+    resource: Array,
+    x: Array,
+    y: Array,
+    bounds: Tuple[float, float, float, float],
+) -> Array:
+    """Sample a resource field at particle positions with C++ loader parity.
+
+    Mirrors ``politeia::TerrainGrid::elevation``: node-centred bilinear
+    interpolation with index clamping to ``[0, n-1]``.  ``resource`` is the
+    physical field; the loader writes ``elevation = -resource`` and production
+    consumes ``-elevation``, so sampling ``resource`` directly reproduces the
+    value the simulator actually uses, rather than an approximation of it.
+    """
+    grid = np.asarray(resource, dtype=np.float64)
+    rows, cols = grid.shape
+    xmin, _xmax, ymin, _ymax = (float(value) for value in bounds)
+    cellsize = (float(bounds[1]) - xmin) / cols
+    if cellsize <= 0.0:
+        raise ValueError("bounds must be strictly increasing")
+    fx = np.clip(
+        (np.asarray(x, dtype=np.float64) - xmin) / cellsize, 0.0, cols - 1.0
+    )
+    fy = np.clip(
+        (np.asarray(y, dtype=np.float64) - ymin) / cellsize, 0.0, rows - 1.0
+    )
+    c0 = np.floor(fx).astype(np.int64)
+    r0 = np.floor(fy).astype(np.int64)
+    c1 = np.minimum(c0 + 1, cols - 1)
+    r1 = np.minimum(r0 + 1, rows - 1)
+    tx = fx - c0
+    ty = fy - r0
+    return (
+        (1.0 - tx) * (1.0 - ty) * grid[r0, c0]
+        + tx * (1.0 - ty) * grid[r0, c1]
+        + (1.0 - tx) * ty * grid[r1, c0]
+        + tx * ty * grid[r1, c1]
+    )
+
+
 def _average_ranks(values: Array) -> Array:
     flat = np.asarray(values, dtype=np.float64).ravel()
     order = np.argsort(flat, kind="mergesort")
@@ -489,7 +612,11 @@ def read_snapshot_csv(path: Path) -> Dict[str, Array]:
     names = set(table.dtype.names or ())
     if not required <= names:
         raise ValueError(f"snapshot lacks required columns {sorted(required - names)}")
-    return {name: np.asarray(table[name], dtype=np.float64) for name in required}
+    # ``eps`` is optional so partial/legacy CSVs still load; source-rate
+    # accounting (E2-C4 P2) needs it and fails fast in ``source_rate_metrics``
+    # rather than silently substituting a default ability.
+    kept = sorted(required) + [name for name in ("eps",) if name in names]
+    return {name: np.asarray(table[name], dtype=np.float64) for name in kept}
 
 
 def snapshot_metrics(
@@ -515,6 +642,47 @@ def snapshot_metrics(
         "zero_wealth_fraction": float(np.count_nonzero(wealth == 0.0) / n_wealth),
         "minimum_wealth": float(np.min(wealth)),
         "particle_count": float(np.sum(density)),
+    }
+
+
+def source_rate_metrics(
+    snapshot: Mapping[str, Array],
+    resource: Array,
+    bounds: Tuple[float, float, float, float],
+    *,
+    base_production: float,
+    terrain_production_scale: float,
+) -> Dict[str, float]:
+    """Realized source rate of the production channel, in model units per time.
+
+    Mirrors ``politeia::apply_resource_dynamics`` exactly.  Because the terrain
+    grid stores ``elevation = -resource`` and the production term consumes
+    ``-potential == resource``, live particle ``i`` accrues
+
+        base_production * terrain_production_scale * resource(x_i) * eps_i
+
+    per unit time (``consumption_rate`` is zero in the confirmatory contract and
+    the density factor is inactive without carrying capacity).  Reporting this
+    makes the E2-C4 P2 premise — that the three source patterns have matched
+    source *totals* by construction — auditable on the realized particle
+    distribution instead of inferred from the field means alone.
+    """
+    if "eps" not in snapshot:
+        raise ValueError("source-rate accounting requires the eps snapshot column")
+    x = np.asarray(snapshot["x"], dtype=np.float64)
+    y = np.asarray(snapshot["y"], dtype=np.float64)
+    eps = np.asarray(snapshot["eps"], dtype=np.float64)
+    if not (x.shape == y.shape == eps.shape):
+        raise ValueError("snapshot x, y and eps must share one shape")
+    if eps.size == 0:
+        raise ValueError("source-rate accounting requires at least one particle")
+    resource_at = resource_at_particles(resource, x, y, bounds)
+    scale = float(base_production) * float(terrain_production_scale)
+    per_particle = float(np.mean(resource_at * eps))
+    return {
+        "mean_resource_at_particles": float(np.mean(resource_at)),
+        "mean_source_rate": scale * per_particle,
+        "total_source_rate": scale * per_particle * float(eps.size),
     }
 
 

@@ -378,3 +378,111 @@ def test_integrated_autocorrelation_time_is_bounded():
         [0.0, 1.0, 0.5, 1.5, 1.0, 2.0, 1.5, 2.5]
     )
     assert 1.0 <= tau <= 8.0
+
+
+def test_resource_sampling_matches_cpp_bilinear_convention():
+    # Mirrors politeia::TerrainGrid::elevation: node interpolation with index
+    # clamping. If this drifts, E2-C4's source-rate accounting silently stops
+    # describing what the simulator actually computes.
+    grid = np.arange(16.0).reshape(4, 4)
+    bounds = (0.0, 4.0, 0.0, 4.0)
+
+    def sample(fx: float, fy: float) -> float:
+        return float(
+            landscape_study.resource_at_particles(
+                grid, np.array([fx]), np.array([fy]), bounds
+            )[0]
+        )
+
+    assert sample(1.0, 0.0) == pytest.approx(1.0)
+    assert sample(0.5, 0.5) == pytest.approx(2.5)
+    # Explicit weights of the four surrounding nodes at (fx, fy) = (0.25, 0.75).
+    assert sample(0.25, 0.75) == pytest.approx(
+        0.75 * 0.25 * grid[0, 0]
+        + 0.25 * 0.25 * grid[0, 1]
+        + 0.75 * 0.75 * grid[1, 0]
+        + 0.25 * 0.75 * grid[1, 1]
+    )
+    assert sample(99.0, 99.0) == pytest.approx(15.0)
+    assert sample(-5.0, -5.0) == pytest.approx(0.0)
+    with pytest.raises(ValueError, match="strictly increasing"):
+        landscape_study.resource_at_particles(
+            grid, np.array([1.0]), np.array([1.0]), (4.0, 0.0, 0.0, 4.0)
+        )
+
+
+def test_snapshot_reader_exposes_eps_only_when_present(tmp_path):
+    with_eps = tmp_path / "with-eps.csv"
+    with_eps.write_text("x,y,w,eps\n1.0,2.0,3.0,4.0\n", encoding="utf-8")
+    loaded = landscape_study.read_snapshot_csv(with_eps)
+    assert set(loaded) == {"w", "x", "y", "eps"}
+    assert float(loaded["eps"][0]) == pytest.approx(4.0)
+
+    # Legacy snapshots without ability must still load; source-rate accounting
+    # fails fast at the point of use instead of substituting a default.
+    without_eps = tmp_path / "without-eps.csv"
+    without_eps.write_text("x,y,w\n1.0,2.0,3.0\n", encoding="utf-8")
+    assert set(landscape_study.read_snapshot_csv(without_eps)) == {"w", "x", "y"}
+
+
+def test_three_condition_audit_requires_matched_totals():
+    clustered = np.array([[0.0, 2.0], [1.0, 1.0]])
+    shuffled = np.array([[1.0, 0.0], [1.0, 2.0]])
+    flat = np.full((2, 2), float(clustered.mean()))
+    audit = landscape_study.audit_three_condition_landscapes(
+        clustered, shuffled, flat
+    )
+    assert audit["pass"] is True
+    assert audit["exact_permutation"] is True
+    assert audit["flat_constant"] is True
+    assert audit["flat_equals_clustered_mean"] is True
+    assert audit["means_match"] is True
+    assert audit["positive_resource_support_match"] is True
+
+    # A non-constant "flat" field is not a uniform source.
+    assert (
+        landscape_study.audit_three_condition_landscapes(
+            clustered, shuffled, np.array([[1.0, 1.0], [1.0, 1.5]])
+        )["flat_constant"]
+        is False
+    )
+    # Rescaling the shuffled field breaks both permutation and total matching.
+    rescaled = landscape_study.audit_three_condition_landscapes(
+        clustered, shuffled * 1.5, flat
+    )
+    assert rescaled["exact_permutation"] is False
+    assert rescaled["pass"] is False
+    # A flat field whose value is not the clustered mean breaks total matching.
+    assert (
+        landscape_study.audit_three_condition_landscapes(
+            clustered, shuffled, np.full((2, 2), 1.5)
+        )["means_match"]
+        is False
+    )
+
+
+def test_source_rate_metrics_mirrors_production_term():
+    snapshot = {
+        "x": np.array([1.0, 2.0]),
+        "y": np.array([1.0, 2.0]),
+        "eps": np.array([2.0, 4.0]),
+    }
+    metrics = landscape_study.source_rate_metrics(
+        snapshot,
+        np.full((4, 4), 3.0),
+        (0.0, 4.0, 0.0, 4.0),
+        base_production=0.01,
+        terrain_production_scale=2.0,
+    )
+    # production per unit time is base * scale * resource(x_i) * eps_i.
+    assert metrics["mean_resource_at_particles"] == pytest.approx(3.0)
+    assert metrics["mean_source_rate"] == pytest.approx(0.01 * 2.0 * 3.0 * 3.0)
+    assert metrics["total_source_rate"] == pytest.approx(0.01 * 2.0 * 3.0 * 3.0 * 2.0)
+    with pytest.raises(ValueError, match="eps snapshot column"):
+        landscape_study.source_rate_metrics(
+            {"x": np.array([1.0]), "y": np.array([1.0])},
+            np.ones((2, 2)),
+            (0.0, 2.0, 0.0, 2.0),
+            base_production=0.01,
+            terrain_production_scale=1.0,
+        )

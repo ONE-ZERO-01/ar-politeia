@@ -692,3 +692,395 @@ def test_e1_c4_two_window_gate_uses_condition_ensembles(tmp_path, monkeypatch):
     assert set(payload["conditions"]) == {"clustered", "shuffled"}
     assert (tmp_path / "steady_estimand_report.json").is_file()
     assert (tmp_path / "ensemble_stationarity_report.json").is_file()
+
+
+# ─── E2-C4 channel separation (S09) ──────────────────────────────────────────
+
+E2_C4_TEST_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8]
+E2_C4_TEST_PATTERN_UNITS = run_landscape_study.E2_C4_PATTERN_UNITS
+E2_C4_TEST_SINK_UNITS = run_landscape_study.E2_C4_SINK_UNITS
+
+
+def _e2_c4_row(
+    seed: int,
+    unit: str,
+    *,
+    gini: float,
+    mean_wealth: float,
+    moran: float = 0.3,
+    entropy: float = 0.7,
+) -> dict[str, object]:
+    """One synthetic metrics row for an E2-C4 unit."""
+    return {
+        "seed": seed,
+        "condition": unit,
+        "occupancy_entropy": entropy,
+        "density_morans_i": moran,
+        # Undefined on the constant flat source field (S04); must not leak into
+        # any contrast.
+        "resource_density_spearman_rho": (
+            None if unit == E2_C4_TEST_PATTERN_UNITS[2] else 0.2
+        ),
+        "wealth_gini": gini,
+        "wealth_variance": 1.5,
+        "zero_wealth_fraction": 0.0,
+        "minimum_wealth": 0.1,
+        "minimum_wealth_observed": 0.1,
+        "mean_wealth": mean_wealth,
+        "mean_source_rate": 0.01,
+        "total_source_rate": 10.0,
+        "mean_resource_at_particles": 1.0,
+        "particle_count": 1000.0,
+    }
+
+
+def _e2_c4_rows(*, sink_gini_spread: float = 0.0) -> list[dict[str, object]]:
+    """Three source patterns at the reference sink plus the P3 sink ladder."""
+    clustered, shuffled, flat = E2_C4_TEST_PATTERN_UNITS
+    d_low, d_ref, d_high = E2_C4_TEST_SINK_UNITS
+    levels = {clustered: 1.00, shuffled: 0.95, flat: 1.05, d_low: 0.98, d_high: 1.02}
+    rows: list[dict[str, object]] = []
+    for seed in E2_C4_TEST_SEEDS:
+        rows.append(_e2_c4_row(seed, clustered, gini=0.30, mean_wealth=levels[clustered]))
+        rows.append(_e2_c4_row(seed, shuffled, gini=0.20, mean_wealth=levels[shuffled]))
+        rows.append(_e2_c4_row(seed, flat, gini=0.25, mean_wealth=levels[flat]))
+        rows.append(
+            _e2_c4_row(
+                seed, d_low, gini=0.30 - sink_gini_spread, mean_wealth=levels[d_low]
+            )
+        )
+        rows.append(
+            _e2_c4_row(
+                seed, d_high, gini=0.30 + sink_gini_spread, mean_wealth=levels[d_high]
+            )
+        )
+    return rows
+
+
+def _e2_c4_config() -> dict[str, object]:
+    return {
+        "seeds": E2_C4_TEST_SEEDS,
+        "population": 1000,
+        "familywise_alpha": 0.05,
+        "bootstrap_samples": 1000,
+        "ability_saturation_w": 5.0,
+        "comparability_zero_wealth_fraction_max": 0.05,
+        "comparability_wealth_variance_min": 0.01,
+        "comparability_mean_wealth_relative_band": 0.10,
+        "scientific_sesoi": {"wealth_gini": 0.025},
+    }
+
+
+def _stub_e2_c4_calibration(monkeypatch) -> None:
+    monkeypatch.setattr(
+        run_landscape_study,
+        "load_e2_c4_calibration",
+        lambda _config: {
+            "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+            "pass": True,
+            "numerical_resolution_limits": {"wealth_gini": 0.003},
+        },
+    )
+
+
+def test_e2_c4_conditions_are_the_five_unit_channel_separation_matrix():
+    config = {
+        "exchange_rate": 0.5,
+        "exchange_noise_strength": 0.05,
+        "epsilon_log_sigma": 0.5,
+        "dt": 0.005,
+    }
+    conditions = run_landscape_study.default_conditions(
+        "E2-CHANNEL-ABLATION-C4", config
+    )
+    # P1/P2's three source patterns plus P3's two extra sink rungs, with the
+    # clustered reference unit shared, gives five deduplicated units.
+    assert len(conditions) == 5
+    assert [c["name"] for c in conditions] == list(run_landscape_study.E2_C4_UNIT_NAMES)
+    # Constraint 3: every unit runs with positions exogenous to wealth.
+    assert {c["terrain_force_enabled"] for c in conditions} == {False}
+    assert {c["landscape"] for c in conditions} == {"clustered", "shuffled", "flat"}
+    # Constraint 1: source and sink on in every unit, so a stationary
+    # distribution exists at all.
+    assert {c["terrain_production_enabled"] for c in conditions} == {True}
+    # P3 holds base/d at 0.5 so omega* is matched and only tau = 1/d varies.
+    for condition in conditions:
+        assert condition["base_production"] / condition["wealth_decay_rate"] == pytest.approx(
+            0.5
+        )
+    assert sorted({c["wealth_decay_rate"] for c in conditions}) == [0.01, 0.02, 0.04]
+
+
+def test_e2_c4_structure_guard_rejects_wealth_dependent_movement():
+    config = {"social_strength": 0.0}
+    conditions = run_landscape_study.default_conditions(
+        "E2-CHANNEL-ABLATION-C4", {"dt": 0.005, "epsilon_log_sigma": 0.5}
+    )
+    run_landscape_study.validate_e2_c4_structure(conditions, config)
+
+    with pytest.raises(ValueError, match="social_strength = 0"):
+        run_landscape_study.validate_e2_c4_structure(
+            conditions, {"social_strength": 0.3}
+        )
+    forced = [dict(condition) for condition in conditions]
+    forced[0]["terrain_force_enabled"] = True
+    with pytest.raises(ValueError, match="enables terrain force"):
+        run_landscape_study.validate_e2_c4_structure(forced, config)
+    starved = [dict(condition) for condition in conditions]
+    starved[1]["terrain_production_enabled"] = False
+    with pytest.raises(ValueError, match="disables production"):
+        run_landscape_study.validate_e2_c4_structure(starved, config)
+
+
+def test_e2_c4_stationary_metrics_exclude_degenerate_spearman():
+    metrics = run_landscape_study.stationary_metrics_for_experiment(
+        "E2-CHANNEL-ABLATION-C4"
+    )
+    # Spearman is undefined on the constant flat source field, so it cannot be
+    # part of the stationarity premise; the two pure-position metrics must be.
+    assert "resource_density_spearman_rho" not in metrics
+    for metric in (
+        "density_morans_i",
+        "occupancy_entropy",
+        "wealth_gini",
+        "wealth_variance",
+        "zero_wealth_fraction",
+    ):
+        assert metric in metrics
+
+
+def test_e2_c4_source_rate_matches_simulator_production_term():
+    import numpy as np
+
+    # Constant source field: production is base * scale * resource * eps, exactly
+    # what apply_resource_dynamics computes from -elevation.
+    snapshot = {
+        "x": np.array([1.0, 2.0]),
+        "y": np.array([1.0, 2.0]),
+        "eps": np.array([2.0, 4.0]),
+    }
+    metrics = run_landscape_study.source_rate_metrics(
+        snapshot,
+        np.full((4, 4), 3.0),
+        (0.0, 4.0, 0.0, 4.0),
+        base_production=0.01,
+        terrain_production_scale=1.0,
+    )
+    assert metrics["mean_resource_at_particles"] == pytest.approx(3.0)
+    assert metrics["mean_source_rate"] == pytest.approx(0.01 * 3.0 * 3.0)
+    assert metrics["total_source_rate"] == pytest.approx(0.01 * 3.0 * 3.0 * 2.0)
+
+    with pytest.raises(ValueError, match="eps snapshot column"):
+        run_landscape_study.source_rate_metrics(
+            {"x": np.array([1.0]), "y": np.array([1.0])},
+            np.ones((2, 2)),
+            (0.0, 2.0, 0.0, 2.0),
+            base_production=0.01,
+            terrain_production_scale=1.0,
+        )
+
+
+def test_aggregate_e2_c4_reports_identity_comparability_and_blocks(
+    tmp_path, monkeypatch
+):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    steady = {"pass": True, "tail_stationarity_valid": True}
+    payload = run_landscape_study.aggregate_e2_c4(
+        _e2_c4_rows(), _e2_c4_config(), tmp_path, steady
+    )
+    assert payload["analysis_gate_pass"] is True
+    assert payload["claim_supported"] is True
+    # P1 is a guard entry, never an effect entry.
+    assert payload["P1_isolation_identity"]["pass"] is True
+    assert payload["P1_isolation_identity"]["violations"] == []
+    assert payload["P4_comparability"]["pass"] is True
+    # The old bundle's single-channel attribution fields must not reappear.
+    for legacy in ("identified_channels", "interaction_identified", "mechanism_conclusion"):
+        assert legacy not in payload
+    assert (tmp_path / "channel_separation.json").is_file()
+    assert (tmp_path / "isolation_identity_report.json").is_file()
+    # P2's primary contrast is the histogram-matched source-pattern pair.
+    primary = payload["P2_source_pattern"]["primary"]
+    assert set(primary) == {
+        f"{metric}::clustered-minus-shuffled"
+        for metric in run_landscape_study.E2_C4_EFFECT_METRICS
+    }
+    assert primary["wealth_gini::clustered-minus-shuffled"]["claim_threshold_pass"] is True
+    # The histogram-changing reference contrast is role-limited by the design and
+    # must never carry a claim, even when it separates cleanly.
+    reference = payload["P2_source_pattern"]["reference"]
+    assert set(reference) == {
+        f"{metric}::clustered-minus-flat"
+        for metric in run_landscape_study.E2_C4_EFFECT_METRICS
+    }
+    assert all(
+        entry["claim_eligible"] is False
+        and entry["claim_threshold_pass"] is False
+        and "reference role" in entry["descriptive_only"]
+        for entry in reference.values()
+    )
+    # sink_gini_spread=0 => the ladder shows no detectable scale dependence.
+    assert payload["P3_sink_rate"]["scale_invariance_assessment"] == (
+        "not_falsified_within_thresholds"
+    )
+    assert payload["P3_sink_rate"]["matched_equilibrium"] is True
+    assert payload["source_total_accounting"]["units"][
+        run_landscape_study.E2_C4_PATTERN_UNITS[0]
+    ]["total_source_rate"] == pytest.approx(10.0)
+
+
+def test_aggregate_e2_c4_fails_fast_on_position_divergence(tmp_path, monkeypatch):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    rows = _e2_c4_rows()
+    for row in rows:
+        if row["condition"] == run_landscape_study.E2_C4_PATTERN_UNITS[1] and row["seed"] == 3:
+            row["density_morans_i"] = 0.3000001
+    with pytest.raises(RuntimeError, match="P1 isolation identity failed"):
+        run_landscape_study.aggregate_e2_c4(
+            rows, _e2_c4_config(), tmp_path, {"pass": True}
+        )
+    # The violation is still written out so the failure is auditable.
+    report = run_landscape_study.load_json(
+        tmp_path / "isolation_identity_report.json"
+    )
+    assert report["pass"] is False
+    assert report["violations"][0]["seed"] == 3
+
+
+def test_aggregate_e2_c4_marks_uncalibrated_metrics_claim_ineligible(
+    tmp_path, monkeypatch
+):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    payload = run_landscape_study.aggregate_e2_c4(
+        _e2_c4_rows(), _e2_c4_config(), tmp_path, {"pass": True}
+    )
+    probe = payload["P2_source_pattern"]["primary"]
+    gini = probe["wealth_gini::clustered-minus-shuffled"]
+    assert gini["claim_eligible"] is True
+    assert gini["threshold_components"]["effective_claim_threshold"] == pytest.approx(
+        0.025
+    )
+    for metric in ("wealth_variance", "zero_wealth_fraction", "mean_wealth"):
+        entry = probe[f"{metric}::clustered-minus-shuffled"]
+        assert entry["claim_eligible"] is False
+        assert entry["claim_threshold_pass"] is False
+        assert "descriptive_only" in entry
+    assert payload["threshold_provenance"]["claim_eligible_metrics"] == ["wealth_gini"]
+
+
+def test_aggregate_e2_c4_requires_frozen_comparability_policy(tmp_path, monkeypatch):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    config = _e2_c4_config()
+    del config["comparability_mean_wealth_relative_band"]
+    with pytest.raises(RuntimeError, match="must be frozen before analysis"):
+        run_landscape_study.aggregate_e2_c4(
+            _e2_c4_rows(), config, tmp_path, {"pass": True}
+        )
+
+
+def test_aggregate_e2_c4_downgrades_unmatched_levels_to_inconclusive(
+    tmp_path, monkeypatch
+):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(
+        tmp_path / "matched_input_audit.json", {"pass": True}
+    )
+    rows = _e2_c4_rows()
+    # A 40% wealth-scale gap between two source patterns cannot be absorbed by
+    # the frozen band, and must make the contrast inconclusive rather than null.
+    for row in rows:
+        if row["condition"] == run_landscape_study.E2_C4_PATTERN_UNITS[1]:
+            row["mean_wealth"] = float(row["mean_wealth"]) * 1.4
+    payload = run_landscape_study.aggregate_e2_c4(
+        rows, _e2_c4_config(), tmp_path, {"pass": True}
+    )
+    assert payload["P4_comparability"]["pass"] is False
+    assert payload["analysis_gate_pass"] is False
+    assert payload["inconclusive"] is True
+    assert payload["claim_supported"] is False
+
+
+def test_e2_c4_two_window_gate_runs_on_five_units(tmp_path, monkeypatch):
+    import numpy as np
+
+    monkeypatch.setattr(
+        run_landscape_study,
+        "project_path",
+        lambda value, must_exist=False: Path(value),
+    )
+    monkeypatch.setattr(run_landscape_study, "read_snapshot_csv", lambda _path: {})
+    monkeypatch.setattr(
+        run_landscape_study,
+        "snapshot_metrics",
+        lambda _snapshot, _resource, _bounds: {
+            "resource_density_spearman_rho": 0.2,
+            "density_morans_i": 0.3,
+            "occupancy_entropy": 0.7,
+            "wealth_gini": 0.4,
+            "wealth_variance": 1.5,
+            "zero_wealth_fraction": 0.0,
+            "minimum_wealth": 0.1,
+            "mean_wealth": 2.0,
+            "particle_count": 1000.0,
+        },
+    )
+    resource = tmp_path / "resource.npy"
+    np.save(resource, np.ones((2, 2)), allow_pickle=False)
+    specs = []
+    for condition in run_landscape_study.E2_C4_UNIT_NAMES:
+        for seed in (1, 2, 3):
+            run_dir = tmp_path / f"{condition}-{seed}"
+            run_dir.mkdir()
+            for index in range(6):
+                (run_dir / f"snap_{index:08d}.csv").write_text("stub\n")
+            specs.append(
+                {
+                    "run_id": f"{condition}-{seed}",
+                    "condition": condition,
+                    "seed": seed,
+                    "run_dir": str(run_dir),
+                    "resource_npy": str(resource),
+                }
+            )
+    metrics = run_landscape_study.stationary_metrics_for_experiment(
+        "E2-CHANNEL-ABLATION-C4"
+    )
+    bounded = {metric: 0.05 for metric in metrics if metric != "wealth_variance"}
+    config = {
+        "seeds": [1, 2, 3],
+        "bounds": [0.0, 1.0, 0.0, 1.0],
+        "stationarity_gate_unit": "condition_ensemble_two_window",
+        "steady_snapshots": 3,
+        "output_time_interval": 5.0,
+        "total_time": 30.0,
+        "stationarity_max_normalized_drift": 0.1,
+        "stationarity_min_ess": 3.0,
+        "stationarity_reversal_span_sigma": 2.0,
+        "independent_precision_absolute_half_widths": bounded,
+        "independent_precision_relative_half_widths": {"wealth_variance": 0.2},
+        "adjacent_window_absolute_bounds": bounded,
+        "adjacent_window_relative_bounds": {"wealth_variance": 0.1},
+    }
+    payload = run_landscape_study.aggregate_e1_c4_steady_estimand(
+        specs,
+        config,
+        tmp_path,
+        experiment="E2-CHANNEL-ABLATION-C4",
+        expected_conditions=list(run_landscape_study.E2_C4_UNIT_NAMES),
+    )
+    assert payload["pass"] is True
+    assert payload["experiment"] == "E2-CHANNEL-ABLATION-C4"
+    assert set(payload["conditions"]) == set(run_landscape_study.E2_C4_UNIT_NAMES)
+    assert payload["replicates_per_condition"] == 3

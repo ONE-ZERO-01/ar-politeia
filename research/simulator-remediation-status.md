@@ -29,7 +29,7 @@
 | S06 | P1 | A | OpenMP 无噪声分支遗漏摩擦 | 修复 + 回归 | 本轮 | 无 |
 | S07 | P1 | A/C | 交换噪声不含 seed、用数组下标 | 稳定 GID + base_seed 子流 | 本轮 | 重排不变性需 umi 实测 |
 | S08 | P1 | A/C | 固定顺序原地交换 | 三级步长 × 完整相态重排量化 | V1/V1B/V1C 顺序界均通过 | 当前参数域内已受数值误差界约束；扩大参数域需重校准 |
-| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象 + 隔离设计（v2） | 已完成（`model-specification-c4.md` §5.6/§6.4；`e2-cycle4-channel-design.md` v2，2026-09-16） | E2-C4 未实施；旧 E2 三效应字段必须按新设计重解释 |
+| S09 | P1 | A/C | E2 同时开关生产与衰减 | 明确估计对象 + 隔离设计（v2） | 设计与代码完成（`model-specification-c4.md` §5.6/§6.4；`e2-cycle4-channel-design.md` v2 + §12 实现记录，2026-09-17）；pilot/冻结 R/授权未开展 | E2-C4 未执行；旧 E2 三效应字段按新设计重解释（aggregate_e2 保持逐字不动） |
 | S12 | P0 | A/C | 参考过程运行在深度次饱和区，且运动通道泄漏到财富尺度 | 已实测登记；E1-C4 次要家族预注册限定；E2-C4 P3 增设尺度不变性检验 | 部分（文档与限定已完成；参数层修复未开展） | `w/w_ref = 0.12–0.40`；穿越 `w_ref` 的水平扫描需新校准（P3b） |
 | S13 | P1 | B | V1F 的 jobctl artifact 声明用裸文件名，被解析到项目根而非作业 workspace，48 小时后全部记为 valid=false | jobctl 提交期越界/重复拦截 + 记录 resolved 绝对路径 + 新增 `recheck`（按已存声明重算契约、保留执行事实、旧判定留作溯源）；V1F 声明已修正并 reconcile 为 completed | 已完成（2026-09-17） | 提交时产物尚不存在，故"路径写错但界内"的笔误无法在提交期拦下；只能靠 recheck 与 resolved 字段暴露 |
 | S14 | P0 | A/C | `finalize` 静默绑定了非校准的 binary：0f4ac29 在 V1F 提交后改了 `ic_loader.cpp`，V0G 重建出 `1e3f052f…` 而非校准所用 `87eafa4e…` | `validate_v1f` 读出并校验校准 binary SHA；候选锁新增 `reference_binary_sha256`；`finalize` 强制"binary 在 V0G workspace 内"且 SHA 等于校准对象，否则拒绝写 final；`ic_loader.cpp` 恢复到校准提交 | 已完成（2026-09-17；V0G 重建实测复现 `87eafa4e…`，无需重跑 V1F） | 若未来确需引入模拟器源码改动，必须重跑校准；编译告警修复推迟到 E1-C4 之后 |
@@ -48,6 +48,14 @@
 - S03：`run_landscape_study.py` 恢复 Moran's I / wealth_variance、新增 zero_wealth_fraction。
 - E1-C4：新增独立实验 ID、matched 两条件矩阵、V1F 校准 schema、两窗口 ensemble Gate、
   独立 seed 精度和 `max(numerical limit, scientific SESOI)` 判定；Cycle 3 分支不变。
+- E2-C4（S09，2026-09-17，本地纯代码、无 C++ 改动）：新增五单元
+  `E2-CHANNEL-ABLATION-C4` 条件分支与约束 1/3 的提交期 fail-fast（`validate_e2_c4_structure`）；
+  三条件输入审计 `audit_three_condition_landscapes`；与 C++ `TerrainGrid::elevation` 逐点对齐的
+  `resource_at_particles` 与源项核算 `source_rate_metrics`；P1 位级恒等护栏（fail-fast、
+  违规留痕）；P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（输出 `channel_separation.json`）与
+  强制可比性 Gate；E2-C4 稳态指标集排除在 `flat` 上退化的 `resource_density_spearman_rho`。
+  旧 `aggregate_e2` 与 Cycle 3 归档结果逐字不动。本地 190/190 通过（详见
+  `e2-cycle4-channel-design.md` §12）。
 
 ## 4. 复审修复（R01–R12 · 阶段 A+B 本地，2026-09-08）
 

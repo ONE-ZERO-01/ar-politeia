@@ -1,7 +1,9 @@
 # E2-C4 通道分离设计（S09 处置）
 
-日期：2026-09-16（v2，取代同日 v1）。状态：**设计冻结，未授权执行**。本文件在 E2-C4 任何结果
-产生前写入，不使用 Cycle 3 E2 的效应方向或显著性来定阈值。v2 相对 v1 的实质修订见 §10。
+日期：2026-09-16（v2，取代同日 v1）；2026-09-17 回填 §7/§11/§12 的实现状态。
+状态：**设计冻结，Python 侧已实现，未授权执行**。本文件在 E2-C4 任何结果
+产生前写入，不使用 Cycle 3 E2 的效应方向或显著性来定阈值。v2 相对 v1 的实质修订见 §10，
+实现记录见 §12。
 
 处置对象是 `simulator-improvement-plan.md` 的 S09：*E2 同时开关生产与衰减*。
 S01（财富无空间反馈）的写实见 [model-specification-c4.md](model-specification-c4.md)。
@@ -242,7 +244,7 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 其源是严格均匀的，且梯度为零。这使 P1/P2/P3 全部可用现有二进制表达，
 **参考 binary 的 SHA 因此保持不变**，不触动 V1F 校准与 E1-C4 的 binary 绑定链。
 
-**Python 侧（`run_landscape_study.py`、`landscape_study.py`）：**
+**Python 侧（`run_landscape_study.py`、`landscape_study.py`）已实现（2026-09-17，见 §12）：**
 
 1. 新增 `E2-CHANNEL-ABLATION-C4` 分支：三类单元（P1/P2 的 3 个 + P3 的 2 个额外汇速率），
    全部强制 `terrain_force_enabled = false`、`social_strength = 0`。
@@ -257,13 +259,26 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
    `aggregate_e1_c4` 的 payload 新增 `wealth_scale_diagnostics` 块（逐条件的平均财富与
    `w/w_ref`、配对差与其相对值、合成解释、`gate_role`）。两者都是**诊断量，不进入任何 Gate**，
    本地测试 166/166 通过。
-4. 还需新增 `mean_source_rate`（P2 的源总量核算量），尚未实现。
-5. P1 恒等检查在分析器中 fail-fast：按 `(seed)` 分组比较三单元的位置类指标，不等即 `raise`，
-   不产生效应条目。尚未实现。
+4. `mean_source_rate`（P2 的源总量核算量）——**已实现**：`source_rate_metrics` 按
+   `base_production × terrain_production_scale × resource(x_i) × eps_i` 逐帧核算，
+   与 `apply_resource_dynamics` 逐字对应；新增 `resource_at_particles` 复刻 C++
+   `TerrainGrid::elevation` 的双线性节点插值与下标夹紧（`snapshot_metrics` 用的直方图分箱
+   不是模拟器实际读取的值，故不能用它冒充源项核算）。
+5. P1 恒等检查在分析器中 fail-fast：**已实现**，先于任何效应计算执行，任一
+   `(seed, metric)` 不等即写 `isolation_identity_report.json` 并 `raise`。
 6. `aggregate_e2` 重写为 `isolation_identity`（P1）、`source_pattern`（P2）、`sink_rate`（P3）、
-   `comparability`（P4）四块；删除旧的 `movement`/`production`/`interaction` 三效应字段。
-   尚未实现。
-7. E2-C4 三条件输入审计（`clustered`/`shuffled`/`flat`）与五单元条件分支。尚未实现。
+   `comparability`（P4）四块：**已实现为新聚合器 `aggregate_e2_c4`**（输出
+   `channel_separation.json`），不含旧三效应字段。**旧 `aggregate_e2` 保持原样不动**——
+   见 §12 的 P5 处置说明。
+7. E2-C4 三条件输入审计（`clustered`/`shuffled`/`flat`）与五单元条件分支：**已实现**。
+
+§5 的 `w/w_ref` 事实还带来一处必须的结构性修正：E2-C4 的稳态前提**不能**包含
+`resource_density_spearman_rho`——它在 `flat` 单元上按 S04 是**未定义**（常量场方差为零），
+而 R01/R06 让未定义指标阻断 Gate，于是 P1 的护栏单元会被自身判为不稳态。
+故 `stationary_metrics_for_experiment("E2-CHANNEL-ABLATION-C4")` 只保留
+`density_morans_i`、`occupancy_entropy`、`wealth_gini`、`wealth_variance`、
+`zero_wealth_fraction`，Spearman 降为逐条件诊断量。这与 §4 P1 判据一致：
+只有前两者是纯位置指标。
 
 ## 8. 统计契约、seeds 与预算
 
@@ -307,14 +322,58 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 
 ## 11. 交付检查表
 
-- [ ] `E2-CHANNEL-ABLATION-C4` 条件分支（力关、五单元）
-- [ ] 三条件输入审计（均值相等、置换精确、flat 为常量、初始相态逐位相同）
+- [x] `E2-CHANNEL-ABLATION-C4` 条件分支（力关、五单元）（2026-09-17，代码）
+- [x] 三条件输入审计（均值相等、置换精确、flat 为常量、初始相态逐位相同）（2026-09-17，代码）
 - [x] `mean_wealth`、`wealth_scale_ratio` 入表 + `wealth_scale_diagnostics` 进 E1-C4 payload（2026-09-16）
-- [ ] `mean_source_rate`（P2 源总量核算量）
-- [ ] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）
-- [ ] `aggregate_e2` 拆为 P1/P2/P3/P4，旧三效应字段删除
-- [ ] seeds 互斥审计（记账式，覆盖全部历史 job）
+- [x] `mean_source_rate`（P2 源总量核算量）（2026-09-17，代码）
+- [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
+- [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
+- [ ] seeds 互斥审计（记账式，覆盖全部历史 job）——**待办**，需在冻结 R 前完成
 - [x] E1-C4 侧：Gini 限定预注册 + `mean_wealth` 入表（2026-09-16，在 `prepare` 之前完成）
-- [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明
-- [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config
-- [ ] E2-C4 新实验 ID 与独立目录；Cycle 3 E2 结果不改写、只改解释
+- [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
+- [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
+- [ ] E2-C4 新实验 ID 与独立目录；Cycle 3 E2 结果不改写、只改解释——**待办**（ID 已在代码中固定）
+
+## 12. Python 侧实现记录（2026-09-17，未执行任何数值实验）
+
+本节的每一项都是在 E1-C4 确认性运行期间于本地完成的纯代码改动：不含 C++ 改动、不触碰
+任何实验数据、不改变参考 binary 的 SHA，因此不触及 V1F 校准与 E1-C4 的 binary 绑定链。
+
+**新增的分析器代码。**
+
+| 位置 | 内容 |
+|---|---|
+| `landscape_study.py::resource_at_particles` | 复刻 C++ `TerrainGrid::elevation` 的节点双线性插值与 `[0, n-1]` 夹紧。P2 的源项核算必须用模拟器真正读取的值，而不是 `density_grid` 的直方图分箱 |
+| `landscape_study.py::source_rate_metrics` | 逐帧 `mean_source_rate` / `total_source_rate` = `base_production × terrain_production_scale × resource(x_i) × eps_i`，与 `apply_resource_dynamics` 逐字对应；缺 `eps` 列时 fail-fast 而不是补默认能力 |
+| `landscape_study.py::audit_three_condition_landscapes` | P1/P2 的三条件输入审计（精确置换、flat 常量且等于 clustered 均值、三者总量匹配）。正资源支撑只比较 `clustered` 与 `shuffled`——`flat` 按定义支撑不同，那是它的用途而非缺陷 |
+| `landscape_study.py::read_snapshot_csv` | 列存在时额外返回 `eps`（可选列，旧快照仍可读） |
+| `run_landscape_study.py::validate_e2_c4_structure` | 约束 1/3 的提交期 fail-fast：`social_strength ≠ 0`、任一单元开力、任一单元关生产都直接拒绝提交。注释拦不住这三种静默失效 |
+| `run_landscape_study.py::aggregate_e2_c4` | P1/P2/P3/P4 四块，输出 `channel_separation.json` |
+| `run_landscape_study.py::_e2_c4_comparability` | P4 强制可比性 Gate，三个政策量必须先在 config 中冻结，缺任一即拒绝分析 |
+| `run_landscape_study.py::_e2_c4_source_total_accounting` | P2 的源总量核算块（诊断，不进 Gate） |
+
+**判据与阈值处置（两处必须显式说明）。**
+
+1. **只有同时具备 V1F 数值分辨率上限与已冻结 SESOI 的指标才能承载主张。** E2-C4 的估计量
+   家族是财富结构，而 V1F 校准只覆盖 `wealth_gini`（外加三个位置类指标）。因此
+   `aggregate_e2_c4` 逐指标判定 `claim_eligible`：`wealth_variance`、`zero_wealth_fraction`、
+   `mean_wealth` 在 pilot 冻结其阈值之前**只作描述性报告**，`claim_threshold_pass` 恒为
+   `false` 并附 `descriptive_only` 说明。这里没有就地发明阈值。
+2. **P2 的参考对比不进入 Holm 家族。** `clustered − flat` 同时改变直方图，设计已把它定为
+   "只作参考"，所以它 `claim_bearing=False`：仍报告区间，但不承载主张，也不允许它把
+   主对比的 Holm 家族规模从 1 撑到 2 从而稀释主对比的检验力。
+
+**P5（旧 bundle 重命名）的实现选择。** 本文件 §7.6 的原措辞是"删除旧的
+`movement`/`production`/`interaction` 三效应字段"。本轮**没有**改动旧 `aggregate_e2`：
+Cycle 3 E2 是已归档的冻结结果，改写其聚合器会让同一份归档数据在重跑时产生不同的
+`channel_effects.json`，那本身就违反 §P5"Cycle 3 数值不重跑、不改写"。因此处置为：
+四个块全部落在新 ID 的 `aggregate_e2_c4` 里，旧聚合器保持逐字不动，`identified_channels`
+的语义更正落在本文件与 `model-specification-c4.md`（即 §P5 要求的"只改解释"）。
+若后续要连旧聚合器的 payload 一起改，需要作为一次显式的、留痕的解释性变更来做。
+
+**验证。** 本地 `python3 -m pytest -q` 为 **190 passed**（改动前 176），新增 14 项覆盖：
+五单元矩阵与 `base/d = 0.5` 常数线、结构护栏的三种拒绝、稳态指标集排除退化 Spearman、
+双线性插值与 C++ 约定逐点一致、源项核算等于 `base × scale × resource × eps`、
+三条件审计的四类破坏、P1 位级 viol 的 fail-fast 与留痕、未校准指标的 claim-ineligible
+标记、可比性政策缺失时拒绝分析、单元间水平失配降级为 inconclusive、五单元两步窗 Gate。
+这些检查**不执行模拟器**，不构成数值证据。
