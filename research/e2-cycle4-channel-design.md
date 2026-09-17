@@ -366,7 +366,8 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
 - [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 36 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component，每条带可机器校验的 basis；重分析 job 的标识按引用记账，见 §8）
-- [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**，判据与候选见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)；阻塞 pilot（pilot 自身即需 8 个全新 seed）
+- [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**，判据与候选见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)；阻塞 pilot（pilot 自身即需 8 个全新 seed）；窗口已定为 `12300–13000`，待写入 lock
+- [ ] **E2-C4 推断射程选择（A 单指标 / B 扩展校准）——待办，阻塞 pilot**，见 §14：pilot 无法解锁 `wealth_variance`/`zero_wealth_fraction`/`mean_wealth`，因其数值上限来自 V1F 校准而 pilot 只能补 SESOI
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
@@ -395,8 +396,13 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 1. **只有同时具备 V1F 数值分辨率上限与已冻结 SESOI 的指标才能承载主张。** E2-C4 的估计量
    家族是财富结构，而 V1F 校准只覆盖 `wealth_gini`（外加三个位置类指标）。因此
    `aggregate_e2_c4` 逐指标判定 `claim_eligible`：`wealth_variance`、`zero_wealth_fraction`、
-   `mean_wealth` 在 pilot 冻结其阈值之前**只作描述性报告**，`claim_threshold_pass` 恒为
-   `false` 并附 `descriptive_only` 说明。这里没有就地发明阈值。
+   `mean_wealth` **只作描述性报告**，`claim_threshold_pass` 恒为 `false` 并附
+   `descriptive_only` 说明。这里没有就地发明阈值。
+   **⚠️ 更正（2026-09-17，见 §14）：此句原写"在 pilot 冻结其阈值之前只作描述性报告"，
+   隐含 pilot 之后即可承载主张。该隐含是错的** —— `claim_eligible` 是
+   `metric in numerical_resolution_limits AND metric in scientific_sesoi` 的合取，
+   而 pilot 只能补上 SESOI 那一半；数值上限来自 V1F 校准，pilot 无法提供。
+   详情与修法见 §14。
 2. **P2 的参考对比不进入 Holm 家族。** `clustered − flat` 同时改变直方图，设计已把它定为
    "只作参考"，所以它 `claim_bearing=False`：仍报告区间，但不承载主张，也不允许它把
    主对比的 Holm 家族规模从 1 撑到 2 从而稀释主对比的检验力。
@@ -454,3 +460,81 @@ Cycle 3 E2 是已归档的冻结结果，改写其聚合器会让同一份归档
 只写临时目录、不执行模拟器、不产生任何数值证据才被采用，且临时目录已删除。
 后续若再有实验需要新的 spec 键，必须挂在自己 experiment id 的分支下；上面那条冻结字面量
 就是为了让"顺手加在共享构造器里"这种改法立刻失败。
+
+## 14. pilot 无法解锁其余财富指标（2026-09-17 复核发现，影响 E2-C4 的推断射程）
+
+**结论：以当前校准，E2-C4 能承载主张的指标只有 `wealth_gini` 一个**，P2/P3 名义上的其余三个
+财富指标（`wealth_variance`、`zero_wealth_fraction`、`mean_wealth`）**不可能因 pilot 而变得
+可承载主张**。这与 §12 第 1 条及代码注释原先的隐含不符，在此更正。
+
+### 14.1 判定式是合取，两半都要
+
+`run_landscape_study.py:2709`：
+
+```python
+claim_eligible = {
+    metric: bool(metric in numerical_limits and metric in scientific_sesoi)
+    for metric in E2_C4_EFFECT_METRICS
+}
+```
+
+- `numerical_limits = calibration.get("numerical_resolution_limits", {})`，来自
+  `load_e2_c4_calibration` 加载的 V1F 校准，并经 `_load_checksum_bound_calibration`
+  以 SHA 绑定，不能手改；
+- `scientific_sesoi = config.get("scientific_sesoi", {})`，可由 config 冻结。
+
+pilot 能影响后者，**不能**影响前者。
+
+### 14.2 实测：V1F 校准只覆盖 4 个指标
+
+`research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json` 的
+`numerical_resolution_limits` 恰有 4 个键：
+
+| 指标 | 上限 |
+|---|---|
+| `resource_density_spearman_rho` | 0.004590 |
+| `density_morans_i` | 0.003259 |
+| `occupancy_entropy` | 0.000995 |
+| `wealth_gini` | 0.001441 |
+
+`wealth_variance`、`zero_wealth_fraction`、`mean_wealth` 在该文件全文中的出现次数为
+**0 / 0 / 0** —— V1F 从未计算过它们。其 `scope` 自述为
+"non-flat weak timestep convergence plus deterministic exchange-order sensitivity"，
+`threshold_policy` 亦明写"Resolution limits bound numerical error only. Scientific
+relevance thresholds for E1 must be frozen separately"。
+
+因此 `claim_eligible` 对这三个指标恒为 `false`，与 pilot 是否冻结 SESOI 无关。
+E2-C4 的 **P2 主对比与 P3 梯度的可承载主张部分实际只有 `wealth_gini`**，
+Holm 家族规模也相应为 1（`clustered − flat` 参考对比按 §12 第 2 条已排除在外）。
+
+这不是代码缺陷——判定式本身是正确的、fail-closed 的；错的是**叙述**：让读者以为 pilot 之后
+这三个指标就能承载主张。
+
+### 14.3 修法很便宜，但**不能就地改 V1F 的校准文件**
+
+两个已查实的事实使补救代价远低于预期：
+
+1. **指标已经算过。** `landscape_study.py::snapshot_metrics` 的返回字典**已包含**
+   `wealth_variance`、`mean_wealth`、`zero_wealth_fraction`（第 635/641/642 行）。
+   所以扩展覆盖不是新增计算逻辑，只是把这些指标纳入校准的指标列表。
+2. **快照完整保留。** UMI 上 V1F 的 workspace 有 **960 个 run 目录、864,960 个
+   `snap_*.csv`**，而 `run_v1_calibration.py` 正是读取 `snap_*.csv` 后调用
+   `snapshot_metrics`。所以扩展覆盖是**对已保留快照的重分析**，不是重跑模拟器：
+   **无 C++ 改动、无 binary SHA 改动**。
+
+**但绝对不能编辑 V1F 的 `numerical_calibration.json`。** E1-C4 的 config 以
+`numerical_calibration_sha256 = 143007f7…` 绑定了它，且 `_load_checksum_bound_calibration`
+会逐次校验；就地改文件会切断 E1-C4 已归档的证据链，与"不得补写参数锁"是同一类错误。
+正确做法是产出一个**新的**校准产物（例如一次 V1H 式的"指标覆盖扩展"重分析，生成自己的
+`numerical_calibration` 文件），由 E2-C4 的 lock 引用它，V1F 原文件保持逐字不动。
+
+### 14.4 需要研究者定夺的射程选择
+
+| 选项 | 内容 | 代价 | 后果 |
+|---|---|---|---|
+| (A) 接受单指标射程 | E2-C4 只以 `wealth_gini` 承载主张，其余三个指标在结果中明确标为描述性 | 0 | 结论更窄但完全可证；**必须先更正 §8/§12 的叙述**，否则预注册文本与代码行为不符 |
+| (B) 扩展校准覆盖 | 对 V1F 保留快照做一次 V1H 式重分析，为新产物冻结三个指标的数值上限；pilot 再冻结其 SESOI | 重分析（无模拟器时间），加一轮产物与 lock 更新 | 四个指标全部可承载主张，P2/P3 的射程恢复到设计本意 |
+
+**在 (A)/(B) 定下之前不应提交 pilot**：选项会改变 pilot 输出被用来做什么（(A) 下 pilot 只需
+为 `wealth_gini` 定 R、并冻结三个可比性政策量；(B) 下还要为三个指标冻结 SESOI），
+也会改变 E2-C4 lock 声明哪些指标可承载主张。先花算力再改这两处，代价更高。
