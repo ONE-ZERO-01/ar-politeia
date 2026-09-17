@@ -315,8 +315,13 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
   `mt19937_64` 初始状态与 rank 派生偏移的基点，**无任何依赖基点素性的逻辑**，仓库里的素数
   是**偏移量**；故唯一可证成的硬要求是唯一性，素数性对基点无功能作用且选取理由无记载。
 - **可用池的上界尚未冻结，这是 R 冻结前必须补的显式决策**。本节只说了"未出现的素数"，未给窗口；
-  审计的 `--pool-min/--pool-max` 刻意**没有默认值**，以免该边界被隐式决定。应与 R 一同写入 E2-C4 的 lock：
-  例如 `12300–13000` 含 77 个未用素数，`--propose 32` 确定性地给出最小的 32 个（自 `12301` 起）。
+  审计的 `--pool-min/--pool-max` 刻意**没有默认值**，以免该边界被隐式决定。
+  **判据、候选与建议见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)**
+  （该文只列候选、不替 lock 定值）。要点：窗口下界须 > 12241（历史 seed 的最大值）；
+  宽度须远小于最小 rank 派生偏移 `999983`（多 rank 时的别名约束，`nprocs=1` 下自动成立）；
+  个数须够 pilot 的 8 个与正式的 R 个。建议 `12300–13000`（77 个未用素数，覆盖至 R=64）。
+  **pilot 与正式各用独立且不相交的 seed 子集**，依据是 `V1P`（用 `6007`）与 `V1`（`6101…6503`）
+  的先例——本项目 pilot 跑在自己的 seed 上，不复用正式运行的 seed。
 - **样本量不得继承 E1-C4 的 64**。64 是为配对景观对比的估计量定的，与 P2/P3 估计量不同。
   先用**非证据 pilot** 估计各对比的方差（只看方差与可比性，不看对比方向或大小，
   与 V1ED 对 V1E 的用法一致），再按既有"上取 2 的幂"政策冻结。
@@ -361,7 +366,7 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] P1 恒等检查在分析器中 fail-fast（entropy/Moran 逐位）（2026-09-17，代码）
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
 - [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 36 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component，每条带可机器校验的 basis；重分析 job 的标识按引用记账，见 §8）
-- [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**
+- [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**，判据与候选见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)；阻塞 pilot（pilot 自身即需 8 个全新 seed）
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
