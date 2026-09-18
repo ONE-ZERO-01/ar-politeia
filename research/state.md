@@ -344,6 +344,40 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   checks that a waiver exists, so a fabricated provenance list could otherwise sit
   in git unnoticed — a local draft of that list was in fact wrong, and the test is
   what caught it.
+- E2-C4's remaining thresholds are decided (2026-09-18), via the criteria brief in
+  `e2-cycle4-sesoi-decision.md` whose section 9 records the choices and section 10
+  corrects one of them, and the pilot is pre-registered in `e2-cycle4-pilot-design.md`.
+  `scientific_sesoi` for `wealth_gini` stays the absolute 0.025 carried over from
+  E1-C4. `wealth_variance` takes the *relative* rule `delta := 0.50 * Var_ref`, with
+  `Var_ref` read from the P2 arm of the non-evidentiary pilot — a rule rather than a
+  number because the metric is scale sensitive, and the pilot is the only thing that
+  can fix the reference level without reading an effect. The relative coefficient has
+  a floor, and getting that floor right took a correction: the first version used
+  `(1.10)^2 - 1 = 0.21`, the drift of a *single* unit within P4's +/-10% band, but P4
+  constrains each unit relative to the group mean, so two contrasted units can drift
+  to opposite edges and the contrast sees `4*beta / (1 + (2/3)*beta^2)` = 0.3974 at
+  beta = 0.10. The initially chosen rho = 0.25 sat *below* that, which would have let
+  a P4-passing, purely level-driven contrast cross the threshold on its own — with
+  R = 64 the paired CI half-width is about 0.125*Var_ref against a 0.397*Var_ref
+  drift, so the whole interval shifts past the threshold and Holm then calls it
+  supported. The ratio was therefore raised to 0.50 the same day: +26% margin, which
+  is there because the floor assumes drift is a pure rescale. Cheaper too, since
+  R scales as 1/rho^2 (64 -> 16 at q = 0.5); what it costs is sensitivity in the
+  0.25-0.50 band, whose effects are not attributable under the frozen band anyway.
+  P4's guards are `zero_wealth_fraction <= 0.01` and a +/-10% relative band on mean
+  wealth, and `wealth_variance`'s level floor is V1H's 0.056828569227561854 — quoted
+  as an analogy (a difference bound used as a level bound), not a derivation. No
+  ceiling is frozen for the new metrics: the SESOI *is* the failure threshold, so
+  giving the same quantity two adjustable definitions is exactly what is avoided.
+  Landed as machine-readable policy in `plan.json` (`analysis_policy.sesoi_policy`
+  and `.comparability_policy`) and enforced in code by
+  `validate_e2_c4_sesoi_derivations`: declaring the metric's threshold without a
+  derivation, `ratio <= floor(band)`, an absolute that is not `ratio * Var_ref`, a
+  reference report whose sha256 does not match, a re-anchored reference field, or a
+  relative rule on the scale-invariant `wealth_gini` are all refusals. The rule,
+  the reference reading and its provenance are recorded in `threshold_components`
+  so the derivation stays checkable. What remains before the E2 lock is the
+  seed-pool window (`12300-13000`), the non-evidentiary pilot, and R.
 
 ## Cycle 3 E3 correction
 

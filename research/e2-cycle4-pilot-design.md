@@ -1,9 +1,9 @@
 # E2-C4 pilot：预注册（非证据；只读方差与可比性）
 
-日期：2026-09-18。状态：**设计已完成；三项判据待定夺（§7）；定夺前不得提交**。
+日期：2026-09-18。状态：**判据已全部定夺（§7）；本文件的配置与判定式已冻结，提交时不得再改**。
 上下位文档：[e2-cycle4-channel-design.md](e2-cycle4-channel-design.md)（设计，§4 判据 / §8 统计契约）、
 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)（seed 窗口判据）、
-[e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md)（SESOI 判据简报，**待定夺**）。
+[e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md)（SESOI 判据简报；四项已定夺，见其 §9）。
 
 本文件是 pilot 的**预注册**：判定式、配置、seed 与禁止项都在提交前写死。pilot 的结果是
 **非证据**的——它不产出任何效应方向或大小，只产出**离散度**与**可比性**两类量，用来冻结
@@ -103,8 +103,8 @@ Pilot 的 job `pass` = 三个模块全部成立。任一不成立都是**实现�
 
 | 政策量 | 冻结值 | 来源 |
 |---|---|---|
-| `comparability_zero_wealth_fraction_max` | **待定夺**（见 SESOI 简报 §4） | 设计 §4 P4 第 1 条 |
-| `comparability_wealth_variance_min` | **待定夺**（同上） | 设计 §4 P4 第 1 条 |
+| `comparability_zero_wealth_fraction_max` | `0.01` | 沿用既有冻结值（2026-09-18 定夺） |
+| `comparability_wealth_variance_min` | `0.056828569227561854` | V1H 的数值上限；**是"差值界"用作"水平下界"的类比**，只作冗余护栏（2026-09-18 定夺） |
 | `comparability_mean_wealth_relative_band` | `0.10` | 2026-09-17 定夺并冻结（§4 P4 第 2 条） |
 
 P4 的 `pass` **不 gate pilot 本身**（否则会把"体制不可比"误报成"实现失败"），但它
@@ -112,6 +112,11 @@ P4 的 `pass` **不 gate pilot 本身**（否则会把"体制不可比"误报成
 收窄该对比的射程或改正体制，而不是投完预算再发现 inconclusive（设计 §15.5 的推论）。
 pilot 报告必须给出逐单元 `mean_wealth`、`relative_deviations`、`max_relative_deviation`、
 以及两个组（P2 三单元 / P3 三单元）各自的判定。
+
+**这些水平读数还有第二个用途**：`wealth_variance` 的相对 SESOI 下界（`4β/(1+⅔β²)`，见设计
+§4 P2）是从**允许的**带推出的，不是从实测跨度推出的——实测的逐单元水平让读者能看出实际
+跨度离带的边界有多远，也就是"漂移能解释多少方差差"的实测参照。报告不需要据此改任何阈值
+（§3.4 禁止），但必须把逐单元水平与 `relative_deviations` 完整报出。
 
 ### 3.3 方差 → R（只报告离散度）
 
@@ -122,6 +127,30 @@ pilot 报告必须给出逐单元 `mean_wealth`、`relative_deviations`、`max_r
 - `upper_sample_sd`：`sample_sd · sqrt((n−1) / chi2.ppf(upper_sd_alpha, n−1))`，
   `upper_sd_alpha = 0.1`（沿用 V1ED 的单侧 90% 上界，`n = 8`）；
 - `required_replicates_at(delta)` 的**规则**（不在 pilot 里求值，见 §4）。
+
+**另需产出一个"参考水平"读数（#2 的 Δ 规则依赖它）。** 报告必须给出 `wealth_variance_reference`
+= P2 组三个单元（`clustered-d0.02` / `shuffled-d0.02` / `flat-d0.02`）的**实测平均
+`wealth_variance`**，连同三方各自的 `mean_wealth_variance`。它是 2026-09-18 定夺的
+`Δ_var := 0.50 × Var_ref` 规则里 `Var_ref` 的来源，属 **P4 护栏型水平读数**，不是效应量。
+pilot 报告必须把它放在一个**独立的、带自我说明的**字段里（而不是埋在 P4 块内），
+因为 E2-C4 的分析会按 sha256 绑定这份报告并从这个字段取值；该字段的含义、单位与
+"不是效应量"的性质要写在报告自身里，避免将来被当作结果引用。
+
+**字段形状是硬契约**，因为分析器按**点分路径**取它（`run_landscape_study` 的
+`E2_C4_SESOI_REFERENCE_FIELDS["wealth_variance"]` = 下式），改形状就等于改锚：
+
+```json
+"wealth_variance_reference": {
+  "P2_source_pattern": {
+    "mean_wealth_variance": <float>,          // ← Var_ref，分析器读这个
+    "units": {"<unit>": {"mean_wealth_variance": <float>}, ...},
+    "role": "P4 guard-type level reading; not an effect size; not for inference"
+  }
+}
+```
+
+`mean_wealth_variance` 必须是**有限正数**（分析器拒绝 ≤ 0 或非有限值），三单元各自的值
+用于让读者复核组均值，`role` 是给将来读的人看的自我说明。
 
 **为什么只报 SD 就够。** 正式运行的检验统计量是配对差的 2·SE，而 `SE = SD/sqrt(R)`；
 R 只依赖 SD，不依赖均值。所以"读 SD"与"读效应"是可分离的，pilot 只做前者。
@@ -205,14 +234,25 @@ R 一旦冻结即写入 E2 lock，**不得**在正式结果出现后更改；且
 
 | 项 | 状态 | 阻塞 |
 |---|---|---|
-| `scientific_sesoi`（`wealth_gini`、`wealth_variance`） | **待定夺**，判据简报已备 | R 的最终值；claim-eligible |
-| `comparability_zero_wealth_fraction_max` | **待定夺**（简报给候选） | pilot 报告里 P4 第 1 条的判定 |
-| `comparability_wealth_variance_min` | **待定夺**（同上） | 同上 |
+| `scientific_sesoi["wealth_gini"]` | **已定夺**：`0.025`（G1） | — |
+| `scientific_sesoi["wealth_variance"]` | **已定夺**：相对形式 `Δ_var := 0.50 × Var_ref`（规则，非数字；2026-09-18 由 0.25 **改正**为 0.50，理由见 [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §10）；`Var_ref` 由本 pilot 提供 | 落地：把规则写进 E2-C4 config 与代码（含"缺 `Var_ref` 即拒绝运行"）——**已完成**（`validate_e2_c4_sesoi_derivations`，含 `ratio > floor(band)` 强制） |
+| `comparability_zero_wealth_fraction_max` | **已定夺**：`0.01` | — |
+| `comparability_wealth_variance_min` | **已定夺**：`0.056828569227561854`（V1H 上限，类比性质已标注） | — |
 | `wealth_variance` 的数值上限 | **已冻结**：`0.056828569227561854`（V1H） | — |
 | seed 窗口 | **已定**：`12300–13000`（待写入 lock） | — |
 
-三个待定夺项都不阻塞 pilot 的**运行**，只阻塞 pilot 报告的**判定**与之后的 R；但按设计
-§8 的纪律，pilot 报告的判据必须在提交前写死，故这三项须在**提交前**定夺。
+四项判据已全部定夺（见 [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §9 与 §10 的修正），
+`wealth_variance` 的比例已定为 ρ = 0.50 并**已落地进代码**（`validate_e2_c4_sesoi_derivations`
++ `e2_c4_level_drift_variance_floor`：声明了该指标阈值却没有 derivation、或
+`ratio ≤ floor(band)`、或声明的绝对值不等于 `ratio × Var_ref`、或参考报告 sha256 不符，
+一律拒绝运行）。本小节列出的其余项**不阻塞 pilot 运行**。
+
+### R 的代入点
+
+R **不写进** pilot 报告（pilot 只给 SD 与 `Var_ref`）。pilot 完成后，用 §4 的规则求 R：
+`wealth_gini` 代入绝对 `Δ = 0.025`，`wealth_variance` 代入换算出的
+`Δ_var = 0.50 × Var_ref`。两个 Δ 与 R 一同写入 E2 lock 的 `design_contract`，
+并在那里**同时记录规则与换算出的数字**，使读者能复核"这个数是怎么来的"。
 
 ## 8. 已考虑并否决的替代方案
 

@@ -137,7 +137,22 @@ S09 不是命名问题，而是**可识别性缺陷**：旧 `production` 因子�
 - 主对比：`clustered − shuffled`（像素直方图逐位相同，只隔离空间排列）；次要：`clustered − flat`
   （同时改变直方图，只作参考）。
 - 估计量：源的空间组织对财富结构的效应 —— `wealth_gini`、`wealth_variance` 的配对尾窗
-  均值差。家族里另两个指标**不承担效应断言**，但都由同一段代码算出并随结果报告：
+  均值差。**两者的阈值形式不同，这是设计选择而非实现细节**（2026-09-18 定夺，判据见
+  [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §9 与 §10）：`wealth_gini` 用绝对
+  `0.025`（沿用 E1-C4）；`wealth_variance` 用**相对规则** `Δ := 0.50 × Var_ref`
+  （`Var_ref` 为 P2 组实测平均方差，由非证据 pilot 提供）。理由是 Gini 尺度不变而方差
+  尺度敏感：P4 的 ±10% 水平带允许被对比的两个单元朝相反方向漂到带的两端，故**一次纯水平
+  漂移能在对比上造成的最大相对方差差**是
+
+  \[ \text{floor}(\beta) = \frac{4\beta}{1+\tfrac23\beta^2} \]
+
+  （β = 0.10 时 = `0.3973509933774835`；极值配置为 `(1+β, 1, 1−β)`，第三个成员被三单元
+  均值固定；闭式与对可行配置的暴力取最大一致，见 `tests/test_e2_c4_sesoi_derivation.py`）。
+  相对比例必须 **严格大于** 该下界，否则一个通过了 P4、且完全由水平漂移造成的对比就能单独
+  越过阈值——而该指标唯一的既有约定（`E1-MATCHED-LANDSCAPES-C4` 的
+  `independent_precision_relative_half_widths`）恰是 ρ = 0.2，远在其下，直接沿用会让阈值
+  对水平漂移失效。ρ = 0.50 是下界之上留出余量（+26%）的取值，且该下界假设漂移是纯缩放，
+  余量是为形状变化留的。家族里另两个指标**不承担效应断言**，但都由同一段代码算出并随结果报告：
   - `zero_wealth_fraction`：承担 P4 的**非退化护栏**。实测在本参考体制下退化（全部 960 个
     run 只有 4 个取值、`clustered − shuffled` 的配对差在三个 dt 上恒为 0），做成估计量会产出
     空洞的 null。详见 §15.2 与 §15.3。
@@ -332,7 +347,20 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
   的先例——本项目 pilot 跑在自己的 seed 上，不复用正式运行的 seed。
 - **样本量不得继承 E1-C4 的 64**。64 是为配对景观对比的估计量定的，与 P2/P3 估计量不同。
   先用**非证据 pilot** 估计各对比的方差（只看方差与可比性，不看对比方向或大小，
-  与 V1ED 对 V1E 的用法一致），再按既有"上取 2 的幂"政策冻结。
+  与 V1ED 对 V1E 的用法一致），再按既有"上取 2 的幂"政策冻结。**pilot 的预注册
+  （单元、seed、判定式、禁止项、R 规则）见 [e2-cycle4-pilot-design.md](e2-cycle4-pilot-design.md)**；
+  其核心纪律是"护栏量报告水平、估计量只报告配对差 SD"，故正式运行前两个估计量的方向
+  在项目内未读。R 由 `wealth_variance` 决定（V1ED 力开实测：它是限制指标，保守估计 61 → 64，
+  而 `wealth_gini` 只需 3），因此 Δ 的选择有真实的算力后果。
+- **`wealth_variance` 的 Δ 是相对形式，不是绝对数。** 记 `Var_ref` 为 pilot 的 P2 组实测平均
+  `wealth_variance`（护栏型水平读数），则 `Δ_var := 0.50 × Var_ref`；`wealth_gini` 仍用绝对
+  `0.025`。阈值按**指标**设而非按对比设，故 P2 与 P3 共用这两个 Δ；R 也对同一套 run 生效。
+  **相对比例有硬下界**：`floor(β) = 4β/(1+⅔β²)`（β 为 P4 的
+  `comparability_mean_wealth_relative_band` = 0.10，故 floor = `0.3973509933774835`），
+  它是"带内两个单元朝相反方向漂到端点"时对比上能出现的最大相对方差差；低于它的 ρ 对水平
+  漂移失效。这条由代码强制，且 `threshold_components` 里同时记下规则、`Var_ref` 的来源与其
+  sha256，使绝对值不可能被手写绕过。详见 §4 P2 与 §17，判据见
+  [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §9/§10。
 - **单元数与预算**。去重后 5 个单元（P1/P2 的 3 个 + P3 的 2 个额外汇速率）。按 V1E 实测约
   **1,242 秒/run**（`N=1000`、`dt=0.005`、`T=4500`）：
   - pilot：5 单元 × 8 seeds = 40 runs ≈ 13.8 CPU 小时 ≈ 8 路 1.7 墙钟小时；
@@ -379,7 +407,7 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] **V1H（校准扩展）：已完成并入库**（2026-09-18，见 §16）——只从 V1F 保留的 `replicate_metrics.csv` 重分析；**字段级忠实性检验在 `umi` 执行并通过**（四个旧上限逐位重现，`field_mismatches = 0`），产物级检查（四个旧上限与已入库 `numerical_calibration.json` 逐位相等）在本地由 `record-calibration-extension` 执行并通过。扩展结果为 `wealth_variance: 0.056828569227561854`，无 ceiling；入库 `research/jobs/V1H-CALIBRATION-EXTENSION-C4/{numerical_calibration_extended,result,manifest}.json`
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力；**pilot 预注册已写**（[e2-cycle4-pilot-design.md](e2-cycle4-pilot-design.md)：5 单元 × 窗口内最小 8 个未用素数 `12301/12323/12329/12343/12347/12373/12377/12379`、协议常量逐项 pin 到 E1-C4 已入库 config、binary 绑定到锁里的 reference sha、**护栏量报告水平而估计量只报告配对差 SD**、R 由 §4 的规则在 Δ 冻结后机械求出）。**提交前须关闭三项**（SESOI、两个 comparability 政策量），判据与候选见 [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md)
-- [ ] E2-C4 的 `scientific_sesoi` 与两个 comparability 政策量——**待定夺**，判据简报已备（[e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md)，只列候选不替 lock 定值）。要点：阈值按**指标**而非按对比设，P2 与 P3 共用同一个 Δ；`wealth_variance` 的数值上限 `0.0568` 是硬地板，Δ 必须显著大于它才有约束力；**方差对尺度敏感而 Gini 不敏感**，故 P4 的 ±10% 水平带推出 `(1.10)²−1 = 0.21` 这一"纯水平漂移能造成的最大相对方差变化"，于是**以相对比例 ρ 表示的 Δ 必须 ρ > 0.21**——而该指标唯一的既有阈值约定恰好是 ρ = 0.2，落在其下，直接沿用会对水平漂移失效。R 由 `wealth_variance` 决定（力开体制下 V1ED 已显示它是限制指标：61 → 64，而 `wealth_gini` 只需 3），故 Δ 的选择有真实的算力后果（ρ = 0.25 与 0.50 之间 R 可差 4 倍）
+- [x] E2-C4 的 `scientific_sesoi` 与两个 comparability 政策量——**已定夺（2026-09-18）并已落地进代码**，判据与候选见 [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md)（§9 定夺，§10 为同日对比例下界的**修正**）。取值：`wealth_gini = 0.025` 沿用 E1-C4；`wealth_variance` 用**相对规则** `Δ := 0.50 × Var_ref`，`Var_ref` 来自 pilot 的 P2 组实测平均方差；`comparability_zero_wealth_fraction_max = 0.01`；`comparability_wealth_variance_min = 0.056828569227561854`，须与"差值界用作水平下界"的类比限定一同引用。要点：阈值按**指标**而非按对比设，P2 与 P3 共用同一个 Δ；`wealth_variance` 的数值上限 `0.0568` 是硬地板，Δ 须显著大于它才有约束力；**方差对尺度敏感而 Gini 不敏感**，故 P4 的 ±10% 水平带推出一个硬下界 `floor(β) = 4β/(1+⅔β²)`（β = 0.10 时 `0.3973509933774835`）——被对比的两个单元可以漂到带的**两端**，故下界不是"单单元偏离带"的 `(1.10)²−1 = 0.21`（那是第一版判据简报的错误，见 §10），而是它在对比上的最大跨度；**相对形式的 Δ 必须严格大于该下界**，而该指标唯一的既有阈值约定 ρ = 0.2 远在其下。R 由 `wealth_variance` 决定（力开体制下 V1ED 已显示它是限制指标：61 → 64，而 `wealth_gini` 只需 3），故 Δ 的选择有真实的算力后果——而提高 ρ 会**降低** R（ρ = 0.25/0.40/0.50 在 q = 0.5 时对应 R = 64/16/16），代价是灵敏度而非严格性。**落地已完成**：`validate_e2_c4_sesoi_derivations` 强制"声明了该指标阈值就必须有 derivation、`ratio > floor(band)`、声明的绝对值 == `ratio × 参考报告字段`、参考报告的 sha256 必须相符"；`confirmatory_metrics_for_experiment(E2_C4)` 现在也要求 `wealth_variance`（R03 在付费运行前拦截）；规则/参考值/来源一并写进 `threshold_components`
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
 - [ ] E2-C4 新实验 ID 与独立目录；Cycle 3 E2 结果不改写、只改解释——**待办**（ID 已在代码中固定）
 
@@ -679,7 +707,14 @@ bounded_by_discretization，两者都已在 `aggregate_v1` 里定义、都不含
 显式记为"待 SESOI 冻结时一并确定"，而不是就地编一个数。这样 (B′) 不引入任何新的
 事后可调的阈值。
 
-### 15.5 `mean_wealth` 的角色：估计量还是审计量（待定夺；pilot 会免费回答一半）
+> **补充（2026-09-18，判据定夺后）。** "待 SESOI 冻结时一并确定"这一步已经走完，答案是
+> **不冻结 ceiling**，而是把 `wealth_variance` 的**失败阈值与科学阈值合并成同一个量**：
+> `scientific_sesoi` 用相对规则 `Δ := 0.50 × Var_ref`（见 §4 P2 与
+> [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §9、§10）。因此 `numerical_error_ceilings`
+> 对该指标仍为**没有**——本设计从未需要它，`aggregate_v1` 对它也只当作可选覆盖。
+> 这不是"漏掉一项"，而是刻意不让同一个量有两处可调的定义。
+
+### 15.5 `mean_wealth` 的角色：估计量还是审计量（**已定夺为审计量**；pilot 会免费回答一半）
 
 (B′) 把 `mean_wealth` 列入校准扩展，也就隐含把它列入 §4 P2 的估计量。但三条**已在库的**
 证据指向另一个角色：
@@ -788,3 +823,56 @@ pin 不符/源路径不符/改写旧上限/静默跳过/非逐位相等/重复�
 产物喂给 `_require_cycle4_calibration_identity`（记录器与加载器校验的是同一主张的两半，
 一个能过不等于另一个能过）。四类变异——产物内上限漂移、记录漏掉一个旧上限、V1F 事后
 被重新校准、记录把已冻结指标重新声明为扩展——**全部被捕获**。
+
+**ceiling 政策的落地（同日后续）。** 上面判定式第 3 条留下的"ceiling 留给 SESOI 冻结时
+一并确定"，在 2026-09-18 的判据定夺中有了答案：**不另行冻结 ceiling**，`wealth_variance`
+的失败阈值与科学阈值合并为同一个量——相对规则 `Δ := 0.50 × Var_ref`
+（见 §4 P2 与 [e2-cycle4-sesoi-decision.md](e2-cycle4-sesoi-decision.md) §9、§10）。
+故 `numerical_error_ceilings` 对该指标仍为空，这不是遗漏，而是不给同一个量两处可调的定义
+（§15.4 补充段）。
+
+## 17. 相对 SESOI 的落地与一次下界修正（2026-09-18）
+
+§4 P2 与 §11 记下的 "Δ 是相对规则" 在实现时被写成**可机器校验**的形式，而不是一句散文；
+这个过程中发现并修正了判据简报里的一处推导错误。
+
+**修正。** 第一版简报（`e2-cycle4-sesoi-decision.md` §4）用"**单个**单元偏离组均值 10%"
+的 `(1.10)²−1 = 0.21` 当下界，并据此把 ρ 定为 0.25。但 P4 的带是逐单元相对**组均值**的约束，
+被对比的**两个**单元可以朝相反方向同时漂到带的两端，所以对比上的最大相对方差差是
+`4β/(1+⅔β²)`：β = 0.10 时 **0.3973509933774835**（极值配置 `(1+β, 1, 1−β)`；闭式与对
+可行配置的暴力取最大一致，这条一致性本身是一个测试）。于是 ρ = 0.25 **落在下界之下**——
+一个通过了 P4、且完全由水平漂移造成的差异就能单独越过该阈值。这条不是措辞问题：R = 64 时
+配对 CI 半宽约 `0.125·Var_ref`，而漂移能造成的位移是 `0.397·Var_ref`，后者会把整个区间推过
+阈值并在 Holm 之后判为 `claim_threshold_pass`，P2 的方差断言会被污染。
+
+**再定夺（研究者，同日）。** ρ = **0.50**，P4 带保持 ±10%（余量 +26%）。余量而非"恰好越过"
+的理由是下界假设漂移为**纯缩放**（方差 ∝ 水平²）：若漂移同时改变形状，实际跨度会更大，
+所以 ρ = 0.40（余量 0.7%）虽然满足不等式，却没有给这个假设留余地。附带后果是 **R 变小**：
+R ∝ 1/ρ²，q = 0.5 时 ρ = 0.25/0.50 对应 R = 64/16，即算力降到四分之一，代价是
+`0.25–0.50 Var_ref` 之间的结构效应会判 null——而在冻结带下这一区间本来就不可归因于结构。
+
+**落地的四个强制点**（`run_landscape_study.validate_e2_c4_sesoi_derivations`，
+`e2_c4_level_drift_variance_floor`；测试见 `tests/test_e2_c4_sesoi_derivation.py`，22 项）：
+
+1. **声明了就必须有规则。** `scientific_sesoi` 里出现 `wealth_variance` 而没有对应的
+   `scientific_sesoi_derivations`，一律拒绝。否则规则可以被一个手写的绝对值绕过，而所有
+   产物看起来仍然成立。反过来，完全不声明该阈值的 config 仍可分析——那时指标走的是
+   `missing_scientific_sesoi` 的显式理由码，是**记录下来的**结果，不是静默降级。
+2. **下界强制。** `ratio > floor(band)`，`band` 取自同一份 config 的
+   `comparability_mean_wealth_relative_band`。这条把"比例不能被水平漂移越过"从散文变成
+   Gate，且事后把 ρ 调回下界之下会被直接拒绝。
+3. **三处陈述必须一致。** 规则在**checksum 绑定**的报告上求值得到的数、config 里声明的
+   绝对数、以及 derivation 自己记的 `resolved_value`，三者必须**浮点相等**。绑定的是报告
+   的 sha256 而不是路径，所以换掉报告内容而留下路径是过不去的；参考字段名也按白名单固定
+   （`wealth_variance_reference.P2_source_pattern.mean_wealth_variance`），不能事后改锚。
+4. **只在白名单指标上允许规则。** `wealth_gini` 是尺度不变量，给它配相对规则会被拒绝——
+   那会是一个**新机制**而不是同一机制的另一种写法。
+
+**附带收紧（R03）。** `confirmatory_metrics_for_experiment("E2-CHANNEL-ABLATION-C4")`
+现在返回 `("wealth_gini", "wealth_variance")`：正式运行**付费之前**就要求两个承载主张的
+指标都已带阈值，而不是等分析阶段才发现 `wealth_variance` 缺 SESOI。
+
+**记录位置。** `threshold_components` 里同时留下 `scientific_sesoi`（进判定的绝对值）、
+`effective_claim_threshold`（`max(数值上限, SESOI)`，结构不变）与 `derivation`
+（规则、比例、参考字段、参考报告的 sha256、参考水平、换算值、`floor(band)` 与余量），
+使"这个数是怎么来的"可以被独立复核。

@@ -112,6 +112,26 @@ E2_C4_COMPARABILITY_KEYS = (
     "comparability_wealth_variance_min",
     "comparability_mean_wealth_relative_band",
 )
+# E2-C4's ``wealth_variance`` SESOI is a *rule*, not a chosen number: a variance
+# threshold only means something relative to the reference variance level, and
+# that level is a reading. So the config carries the ratio plus the provenance of
+# the reading, and the absolute value is derived and checked against both. Which
+# metrics are allowed to use a rule is itself frozen: ``wealth_gini`` is scale
+# invariant, so a relative rule there would be a new, unregistered mechanism.
+E2_C4_RELATIVE_SESOI_RULE = "relative_to_reference_level"
+E2_C4_RELATIVE_SESOI_METRICS = ("wealth_variance",)
+E2_C4_SESOI_REFERENCE_FIELDS = {
+    "wealth_variance": "wealth_variance_reference.P2_source_pattern.mean_wealth_variance",
+}
+E2_C4_SESOI_DERIVATION_KEYS = (
+    "metric",
+    "rule",
+    "ratio",
+    "reference_field",
+    "reference_report",
+    "reference_report_sha256",
+    "resolved_value",
+)
 
 
 def require_umi() -> None:
@@ -1535,6 +1555,184 @@ def _require_cycle4_calibration_identity(calibration: Mapping[str, Any]) -> None
             )
 
 
+def e2_c4_level_drift_variance_floor(band: float) -> float:
+    """Relative variance difference a pure level drift inside ``band`` can make.
+
+    P4 constrains each unit's mean wealth to a relative band around the group
+    mean, so two contrasted units may sit at opposite edges. If a level change
+    rescales wealth by ``c``, variance scales by ``c^2``, so the largest relative
+    variance span between two admissible units is
+
+        floor(band) = 4*band / (1 + (2/3)*band^2)
+
+    with the extremal configuration ``(1+band, 1, 1-band)`` (the third member of
+    the three-unit group is pinned at the mean). A variance SESOI expressed as a
+    ratio of the reference level is only *attributable* if it exceeds this: below
+    it, a contrast that passed P4 and is entirely a level artifact can cross the
+    threshold on its own. The bound assumes drift is a pure rescale; a drift that
+    also changes shape can move variance further, so treating the floor as an
+    equality rather than a lower bound would leave no margin for that.
+    """
+    if not math.isfinite(band) or band <= 0.0 or band >= 1.0:
+        raise ValueError("E2-C4 comparability band must be finite and in (0, 1)")
+    return 4.0 * band / (1.0 + (2.0 / 3.0) * band * band)
+
+
+def _dotted_field(payload: Mapping[str, Any], dotted: str) -> float:
+    node: Any = payload
+    for part in dotted.split("."):
+        if not isinstance(node, Mapping) or part not in node:
+            raise RuntimeError(
+                f"E2-C4 SESOI reference report has no field {dotted!r} (missing {part!r})"
+            )
+        node = node[part]
+    if isinstance(node, bool) or not isinstance(node, (int, float)):
+        raise RuntimeError(f"E2-C4 SESOI reference field {dotted!r} is not a number")
+    value = float(node)
+    if not math.isfinite(value) or value <= 0.0:
+        raise RuntimeError(
+            f"E2-C4 SESOI reference field {dotted!r} must be finite and positive, "
+            f"got {value!r}"
+        )
+    return value
+
+
+def validate_e2_c4_sesoi_derivations(
+    config: Mapping[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Check rule-derived SESOIs against the artifact they were derived from.
+
+    E2-C4's ``wealth_variance`` threshold is the relative rule
+    ``delta := ratio * Var_ref``, and ``Var_ref`` is a *reading* from the
+    non-evidentiary pilot. Pre-registering the rule rather than a hand-written
+    absolute is only meaningful if the absolute cannot disagree with the rule, so
+    this refuses unless the declared number equals ``ratio`` times the reference
+    field of the checksum-bound pilot report.
+
+    The refusal is conditional on the metric being *declared*: a config that never
+    claims a wealth_variance threshold leaves the metric claim-ineligible through
+    the ordinary reason codes, which is an explicit recorded outcome. But once a
+    number is declared it must be the rule's number — otherwise the rule could be
+    bypassed by a hand-written absolute while every artifact still looked sound.
+
+    Returns the derivation record per declared metric, for the effect payload's
+    ``threshold_components``.
+    """
+    scientific_sesoi = config.get("scientific_sesoi", {})
+    if not isinstance(scientific_sesoi, Mapping):
+        raise RuntimeError("Cycle 4 config has no scientific_sesoi")
+    derivations = config.get("scientific_sesoi_derivations", {})
+    if not isinstance(derivations, Mapping):
+        raise RuntimeError("E2-C4 scientific_sesoi_derivations must be an object")
+    unexpected = sorted(set(derivations) - set(E2_C4_RELATIVE_SESOI_METRICS))
+    if unexpected:
+        raise RuntimeError(
+            f"E2-C4 declares a relative SESOI rule for {unexpected}; only "
+            f"{list(E2_C4_RELATIVE_SESOI_METRICS)} may use one, so a scale-invariant "
+            "metric cannot acquire an unregistered mechanism"
+        )
+    declared_relative = [
+        metric for metric in E2_C4_RELATIVE_SESOI_METRICS if metric in scientific_sesoi
+    ]
+    if not declared_relative:
+        return {}
+    missing = sorted(set(declared_relative) - set(derivations))
+    if missing:
+        raise RuntimeError(
+            f"E2-C4 declares a scientific_sesoi for {missing} but no derivation for "
+            "it: a rule-derived threshold must carry its rule and the provenance of "
+            "its reference level, not only a number"
+        )
+
+    band_key = "comparability_mean_wealth_relative_band"
+    if band_key not in config:
+        raise RuntimeError(f"E2-C4 requires {band_key} to bound a relative SESOI")
+    band = float(config[band_key])
+    floor = e2_c4_level_drift_variance_floor(band)
+
+    records: Dict[str, Dict[str, Any]] = {}
+    for metric in declared_relative:
+        entry = derivations[metric]
+        if not isinstance(entry, Mapping):
+            raise RuntimeError(f"E2-C4 SESOI derivation for {metric} is not an object")
+        if set(entry) != set(E2_C4_SESOI_DERIVATION_KEYS):
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} must have exactly "
+                f"{list(E2_C4_SESOI_DERIVATION_KEYS)}, got {sorted(entry)}"
+            )
+        if entry["metric"] != metric:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} names metric {entry['metric']!r}"
+            )
+        if entry["rule"] != E2_C4_RELATIVE_SESOI_RULE:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} uses an unknown rule "
+                f"{entry['rule']!r}; expected {E2_C4_RELATIVE_SESOI_RULE!r}"
+            )
+        ratio = float(entry["ratio"])
+        if not math.isfinite(ratio) or ratio <= 0.0:
+            raise RuntimeError(f"E2-C4 SESOI ratio for {metric} is invalid")
+        if ratio <= floor:
+            raise RuntimeError(
+                f"E2-C4 SESOI ratio for {metric} is {ratio!r}, at or below the "
+                f"level-drift floor {floor!r} implied by a band of +/-{band:.2%}: a "
+                "contrast that passed P4 and is entirely a level artifact could "
+                "cross that threshold on its own"
+            )
+        expected_field = E2_C4_SESOI_REFERENCE_FIELDS[metric]
+        if entry["reference_field"] != expected_field:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} reads {entry['reference_field']!r}; "
+                f"the pre-registered reference is {expected_field!r}"
+            )
+        report_value = entry["reference_report"]
+        if not isinstance(report_value, str) or not report_value:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} does not name a reference report"
+            )
+        report_path = project_path(report_value, must_exist=True)
+        declared_sha256 = entry["reference_report_sha256"]
+        if not isinstance(declared_sha256, str) or len(declared_sha256) != 64:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} needs the 64-character sha256 "
+                "of the report it reads"
+            )
+        actual_sha256 = sha256_file(report_path)
+        if actual_sha256 != declared_sha256:
+            raise RuntimeError(
+                f"E2-C4 SESOI reference report checksum mismatch for {metric}: "
+                f"expected {declared_sha256}, got {actual_sha256}"
+            )
+        reference_level = _dotted_field(load_json(report_path), expected_field)
+        resolved = ratio * reference_level
+        declared = float(scientific_sesoi[metric])
+        if declared != resolved:
+            raise RuntimeError(
+                f"E2-C4 scientific_sesoi[{metric!r}] is {declared!r} but the declared "
+                f"rule gives {resolved!r} ({ratio!r} x {reference_level!r}); the "
+                "absolute value is derived, never chosen"
+            )
+        if float(entry["resolved_value"]) != resolved:
+            raise RuntimeError(
+                f"E2-C4 SESOI derivation for {metric} records resolved_value "
+                f"{entry['resolved_value']!r} but its own rule gives {resolved!r}; a "
+                "file must not state the same quantity twice and disagree"
+            )
+        records[metric] = {
+            "rule": E2_C4_RELATIVE_SESOI_RULE,
+            "ratio": ratio,
+            "reference_field": expected_field,
+            "reference_report": relative_to_project(report_path),
+            "reference_report_sha256": declared_sha256,
+            "reference_level": reference_level,
+            "resolved_value": resolved,
+            "level_drift_floor": floor,
+            "level_drift_floor_source": band_key,
+            "level_drift_margin": ratio / floor - 1.0,
+        }
+    return records
+
+
 def load_confirmatory_calibration(
     experiment: str, config: Mapping[str, Any]
 ) -> Dict[str, Any]:
@@ -1562,11 +1760,13 @@ def confirmatory_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
         )
     if experiment == E2_C4_EXPERIMENT:
         # E2-C4's estimand family is wealth structure and its spatial family is a
-        # diagnostic only, so only ``wealth_gini`` must already carry a frozen
-        # numerical/SESOI pair before the runs are paid for. The remaining wealth
-        # metrics stay explicitly claim-ineligible until a non-evidence pilot
-        # freezes their thresholds (design §8/§11).
-        return ("wealth_gini",)
+        # diagnostic only, so only the claim-bearing wealth metrics need a frozen
+        # numerical/SESOI pair before the runs are paid for. ``wealth_variance``'s
+        # number is derived from the non-evidentiary pilot's reference level, and
+        # ``validate_e2_c4_sesoi_derivations`` is what makes that derivation, not
+        # the number, the thing being checked. ``zero_wealth_fraction`` and
+        # ``mean_wealth`` stay explicitly claim-ineligible (design §15).
+        return ("wealth_gini", "wealth_variance")
     return ()
 
 
@@ -2820,6 +3020,10 @@ def aggregate_e2_c4(
     calibration = load_e2_c4_calibration(config)
     numerical_limits = calibration.get("numerical_resolution_limits", {})
     scientific_sesoi = config.get("scientific_sesoi", {})
+    # A rule-derived SESOI is checked against the report it was derived from
+    # before it is allowed to become a threshold, so the recorded number and the
+    # recorded rule can never disagree.
+    derivations = validate_e2_c4_sesoi_derivations(config)
     ineligibility = {
         metric: e2_c4_claim_ineligibility_reasons(
             by_seed, metric, numerical_limits, scientific_sesoi
@@ -2834,6 +3038,7 @@ def aggregate_e2_c4(
             "effective_claim_threshold": max(
                 float(numerical_limits[metric]), float(scientific_sesoi[metric])
             ),
+            **({"derivation": derivations[metric]} if metric in derivations else {}),
         }
         for metric in E2_C4_EFFECT_METRICS
         if claim_eligible[metric]
@@ -3520,6 +3725,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         # this experiment's confirmatory metrics (e.g. flat-terrain calibration
         # lacks spatial-correlation SESOI).
         if args.experiment in {E1_C4_EXPERIMENT, E2_C4_EXPERIMENT}:
+            if args.experiment == E2_C4_EXPERIMENT:
+                # Refuse before any run if the relative SESOI rule is not landed:
+                # without it the metric would silently lose claim eligibility.
+                validate_e2_c4_sesoi_derivations(config)
             validate_c4_calibration_coverage(
                 calibration,
                 config.get("scientific_sesoi", {}),
