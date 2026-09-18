@@ -51,6 +51,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 E1_C4_EXPERIMENT = "E1-MATCHED-LANDSCAPES-C4"
 E2_C4_EXPERIMENT = "E2-CHANNEL-ABLATION-C4"
 C4_CALIBRATION_EXPERIMENT = "V1F-NONFLAT-CALIBRATION-C4"
+# V1H re-analyses V1F's retained table and re-emits the same four limits plus a
+# metric V1F recorded but did not freeze. It is accepted as a Cycle 4 calibration
+# only while it stays bound to the artifact it extends (see
+# _require_cycle4_calibration_identity).
+C4_CALIBRATION_EXTENSION_EXPERIMENT = "V1H-CALIBRATION-EXTENSION-C4"
 C4_EFFECT_METRICS = (
     "resource_density_spearman_rho",
     "density_morans_i",
@@ -1453,10 +1458,7 @@ def load_e2_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
     silently thresholded.
     """
     calibration = _load_checksum_bound_calibration(config)
-    if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:
-        raise RuntimeError(
-            f"Cycle 4 requires {C4_CALIBRATION_EXPERIMENT} calibration"
-        )
+    _require_cycle4_calibration_identity(calibration)
     if calibration.get("pass") is not True:
         raise RuntimeError("Cycle 4 numerical calibration did not pass")
     if not isinstance(calibration.get("numerical_resolution_limits"), Mapping):
@@ -1464,6 +1466,73 @@ def load_e2_c4_calibration(config: Mapping[str, Any]) -> Dict[str, Any]:
     if not isinstance(config.get("scientific_sesoi", {}), Mapping):
         raise RuntimeError("Cycle 4 config has no scientific_sesoi")
     return calibration
+
+
+def _require_cycle4_calibration_identity(calibration: Mapping[str, Any]) -> None:
+    """Accept V1F, or an extension that is bound to V1F by its hash.
+
+    A name is not binding: any artifact can claim to extend V1F. What makes an
+    extension auditable is that it names the exact artifact it re-derived, so the
+    four reproduced limits can be checked against that file. The extension must
+    also self-report a clean faithfulness comparison, because a limit that was
+    restated rather than recomputed is indistinguishable from one that reproduced.
+    """
+    experiment = calibration.get("experiment")
+    if experiment == C4_CALIBRATION_EXPERIMENT:
+        return
+    if experiment != C4_CALIBRATION_EXTENSION_EXPERIMENT:
+        raise RuntimeError(
+            f"Cycle 4 requires {C4_CALIBRATION_EXPERIMENT} calibration, "
+            f"got {experiment!r}"
+        )
+    extends = calibration.get("extends")
+    if not isinstance(extends, Mapping):
+        raise RuntimeError(
+            "Cycle 4 calibration extension does not declare the artifact it extends"
+        )
+    if extends.get("experiment") != C4_CALIBRATION_EXPERIMENT:
+        raise RuntimeError(
+            f"Cycle 4 calibration extension does not extend "
+            f"{C4_CALIBRATION_EXPERIMENT}"
+        )
+    source_sha256 = extends.get("sha256")
+    if not isinstance(source_sha256, str) or len(source_sha256) != 64:
+        raise RuntimeError(
+            "Cycle 4 calibration extension must pin its source's 64-character sha256"
+        )
+    faithfulness = calibration.get("faithfulness")
+    if not isinstance(faithfulness, Mapping):
+        raise RuntimeError("Cycle 4 calibration extension reports no faithfulness block")
+    if faithfulness.get("field_mismatches") != 0:
+        raise RuntimeError(
+            "Cycle 4 calibration extension did not reproduce its source bit-for-bit"
+        )
+    reproduced = faithfulness.get("reproduced_limits")
+    if not isinstance(reproduced, Mapping) or not reproduced:
+        raise RuntimeError(
+            "Cycle 4 calibration extension reports no reproduced source limits"
+        )
+    limits = calibration.get("numerical_resolution_limits")
+    if not isinstance(limits, Mapping):
+        raise RuntimeError("Cycle 4 calibration extension has no resolution limits")
+    for metric, entry in reproduced.items():
+        if not isinstance(entry, Mapping) or entry.get("bit_equal") is not True:
+            raise RuntimeError(
+                f"Cycle 4 calibration extension did not reproduce {metric} exactly"
+            )
+        if entry.get("recomputed") != entry.get("frozen"):
+            raise RuntimeError(
+                f"Cycle 4 calibration extension reports disagreeing values for {metric}"
+            )
+        # The emitted limits must agree with the faithfulness block. This does not
+        # prove the values equal V1F's (that is checked against the committed
+        # artifact), but it removes the possibility of two self-contradicting
+        # claims inside one file.
+        if limits.get(metric) != entry.get("frozen"):
+            raise RuntimeError(
+                f"Cycle 4 calibration extension's {metric} limit disagrees with its "
+                "own faithfulness block"
+            )
 
 
 def load_confirmatory_calibration(
