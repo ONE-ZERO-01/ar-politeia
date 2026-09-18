@@ -137,7 +137,10 @@ S09 不是命名问题，而是**可识别性缺陷**：旧 `production` 因子�
 - 主对比：`clustered − shuffled`（像素直方图逐位相同，只隔离空间排列）；次要：`clustered − flat`
   （同时改变直方图，只作参考）。
 - 估计量：源的空间组织对财富结构的效应 —— `wealth_gini`、`wealth_variance`、
-  `zero_wealth_fraction`、`mean_wealth` 的配对尾窗均值差。
+  `mean_wealth` 的配对尾窗均值差。
+  （`zero_wealth_fraction` **不在**估计量内：实测在本参考体制下退化——全部 960 个 run
+  只有 4 个取值、`clustered − shuffled` 的配对差在三个 dt 上恒为 0——故它只能承担 P4 的
+  非退化护栏，不能承担效应断言，否则会产出空洞的 null。详见 §15.2 与 §15.3。）
 - 关键性质：位置逐位相同，所以这不是"景观改变人口分布"的效应，而是**同一套扩散轨迹下
   源的时空相关结构如何改变财富分配**。这是干净的单通道估计量。
 - 空间家族（Spearman/Moran/entropy）不用于任何科学结论，只用于 P1 恒等检查；
@@ -614,6 +617,20 @@ E1-C4 报告的财富尺度诊断量，值得纳入。
 
 > claim-eligible 的指标除了要有数值上限与 SESOI，还必须在参考配置下**具有非零方差**。
 > 一个数值上限为 `0.0`（或方差为 0）的指标不得进入断言家族——否则会产出空洞的 null。
+
+已按此实现为 `run_landscape_study.e2_c4_claim_ineligibility_reasons`：每个原因都**不含任意
+常数**（只判定"成立/不成立"），且要求全部原因都不成立才得 claim。
+
+| 原因码 | 判定 |
+|---|---|
+| `missing_numerical_resolution_limit` | 指标不在校准产物的数值上限表内 |
+| `zero_numerical_resolution_limit` | 上限**恰为 0.0**——这是"对 dt 逐位不敏感"，不是"精度极好"；该数无法界定一个离零的误差 |
+| `missing_scientific_sesoi` | 指标不在配置的 SESOI 表内 |
+| `degenerate_metric_no_variance` | 该指标在**被分析的 run 上取值恒定**（或缺失）——没有可估计的对象 |
+
+结果写入 payload 的 `threshold_provenance.ineligibility_reasons`，故每个被排除的指标都带着
+**理由**，而不是被静默剔除；`claim_eligible_metrics` / `descriptive_only_metrics` 照旧。
+`zero_wealth_fraction` 在实测数据上**同时命中两条**（上限 0.0 与取值恒定）。
 
 这条判据同时挡住两类错误：把退化指标当成"精度极好"（§15.2），以及把"没有差异"当成结论。
 

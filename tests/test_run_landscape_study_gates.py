@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 import sys
 
@@ -1205,3 +1206,116 @@ def test_e2_c4_two_window_gate_runs_on_five_units(tmp_path, monkeypatch):
     assert payload["experiment"] == "E2-CHANNEL-ABLATION-C4"
     assert set(payload["conditions"]) == set(run_landscape_study.E2_C4_UNIT_NAMES)
     assert payload["replicates_per_condition"] == 3
+
+
+# ── claim eligibility: mechanical, threshold-free reasons ─────────────
+
+
+def _by_seed(values_by_unit):
+    """Build {seed: {unit: {metric: value}}} from {unit: [per-seed values]}."""
+    lengths = {len(values) for values in values_by_unit.values()}
+    assert len(lengths) == 1, "all units must carry the same seed count"
+    count = lengths.pop()
+    return {
+        seed: {unit: {"m": values[seed]} for unit, values in values_by_unit.items()}
+        for seed in range(count)
+    }
+
+
+def _reasons(by_seed, metric="m", limits=None, sesoi=None):
+    return run_landscape_study.e2_c4_claim_ineligibility_reasons(
+        by_seed,
+        metric,
+        {"m": 0.003} if limits is None else limits,
+        {"m": 0.025} if sesoi is None else sesoi,
+    )
+
+
+def test_claim_eligibility_requires_a_frozen_limit_and_a_sesoi():
+    by_seed = _by_seed({"a": [1.0, 2.0, 3.0], "b": [1.5, 2.5, 3.5]})
+    assert _reasons(by_seed, limits={}, sesoi={}) == [
+        "missing_numerical_resolution_limit",
+        "missing_scientific_sesoi",
+    ]
+    assert _reasons(by_seed) == []
+
+
+def test_claim_eligibility_refuses_a_zero_resolution_limit():
+    """A limit of exactly 0.0 is bitwise invariance, not perfect precision."""
+    by_seed = _by_seed({"a": [1.0, 2.0, 3.0], "b": [1.5, 2.5, 3.5]})
+    assert _reasons(by_seed, limits={"m": 0.0}) == ["zero_numerical_resolution_limit"]
+
+
+def test_claim_eligibility_refuses_a_metric_with_no_variance():
+    by_seed = _by_seed({"a": [0.0, 0.0, 0.0], "b": [0.0, 0.0, 0.0]})
+    assert _reasons(by_seed) == ["degenerate_metric_no_variance"]
+
+
+def test_claim_eligibility_refuses_the_measured_zero_wealth_fraction_shape():
+    """Both reasons at once, exactly as measured on V1F's 960 runs."""
+    by_seed = _by_seed({"a": [0.0, 0.0, 0.0], "b": [0.0, 0.0, 0.0]})
+    assert _reasons(by_seed, limits={"m": 0.0}) == [
+        "zero_numerical_resolution_limit",
+        "degenerate_metric_no_variance",
+    ]
+
+
+def test_claim_eligibility_follows_the_data_rather_than_a_fixed_allowlist():
+    """Mutation: the same metric flips once its values vary and its limit is real."""
+    assert _reasons(_by_seed({"a": [0.0, 0.0, 0.0], "b": [0.0, 0.0, 0.0]}), limits={"m": 0.0}) != []
+    varying = _by_seed({"a": [0.0, 0.0, 0.0], "b": [0.0, 1e-5, 2e-5]})
+    assert _reasons(varying, limits={"m": 1e-6}) == []
+
+
+def test_aggregate_e2_c4_reports_why_each_metric_is_ineligible(tmp_path, monkeypatch):
+    _stub_e2_c4_calibration(monkeypatch)
+    run_landscape_study.write_json(tmp_path / "matched_input_audit.json", {"pass": True})
+    payload = run_landscape_study.aggregate_e2_c4(
+        _e2_c4_rows(), _e2_c4_config(), tmp_path, {"pass": True}
+    )
+    reasons = payload["threshold_provenance"]["ineligibility_reasons"]
+    # The three uncalibrated metrics must each say why, not merely be excluded.
+    assert set(reasons) == {"wealth_variance", "zero_wealth_fraction", "mean_wealth"}
+    for metric_reasons in reasons.values():
+        assert "missing_numerical_resolution_limit" in metric_reasons
+    assert "wealth_gini" not in reasons
+
+
+# ── design ↔ code consistency (guards the section-14 class of error) ───
+
+DESIGN_PATH = Path(__file__).parents[1] / "research" / "e2-cycle4-channel-design.md"
+
+
+def _design_section(heading: str, next_heading: str) -> str:
+    text = DESIGN_PATH.read_text(encoding="utf-8")
+    return text.split(heading, 1)[1].split(next_heading, 1)[0]
+
+
+def test_design_reason_vocabulary_equals_the_codes_the_function_emits():
+    """A reason added in code but absent from the design is an unregistered threshold."""
+    section = _design_section("### 15.3", "### 15.4")
+    documented = set(re.findall(r"^\|\s*`([a-z_]+)`\s*\|", section, flags=re.MULTILINE))
+
+    source = MODULE_PATH.read_text(encoding="utf-8")
+    function = source.split("def e2_c4_claim_ineligibility_reasons", 1)[1].split("\ndef ", 1)[0]
+    emitted = set(re.findall(r'reasons\.append\(\s*"([a-z_]+)"\s*\)', function))
+
+    assert documented == emitted
+    assert len(documented) == 4
+
+
+def test_design_p2_estimands_are_the_effect_metrics_minus_the_retired_one():
+    """P2's prose must name exactly the metrics the code may carry claims on."""
+    bullet = _design_section("### P2 — 源的空间组织消融", "- 关键性质")
+    estimand_line = bullet.split("估计量：", 1)[1].split("（", 1)[0]
+    named = set(re.findall(r"`([a-z_]+)`", estimand_line))
+
+    assert named == set(run_landscape_study.E2_C4_EFFECT_METRICS) - {"zero_wealth_fraction"}
+    # The retired metric stays named in P2 only as an exclusion, not as an estimand.
+    assert "zero_wealth_fraction" in bullet
+    assert run_landscape_study.E2_C4_EFFECT_METRICS == (
+        "wealth_gini",
+        "wealth_variance",
+        "zero_wealth_fraction",
+        "mean_wealth",
+    )

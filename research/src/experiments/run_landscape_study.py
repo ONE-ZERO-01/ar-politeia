@@ -2602,6 +2602,51 @@ def _e2_c4_source_total_accounting(
     }
 
 
+def e2_c4_claim_ineligibility_reasons(
+    by_seed: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    metric: str,
+    numerical_limits: Mapping[str, Any],
+    scientific_sesoi: Mapping[str, Any],
+) -> List[str]:
+    """Mechanical, threshold-free reasons a metric may not carry a claim.
+
+    Each reason is a property that either holds exactly or does not, so no
+    arbitrary constant enters the pre-registration. A metric earns a claim only
+    when this list is empty.
+
+    The last two reasons exist because a claim needs more than frozen numbers: it
+    needs something to estimate. ``zero_wealth_fraction`` failed both in pilot
+    data — its dt-comparison was bitwise, so its limit came out exactly ``0.0``,
+    and it was constant within the analysed units — and either would have produced
+    a vacuous null, which the design forbids recording as a result. See the E2-C4
+    design section 15.
+    """
+    reasons: List[str] = []
+    if metric not in numerical_limits:
+        reasons.append("missing_numerical_resolution_limit")
+    elif float(numerical_limits[metric]) == 0.0:
+        # A limit of exactly zero says the metric is bitwise invariant to the
+        # discretisation step. The number then cannot bound a numerical error away
+        # from zero, so it carries no information about numerical error — it must
+        # not be read as "the metric is measured perfectly".
+        reasons.append("zero_numerical_resolution_limit")
+    if metric not in scientific_sesoi:
+        reasons.append("missing_scientific_sesoi")
+
+    observed = {
+        format(float(value), ".17g")
+        for per_unit in by_seed.values()
+        for per_metric in per_unit.values()
+        for value in (per_metric.get(metric),)
+        if value is not None
+    }
+    if len(observed) <= 1:
+        # One value everywhere (or none) means there is nothing to estimate: any
+        # contrast on it is a vacuous null.
+        reasons.append("degenerate_metric_no_variance")
+    return reasons
+
+
 def aggregate_e2_c4(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
@@ -2706,10 +2751,13 @@ def aggregate_e2_c4(
     calibration = load_e2_c4_calibration(config)
     numerical_limits = calibration.get("numerical_resolution_limits", {})
     scientific_sesoi = config.get("scientific_sesoi", {})
-    claim_eligible = {
-        metric: bool(metric in numerical_limits and metric in scientific_sesoi)
+    ineligibility = {
+        metric: e2_c4_claim_ineligibility_reasons(
+            by_seed, metric, numerical_limits, scientific_sesoi
+        )
         for metric in E2_C4_EFFECT_METRICS
     }
+    claim_eligible = {metric: not reasons for metric, reasons in ineligibility.items()}
     thresholds = {
         metric: {
             "numerical_resolution_limit": float(numerical_limits[metric]),
@@ -2932,9 +2980,11 @@ def aggregate_e2_c4(
         "diagnostic_spatial_metrics": spatial_diagnostics,
         "threshold_provenance": {
             "policy": (
-                "a contrast can only carry a claim when the metric has both a V1F "
+                "a contrast can only carry a claim when the metric has both a "
                 "numerical resolution limit and a scientific SESOI frozen before "
-                "the confirmatory run"
+                "the confirmatory run, and additionally has something to estimate: "
+                "its limit must not be exactly zero and its values must not be "
+                "constant across the analysed runs"
             ),
             "claim_eligible_metrics": sorted(
                 metric for metric, value in claim_eligible.items() if value
@@ -2942,6 +2992,9 @@ def aggregate_e2_c4(
             "descriptive_only_metrics": sorted(
                 metric for metric, value in claim_eligible.items() if not value
             ),
+            "ineligibility_reasons": {
+                metric: reasons for metric, reasons in sorted(ineligibility.items()) if reasons
+            },
         },
         "multiplicity": (
             "Holm FWER within each block over its claim-eligible contrasts; "
