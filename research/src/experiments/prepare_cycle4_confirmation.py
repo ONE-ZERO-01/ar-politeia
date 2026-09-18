@@ -148,6 +148,136 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+# ── diagnostic recording ─────────────────────────────────────────────
+#
+# ``jobctl reconcile`` *verifies* a job's declared artifacts but writes nothing,
+# and its own record lives under the gitignored ``.autoresearcher/``.  A
+# diagnostic whose numbers exist only in ``workspace/`` (also gitignored) would
+# therefore leave no auditable trace in git at all.  ``record_diagnostic`` closes
+# that gap: it promotes the conclusion artifact into the job dir and derives both
+# ``result.json`` and ``manifest.json`` from that artifact and from the jobctl
+# result, so no number is transcribed by hand.  A test re-derives both records
+# from the committed artifact, which is what makes the record checkable from a
+# fresh clone rather than only from the machine that ran the job.
+
+
+def _check_workspace_artifact(workspace: Path, name: str) -> Path:
+    """Fail fast on a declared artifact that is absent or empty.
+
+    An empty file would hash to a value that looks perfectly valid, so the
+    contract checks size rather than trusting the hash alone.
+    """
+    path = workspace / name
+    if not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"declared diagnostic artifact is missing or empty: {name}")
+    return path
+
+
+def record_diagnostic(
+    job_dir: Path,
+    jobctl_dir: Path,
+    *,
+    conclusion_artifact: str,
+    workspace_artifacts: Sequence[str],
+) -> dict[str, Any]:
+    """Promote a finished diagnostic's conclusion into the tracked job dir.
+
+    Refuses to record a job that jobctl saw fail or time out, and validates every
+    input *before* the first write: a half-written record (``result.json`` present,
+    ``manifest.json`` absent) would be indistinguishable from a complete one.
+    """
+    jobctl_result = _read_json(jobctl_dir / "result.json")
+    if jobctl_result.get("exit_code") != 0:
+        raise RuntimeError(
+            f"jobctl recorded exit code {jobctl_result.get('exit_code')!r}; "
+            "refusing to record a failed run"
+        )
+    if jobctl_result.get("timed_out"):
+        raise RuntimeError("jobctl recorded a timeout; refusing to record")
+
+    workspace = job_dir / "workspace"
+    declared = {
+        name: _check_workspace_artifact(workspace, name) for name in workspace_artifacts
+    }
+    source = _check_workspace_artifact(workspace, conclusion_artifact)
+
+    report = _read_json(source)
+    if report.get("experiment") != job_dir.name:
+        raise RuntimeError(
+            f"conclusion artifact names {report.get('experiment')!r}, not the job "
+            f"dir {job_dir.name!r}"
+        )
+
+    by_metric: dict[str, dict[str, Any]] = {}
+    for metric, entry in report.get("by_metric", {}).items():
+        by_metric[metric] = {
+            "two_se_bound": float(entry["bound"]["two_se_bound"]),
+            "frozen_numerical_resolution_limit": float(
+                entry["frozen_numerical_resolution_limit"]
+            ),
+            "bounded": bool(entry["bounded"]),
+        }
+    if not by_metric:
+        raise RuntimeError("conclusion artifact declares no per-metric bounds")
+    # The verdict must equal the conjunction of its own per-metric bounds; a
+    # report whose summary line disagrees with its detail is not recordable.
+    if bool(report.get("pass")) != all(
+        entry["bounded"] for entry in by_metric.values()
+    ):
+        raise RuntimeError(
+            "conclusion artifact's verdict disagrees with its per-metric bounds"
+        )
+
+    # Every input is valid; only now touch the job dir.
+    tracked = job_dir / conclusion_artifact
+    temporary = tracked.with_suffix(tracked.suffix + ".tmp")
+    shutil.copyfile(source, temporary)
+    os.replace(temporary, tracked)
+    if _sha256(tracked) != _sha256(source):
+        raise RuntimeError("promoted conclusion artifact does not match its source")
+
+    result = {
+        "experiment": report["experiment"],
+        "status": "completed",
+        "pass": bool(report.get("pass")),
+        "non_evidentiary": bool(report.get("diagnostic_only", True)),
+        "verdict": report.get("verdict"),
+        "scope": report.get("scope"),
+        "run_count": report.get("run_count"),
+        "stationarity_failure_count": len(report.get("stationarity_failures", [])),
+        "window_caveat": report.get("window_caveat"),
+        "by_metric": by_metric,
+        "binding": report.get("binding"),
+        "conclusion_artifact": conclusion_artifact,
+        "conclusion_artifact_sha256": _sha256(tracked),
+    }
+    _write_json(job_dir / "result.json", result)
+
+    manifest = {
+        "exit_code": int(jobctl_result["exit_code"]),
+        "timed_out": False,
+        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
+        "jobctl_reconcile": "completed",
+        "artifacts": [
+            {
+                "path": f"workspace/{name}",
+                "sha256": _sha256(path),
+                "valid": True,
+            }
+            for name, path in declared.items()
+        ],
+    }
+    _write_json(job_dir / "manifest.json", manifest)
+
+    return {
+        "experiment": result["experiment"],
+        "verdict": result["verdict"],
+        "pass": result["pass"],
+        "promoted": conclusion_artifact,
+        "conclusion_artifact_sha256": result["conclusion_artifact_sha256"],
+    }
+
+
 def _relative(root: Path, path: Path) -> str:
     resolved_root = root.resolve()
     resolved_path = path.resolve()
@@ -1826,6 +1956,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     seeds_parser.add_argument("--pool-max", type=int, default=None)
     seeds_parser.add_argument("--propose", type=int, default=None)
     seeds_parser.add_argument("--out", default=None)
+    record_parser = subparsers.add_parser("record-diagnostic")
+    record_parser.add_argument("--job-dir", required=True)
+    record_parser.add_argument("--jobctl-dir", required=True)
+    record_parser.add_argument("--conclusion-artifact", required=True)
+    record_parser.add_argument("--workspace-artifact", action="append", default=[])
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
@@ -1894,6 +2029,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 encoding="utf-8",
             )
             print(f"wrote {args.out}")
+    elif args.command == "record-diagnostic":
+        print(
+            json.dumps(
+                record_diagnostic(
+                    (PROJECT_ROOT / args.job_dir).resolve(),
+                    (PROJECT_ROOT / args.jobctl_dir).resolve(),
+                    conclusion_artifact=args.conclusion_artifact,
+                    workspace_artifacts=args.workspace_artifact,
+                ),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
         finalize(
             PROJECT_ROOT,

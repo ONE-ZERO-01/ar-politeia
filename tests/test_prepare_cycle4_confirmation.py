@@ -1334,3 +1334,167 @@ def test_repository_ledger_holds_no_unregistered_overlap(monkeypatch):
     evidence = {seed for job in promotion.EVIDENCE_BEARING_JOBS for seed in report["jobs"][job]["seeds"]}
     assert historical and not (historical & evidence)
 
+
+
+# ── record-diagnostic ────────────────────────────────────────────────
+
+
+def _diagnostic_inputs(
+    root: Path, *, experiment: str = "V1G-ORDER-THERMAL-C4", verdict: str = "bounded"
+):
+    """A synthetic finished diagnostic plus its jobctl record."""
+    job_dir = root / "research" / "jobs" / experiment
+    workspace = job_dir / "workspace"
+    workspace.mkdir(parents=True)
+    passed = verdict == "bounded"
+    report = {
+        "experiment": experiment,
+        "diagnostic_only": True,
+        "scope": "diagnostic only; supports no confirmatory claim",
+        "binding": {"calibration_sha256": "c" * 64},
+        "run_count": 4,
+        "stationarity_failures": ["seed-1--a"],
+        "window_caveat": "1 of 4 runs fail the per-run steady-window checks",
+        "by_metric": {
+            "wealth_gini": {
+                "bound": {"two_se_bound": 0.001, "replicates": 2},
+                "frozen_numerical_resolution_limit": 0.002,
+                "bounded": passed,
+            }
+        },
+        "pass": passed,
+        "verdict": verdict,
+    }
+    _write_json(workspace / "order_thermal_report.json", report)
+    (workspace / "replicate_metrics.csv").write_text("seed,value\n1,2\n", encoding="utf-8")
+    jobctl_dir = root / ".autoresearcher" / "jobs" / experiment
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 0, "timed_out": False, "wall_seconds": 12.5, "artifacts": []},
+    )
+    return job_dir, jobctl_dir, report
+
+
+def _record(root: Path, job_dir: Path, jobctl_dir: Path):
+    return promotion.record_diagnostic(
+        job_dir,
+        jobctl_dir,
+        conclusion_artifact="order_thermal_report.json",
+        workspace_artifacts=["order_thermal_report.json", "replicate_metrics.csv"],
+    )
+
+
+def test_record_diagnostic_derives_its_records_from_the_artifact(tmp_path):
+    job_dir, jobctl_dir, report = _diagnostic_inputs(tmp_path)
+    summary = _record(tmp_path, job_dir, jobctl_dir)
+
+    # The conclusion artifact is promoted verbatim, so a fresh clone can re-derive
+    # the record instead of trusting a summary someone typed.
+    promoted = job_dir / "order_thermal_report.json"
+    assert json.loads(promoted.read_text()) == report
+    assert summary["conclusion_artifact_sha256"] == _sha256(promoted)
+
+    result = json.loads((job_dir / "result.json").read_text())
+    assert result["experiment"] == "V1G-ORDER-THERMAL-C4"
+    assert result["status"] == "completed" and result["pass"] is True
+    assert result["non_evidentiary"] is True
+    assert result["verdict"] == "bounded"
+    assert result["stationarity_failure_count"] == 1
+    assert result["by_metric"]["wealth_gini"] == {
+        "two_se_bound": 0.001,
+        "frozen_numerical_resolution_limit": 0.002,
+        "bounded": True,
+    }
+
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert manifest["wall_seconds"] == 12.5
+    assert [entry["path"] for entry in manifest["artifacts"]] == [
+        "workspace/order_thermal_report.json",
+        "workspace/replicate_metrics.csv",
+    ]
+    assert all(entry["valid"] for entry in manifest["artifacts"])
+    assert manifest["artifacts"][1]["sha256"] == _sha256(
+        job_dir / "workspace" / "replicate_metrics.csv"
+    )
+
+
+def test_record_diagnostic_refuses_a_failed_job(tmp_path):
+    job_dir, jobctl_dir, _report = _diagnostic_inputs(tmp_path)
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 1, "timed_out": False, "wall_seconds": 1.0},
+    )
+    with pytest.raises(RuntimeError, match="exit code 1"):
+        _record(tmp_path, job_dir, jobctl_dir)
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_diagnostic_refuses_a_timed_out_job(tmp_path):
+    job_dir, jobctl_dir, _report = _diagnostic_inputs(tmp_path)
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 0, "timed_out": True, "wall_seconds": 1.0},
+    )
+    with pytest.raises(RuntimeError, match="timeout"):
+        _record(tmp_path, job_dir, jobctl_dir)
+
+
+def test_record_diagnostic_refuses_a_missing_conclusion_artifact(tmp_path):
+    job_dir, jobctl_dir, _report = _diagnostic_inputs(tmp_path)
+    (job_dir / "workspace" / "order_thermal_report.json").unlink()
+    with pytest.raises(RuntimeError, match="missing or empty"):
+        _record(tmp_path, job_dir, jobctl_dir)
+
+
+def test_record_diagnostic_refuses_an_empty_declared_artifact(tmp_path):
+    """An empty file has a perfectly valid hash; size is what catches it."""
+    job_dir, jobctl_dir, _report = _diagnostic_inputs(tmp_path)
+    (job_dir / "workspace" / "replicate_metrics.csv").write_text("", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="missing or empty"):
+        _record(tmp_path, job_dir, jobctl_dir)
+    # The promotion happens before the artifact sweep; assert the sweep is what
+    # refused, by checking result.json was not written.
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_diagnostic_refuses_a_verdict_that_contradicts_its_bounds(tmp_path):
+    job_dir, jobctl_dir, report = _diagnostic_inputs(tmp_path)
+    report["pass"] = True
+    report["by_metric"]["wealth_gini"]["bounded"] = False
+    _write_json(job_dir / "workspace" / "order_thermal_report.json", report)
+    with pytest.raises(RuntimeError, match="disagrees with its per-metric bounds"):
+        _record(tmp_path, job_dir, jobctl_dir)
+
+
+def test_record_diagnostic_refuses_a_report_naming_another_experiment(tmp_path):
+    job_dir, jobctl_dir, report = _diagnostic_inputs(tmp_path)
+    report["experiment"] = "SOMEONE-ELSE-C4"
+    _write_json(job_dir / "workspace" / "order_thermal_report.json", report)
+    with pytest.raises(RuntimeError, match="not the job dir"):
+        _record(tmp_path, job_dir, jobctl_dir)
+
+
+def test_record_diagnostic_refuses_a_report_without_any_bounds(tmp_path):
+    job_dir, jobctl_dir, report = _diagnostic_inputs(tmp_path)
+    report["by_metric"] = {}
+    _write_json(job_dir / "workspace" / "order_thermal_report.json", report)
+    with pytest.raises(RuntimeError, match="no per-metric bounds"):
+        _record(tmp_path, job_dir, jobctl_dir)
+
+
+def test_record_diagnostic_follows_the_report_rather_than_a_fixed_projection(tmp_path):
+    """Mutation: change the artifact and the record must change with it."""
+    job_dir, jobctl_dir, report = _diagnostic_inputs(tmp_path)
+    _record(tmp_path, job_dir, jobctl_dir)
+    first = json.loads((job_dir / "result.json").read_text())
+
+    report["by_metric"]["wealth_gini"]["bound"]["two_se_bound"] = 0.00175
+    report["run_count"] = 9
+    _write_json(job_dir / "workspace" / "order_thermal_report.json", report)
+    _record(tmp_path, job_dir, jobctl_dir)
+    second = json.loads((job_dir / "result.json").read_text())
+
+    assert second["by_metric"]["wealth_gini"]["two_se_bound"] == 0.00175
+    assert second["run_count"] == 9
+    assert second != first
