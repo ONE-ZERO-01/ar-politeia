@@ -1,5 +1,6 @@
 {
   "experiment_id": "V1H-CALIBRATION-EXTENSION-C4",
+  "source_experiment": "V1F-NONFLAT-CALIBRATION-C4",
   "source_calibration": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
   "source_calibration_sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
   "source_replicate_metrics": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/workspace/replicate_metrics.csv",

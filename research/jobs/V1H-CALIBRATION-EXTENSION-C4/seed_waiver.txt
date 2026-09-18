@@ -1,1 +1,3 @@
-V1H is a deterministic reanalysis of V1F's retained replicate_metrics.csv. It reads no random values, initialises no state, and draws no new random numbers, so it declares no seeds and consumes none. Every number it produces is a function of the retained table alone, which is why it is submitted with this waiver instead of a seeds.txt.
+V1H is a deterministic reanalysis of V1F's retained replicate_metrics.csv. It reads no random values, initialises no state, and draws no new random numbers, so it consumes no seeds and holds no seeds.txt.
+
+The jobctl submission declares V1F's 64 seeds. That declaration is provenance, not consumption: those are the seeds of the runs whose tail-window metrics the retained table contains, and naming them is what makes the reanalysis's source auditable. Not one of them is drawn again, so no random stream is shared with V1F or with any other job.

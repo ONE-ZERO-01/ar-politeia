@@ -18,7 +18,7 @@
     "research/jobs/V1H-CALIBRATION-EXTENSION-C4/workspace"
   ],
   "config": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/config.json",
-  "config_sha256": "cf0d0416cea55e79312317bb69e5ed6cdd5988c20d41a4f033402a00fc9b6086",
+  "config_sha256": "cb56d8387a9a3155aa6c0134114e73ecc227c3c993cffa311912e5186bf2df96",
   "env_snapshot": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/env.txt",
   "seed_evidence": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/seed_waiver.txt",
   "data_checksums": {
