@@ -1,0 +1,17 @@
+{
+  "approach": "Run 40 runs (5 frozen units x 8 fresh seeds) as eight OMP=1 CPU reference processes on the calibrated reference binary, then read paired-difference sample SDs (n-1 denominator, one-sided 90% upper bound), the P4 per-unit level readings, and the P1 isolation identity guard. No contrast mean, direction, interval or p-value is computed anywhere in the pilot.",
+  "evidence_role": "non-evidentiary dispersion pilot",
+  "evidence_boundary": "E2-C4-PILOT measures spread and per-unit comparability levels to size the confirmatory replicate count. It produces no evidence about any E2-C4 channel effect and must not be cited as such; the confirmatory run's seed subset is disjoint from the pilot's, so the two cannot be pooled.",
+  "reference_method": "validated OpenMP-OFF C++ simulator binary, sha256-bound to the cycle 4 parameter lock",
+  "validation_points": [
+    "the pilot pins every protocol constant against E1-MATCHED-LANDSCAPES-C4's tracked config and refuses to run on any difference",
+    "the pilot re-verifies the frozen seed window against the seeds ledger before execution",
+    "the pilot reuses the shared P1 identity guard and P4 comparability criterion rather than restating either"
+  ],
+  "agreement": {
+    "criterion": "all requested runs complete, P1 identity holds for every (seed, metric) comparison, and every run's own steady-window check passes"
+  },
+  "reference_validation_required": true,
+  "validation_artifact": "pilot_variance_report.json",
+  "supports_core_claim": false
+}

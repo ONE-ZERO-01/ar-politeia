@@ -50,6 +50,13 @@ from landscape_study import (
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 E1_C4_EXPERIMENT = "E1-MATCHED-LANDSCAPES-C4"
 E2_C4_EXPERIMENT = "E2-CHANNEL-ABLATION-C4"
+# The non-evidentiary pilot that freezes E2-C4's R. It runs the same five units
+# under the same regime, so it must inherit E2-C4's source-pattern audit,
+# per-run spec shape, initial-state identity check and steady-window contract
+# rather than reimplement any of them -- a second copy of those rules is exactly
+# how a pilot's criteria drift away from the experiment's.
+E2_C4_PILOT_EXPERIMENT = "E2-C4-PILOT"
+E2_C4_FAMILY_EXPERIMENTS = (E2_C4_EXPERIMENT, E2_C4_PILOT_EXPERIMENT)
 C4_CALIBRATION_EXPERIMENT = "V1F-NONFLAT-CALIBRATION-C4"
 # V1H re-analyses V1F's retained table and re-emits the same four limits plus a
 # metric V1F recorded but did not freeze. It is accepted as a Cycle 4 calibration
@@ -360,8 +367,11 @@ def default_conditions(experiment: str, config: Mapping[str, Any]) -> List[Dict[
             }
             for landscape in ("clustered", "shuffled")
         ]
-    if experiment == E2_C4_EXPERIMENT:
-        # Five deduplicated units (design §4/§8). Constraint 3: terrain force off
+    if experiment in E2_C4_FAMILY_EXPERIMENTS:
+        # Five deduplicated units (design §4/§8). The pilot must run the same
+        # battery as the confirmatory run -- the whole point of the pilot is that
+        # its spread is *this* experiment's spread -- so the family, not just the
+        # confirmatory id, selects this branch. Constraint 3: terrain force off
         # and social_strength zero everywhere, so particle positions are
         # exogenous to every wealth-family factor and bitwise shared across
         # units. Constraint 1: source and sink are both on in every unit, since
@@ -716,7 +726,7 @@ def prepare_inputs(
     if len(seeds) < 1:
         raise ValueError("at least one seed is required")
     conditions = default_conditions(experiment, config)
-    if experiment == E2_C4_EXPERIMENT:
+    if experiment in E2_C4_FAMILY_EXPERIMENTS:
         validate_e2_c4_structure(conditions, config)
     inputs_dir = output_dir / "inputs"
     runs_dir = output_dir / "runs"
@@ -730,7 +740,7 @@ def prepare_inputs(
         seed_dir = inputs_dir / f"seed-{seed}"
         fields = make_matched_landscapes(shape, seed)
         fields = {**fields, "smooth": generate_smooth_resource(shape)}
-        if experiment == E2_C4_EXPERIMENT:
+        if experiment in E2_C4_FAMILY_EXPERIMENTS:
             # Three-condition source audit (design §7.2): exact permutation,
             # constant flat equal to the clustered mean, and matched totals.
             audit = audit_three_condition_landscapes(
@@ -891,7 +901,7 @@ def prepare_inputs(
                                 )
                             )
                         }
-                        if experiment == E2_C4_EXPERIMENT
+                        if experiment in E2_C4_FAMILY_EXPERIMENTS
                         else {}
                     ),
                     "exchange_rate": float(condition["exchange_rate"]),
@@ -947,7 +957,7 @@ def prepare_inputs(
             ]
             audit["pass"] = bool(audit["pass"] and initial_match)
 
-        if experiment == E2_C4_EXPERIMENT:
+        if experiment in E2_C4_FAMILY_EXPERIMENTS:
             # Constraint 3 needs the *complete* phase state to be bitwise shared
             # across units, not merely the summary metrics: with force off and
             # social_strength zero the (x, p) trajectory is a function of
@@ -1247,7 +1257,7 @@ def mean_metrics_for_run(
     experiment: Optional[str] = None,
     terrain_production_scale: float = 1.0,
 ) -> Dict[str, Any]:
-    if experiment == E2_C4_EXPERIMENT and "base_production" not in spec:
+    if experiment in E2_C4_FAMILY_EXPERIMENTS and "base_production" not in spec:
         # Checked before any filesystem work. Never fall back to a default: a
         # missing source rate would make every unit's realized total evaluate to
         # zero, and the matched-source premise audit (P2) would then "pass"
@@ -1270,7 +1280,7 @@ def mean_metrics_for_run(
         snapshot_metrics(snapshot, resource, bounds_tuple)
         for snapshot in snapshots_read
     ]
-    if experiment == E2_C4_EXPERIMENT:
+    if experiment in E2_C4_FAMILY_EXPERIMENTS:
         # E2-C4 P2 accounts for the *realized* source rate on the same tail
         # snapshots as every other metric, so the design's "matched source
         # totals by construction" premise is audited rather than assumed. It is
@@ -2168,7 +2178,7 @@ def stationary_metrics_for_experiment(experiment: str) -> tuple[str, ...]:
         # R06: zero_wealth_fraction joins the wealth stationarity premise for
         # E0 (boundary-calibration role), alongside Gini and variance.
         return ("wealth_gini", "wealth_variance", "zero_wealth_fraction")
-    if experiment == E2_C4_EXPERIMENT:
+    if experiment in E2_C4_FAMILY_EXPERIMENTS:
         # ``resource_density_spearman_rho`` is *undefined* on the E2-C4 ``flat``
         # unit (a constant source field has zero variance, S04), and R01/R06
         # make an undefined metric block the gate rather than pass it. The
@@ -2916,6 +2926,69 @@ def e2_c4_claim_ineligibility_reasons(
     return reasons
 
 
+def e2_c4_identity_report(
+    by_seed: Mapping[int, Mapping[str, Mapping[str, Any]]],
+) -> Dict[str, Any]:
+    """P1: the structural isolation identity guard for E2-C4's source patterns.
+
+    Not a scientific test. With terrain force off and ``social_strength`` zero,
+    particle positions are exogenous to every wealth-family factor, so the two
+    pure-position metrics must be bitwise identical across the three source
+    patterns. Bitwise, because the premise is that the *same* trajectory was run;
+    a tolerance would let a real leak hide inside it.
+
+    Shared by the confirmatory analyser and the non-evidentiary pilot so the two
+    cannot disagree about what "exogenous" means. The caller decides what to do
+    with a violation: both stop, because a violated guard makes every effect in
+    the batch uninterpretable.
+    """
+    violations: List[Dict[str, Any]] = []
+    checked_pairs = 0
+    for seed in sorted(by_seed):
+        reference_unit = E2_C4_PATTERN_UNITS[0]
+        for metric in E2_C4_IDENTITY_METRICS:
+            reference = by_seed[seed][reference_unit][metric]
+            if reference is None:
+                raise RuntimeError(
+                    f"E2-C4 {metric} is undefined for {reference_unit} seed {seed}; "
+                    "the identity guard requires a numerically valid metric"
+                )
+            for unit in E2_C4_PATTERN_UNITS[1:]:
+                value = by_seed[seed][unit][metric]
+                checked_pairs += 1
+                if format(float(reference), ".17g") != format(float(value), ".17g"):
+                    violations.append(
+                        {
+                            "seed": seed,
+                            "metric": metric,
+                            "reference_unit": reference_unit,
+                            "unit": unit,
+                            "reference_value": float(reference),
+                            "value": None if value is None else float(value),
+                        }
+                    )
+    return {
+        "role": (
+            "structural regression guard, not a scientific test: with terrain "
+            "force off and social_strength zero, particle positions are exogenous "
+            "to every wealth-family factor and must be bitwise identical across "
+            "source patterns"
+        ),
+        "metrics": list(E2_C4_IDENTITY_METRICS),
+        "units": list(E2_C4_PATTERN_UNITS),
+        "excluded_metrics": {
+            "resource_density_spearman_rho": (
+                "depends on the resource field, so it is allowed to differ and is "
+                "undefined on the constant flat field"
+            )
+        },
+        "seeds": len(by_seed),
+        "checked_comparisons": checked_pairs,
+        "violations": violations,
+        "pass": not violations,
+    }
+
+
 def aggregate_e2_c4(
     rows: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
@@ -2952,51 +3025,8 @@ def aggregate_e2_c4(
             raise RuntimeError(f"E2-C4 seed {seed} is missing units {missing}")
 
     # --- P1: structural isolation identity guard (fail-fast, no effect entry) ---
-    identity_violations: List[Dict[str, Any]] = []
-    checked_pairs = 0
-    for seed in sorted(by_seed):
-        reference_unit = E2_C4_PATTERN_UNITS[0]
-        for metric in E2_C4_IDENTITY_METRICS:
-            reference = by_seed[seed][reference_unit][metric]
-            if reference is None:
-                raise RuntimeError(
-                    f"E2-C4 {metric} is undefined for {reference_unit} seed {seed}; "
-                    "the identity guard requires a numerically valid metric"
-                )
-            for unit in E2_C4_PATTERN_UNITS[1:]:
-                value = by_seed[seed][unit][metric]
-                checked_pairs += 1
-                if format(float(reference), ".17g") != format(float(value), ".17g"):
-                    identity_violations.append(
-                        {
-                            "seed": seed,
-                            "metric": metric,
-                            "reference_unit": reference_unit,
-                            "unit": unit,
-                            "reference_value": float(reference),
-                            "value": None if value is None else float(value),
-                        }
-                    )
-    identity = {
-        "role": (
-            "structural regression guard, not a scientific test: with terrain "
-            "force off and social_strength zero, particle positions are exogenous "
-            "to every wealth-family factor and must be bitwise identical across "
-            "source patterns"
-        ),
-        "metrics": list(E2_C4_IDENTITY_METRICS),
-        "units": list(E2_C4_PATTERN_UNITS),
-        "excluded_metrics": {
-            "resource_density_spearman_rho": (
-                "depends on the resource field, so it is allowed to differ and is "
-                "undefined on the constant flat field"
-            )
-        },
-        "seeds": len(expected_seeds),
-        "checked_comparisons": checked_pairs,
-        "violations": identity_violations,
-        "pass": not identity_violations,
-    }
+    identity = e2_c4_identity_report(by_seed)
+    identity_violations = identity["violations"]
     if identity_violations:
         write_json(
             output_dir / "isolation_identity_report.json",

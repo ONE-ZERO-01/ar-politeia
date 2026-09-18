@@ -218,7 +218,25 @@ R 一旦冻结即写入 E2 lock，**不得**在正式结果出现后更改；且
 - 记录：完成后 `jobctl reconcile` + 入库结论产物（`pilot_variance_report.json`）与
   由它机械导出的 `result.json` / `manifest.json`。
 
-### 要写的测试（含变异检验）
+### 6.1 实现期发现并修掉的两处缺口（2026-09-18）
+
+两处都是"写得出来、跑不起来"或"跑得起来但跑的不是预注册那一套"的缺口，由本节的
+变异检验直接暴露，因此按"先修再冻结声明集"处理：
+
+1. **`default_conditions` 只认正式 id**：该函数原先用 `experiment == E2_C4_EXPERIMENT`
+   分支给出五个单元，pilot 的 id 落到了兜底分支（读 config 的 `conditions` 列表），
+   结果是 `prepare_inputs` 直接报"requires a non-empty conditions list"——pilot
+   **根本无法准备输入**。若只按"能不能跑"来判断，这里会被误读成配置缺字段；实际是
+   共享分派漏了 pilot。已改为 `experiment in E2_C4_FAMILY_EXPERIMENTS`，与
+   `prepare_inputs` / `stationary_metrics_for_experiment` / `mean_metrics_for_run`
+   等处一致（全量测试 401 项通过）。
+2. **单元表是代码而不是配置**：`require_frozen_units` 原先比对的是共享表
+   `E2_C4_UNITS`，于是"改表 + 重新生成 speclist"会让**两边一起漂移**，检查照样通过。
+   现在 pilot 侧多了一份 `FROZEN_UNIT_TABLE` 字面副本：共享表被改动、或准备出的
+   spec 与冻结电池不一致（`(landscape, d, base)` 不同、单元缺失、某单元 seed 数
+   不是 8），一律拒绝运行；同时逐 seed 检查同一单元不会被描述成两种电池。
+
+### 6.2 测试清单（已落地：`tests/test_run_e2_c4_pilot.py`，48 项）
 
 1. 报告里**没有**任何对比均值/方向/区间字段（结构性禁止，而不是靠人自觉）；
 2. 配对差 SD 与手算一致（含 `n−1` 分母与上界 SD 的 chi² 因子）；
@@ -263,3 +281,17 @@ R **不写进** pilot 报告（pilot 只给 SD 与 `Var_ref`）。pilot 完成�
 | 用点估计 SD 而不加上界 | `n = 8` 时系统性低估 R；V1ED 的先例就是踩过这个 |
 | 加一个"pilot 模式"开关到共享分析器 | 共享分析器会算出全部效应（P2/P3 的均值与区间），而那正是 pilot 不该读的；分开脚本才能让"不读方向"成为结构性质 |
 | 让 pilot 同时冻结 SESOI | Δ 是科学相关性判断，让它读实测方差会把"可检测"与"有意义"混为一谈 |
+
+## 9. 声明集与提交顺序（2026-09-18）
+
+`research/jobs/E2-C4-PILOT/` 的声明集（`experiment.json`、`config.json`、`seeds.txt`、
+`env.txt`、`outputs.txt`、`data_checksums.txt`、`computational_strategy.json`）与本脚本、
+测试、文档在同一研究事件内提交，`commit.txt` 随后回填为**该声明集提交的 sha**（与
+V1F/V1H 同法）。顺序固定为：
+
+1. 提交声明集（本地 preflight 仅缺 `commit_id` 一项）；
+2. 回填 `commit.txt` = 声明集提交 sha；
+3. 在 `umi` 上执行 `preflight`（要求 status = pass），再 `jobctl submit`；
+4. 跑完 `jobctl reconcile`，回收 `pilot_variance_report.json` + `steady_estimand_report.json`；
+5. 离线 `--derive-r` 求 R，把 R 与两个 Δ 写进 E2 lock 的 `design_contract`（**此步之前
+   E2-C4 正式实验不得提交**）。

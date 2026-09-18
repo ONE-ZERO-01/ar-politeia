@@ -1,0 +1,52 @@
+{
+  "id": "E2-C4-PILOT",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": [],
+  "non_evidentiary": true,
+  "depends_on": [
+    "E1-MATCHED-LANDSCAPES-C4",
+    "V0G-SIMULATOR-TESTS-C4"
+  ],
+  "objective": "Measure the paired-difference dispersion of E2-C4's three pre-registered contrasts on the five frozen units (8 fresh seeds each), plus the P4 policy level readings, so the confirmatory replicate count R can be derived from this experiment's own variance instead of inherited from E1-C4's 64.",
+  "role": "This job tests no claim. It reads spread and per-unit levels only: it reports no contrast mean, direction, interval or p-value, so both P2/P3 estimands remain unread until the confirmatory run. Its P4 comparability readings gate the E2-C4 lock (a unit that misses the frozen band forces the affected contrast to be narrowed before submission, never re-banded), and its wealth_variance reference level supplies Var_ref for the frozen rule delta := 0.50 * Var_ref.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_e2_c4_pilot.py",
+    "--config",
+    "research/jobs/E2-C4-PILOT/config.json",
+    "--output-dir",
+    "research/jobs/E2-C4-PILOT/workspace"
+  ],
+  "config": "research/jobs/E2-C4-PILOT/config.json",
+  "config_sha256": "8bb80efc3d46821b84f624a5fc949f9cbbabecd172ffb442aeefeb6b8e54bcc3",
+  "env_snapshot": "research/jobs/E2-C4-PILOT/env.txt",
+  "seeds": [
+    12301,
+    12323,
+    12329,
+    12343,
+    12347,
+    12373,
+    12377,
+    12379
+  ],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "the script re-verifies the frozen seed window against the seeds ledger and records every per-seed input digest in run_specs.json before execution",
+    "dependency_calibration": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+    "parameter_lock": "bee66e70a1a9406bc4c1712df4fe3317a0856ce0392f7debbe64e69a9826127d",
+    "reference_binary": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+    "reference_protocol_config": "9ad1be9cc183fcdfc4ab081e3a2bf4fafb434ee72296efe46861867695c58cbf"
+  },
+  "artifacts": [
+    "pilot_variance_report.json",
+    "steady_estimand_report.json",
+    "isolation_identity_report.json"
+  ],
+  "timeout_seconds": 86400,
+  "gpu_count": 0,
+  "design": "research/e2-cycle4-pilot-design.md",
+  "failure_policy": "A failed module is an implementation problem, never a result: a P1 identity violation, a run that fails its own steady-window check, or a report that cannot be assembled stops the batch and must be fixed and re-run. A P4 comparability miss does not fail the pilot but gates the E2 lock: the affected contrast is narrowed and registered as inconclusive in advance, and no band, unit or delta may be adjusted from these readings."
+}
