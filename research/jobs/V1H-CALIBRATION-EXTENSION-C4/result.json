@@ -1,0 +1,44 @@
+{
+  "experiment": "V1H-CALIBRATION-EXTENSION-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "scope": "numerical calibration extension by re-analysis of retained V1F data; runs no simulation and supports no landscape-effect claim",
+  "extends": {
+    "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+    "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+    "sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5"
+  },
+  "source_replicate_metrics": {
+    "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/workspace/replicate_metrics.csv",
+    "sha256": "902b286a04647382449537707164cfdfc46881a0175107320a5b663fbf544dbc"
+  },
+  "faithfulness": {
+    "field_mismatches": 0,
+    "reproduced_limits_bit_equal": true,
+    "reproduced_metrics": [
+      "density_morans_i",
+      "occupancy_entropy",
+      "resource_density_spearman_rho",
+      "wealth_gini"
+    ],
+    "verified_against": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+    "method": "recomputed with V1F's own _weak_bound from the retained replicate_metrics.csv; every recorded bound field compared exactly"
+  },
+  "frozen_limits": {
+    "density_morans_i": 0.0032587589468579255,
+    "occupancy_entropy": 0.0009948207537034592,
+    "resource_density_spearman_rho": 0.004589992673223881,
+    "wealth_gini": 0.0014407792015185721
+  },
+  "extended_limits": {
+    "wealth_variance": 0.056828569227561854
+  },
+  "extension_metrics": [
+    "wealth_variance"
+  ],
+  "ceiling_policy": "no ceiling is frozen by an extension; a ceiling is a pre-registered failure threshold and is frozen with the scientific SESOI",
+  "pathwise_claim": false,
+  "conclusion_artifact": "numerical_calibration_extended.json",
+  "conclusion_artifact_sha256": "545363ea7ee01faf258482a2c4d135d77465ac5ffb79f7f8d097961288b2b00e"
+}

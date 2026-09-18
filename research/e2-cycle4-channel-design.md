@@ -375,8 +375,8 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
 - [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 36 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component，每条带可机器校验的 basis；重分析 job 的标识按引用记账，见 §8）
 - [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**，判据与候选见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)；阻塞 pilot（pilot 自身即需 8 个全新 seed）；窗口已定为 `12300–13000`，待写入 lock
-- [ ] **E2-C4 推断射程选择——已定 (B′)，见 §15**：校准扩展到 `wealth_variance`（可行性已逐位验证：以 V1F 自己的 `_weak_bound` 重算复现其四个上限、0 处浮点不匹配、无需模拟器时间；信号约为其数值上限的 64 倍）。**`zero_wealth_fraction` 退出估计量家族、保留为 P4 护栏**——实测在参考体制下退化（960 run 仅 4 个取值、clustered/dt=0.005 上 64/64 为 0 且 sd=0、`clustered − shuffled` 配对差在三个 dt 上恒为 0、上限测出 0.0）。**`mean_wealth` 定为水平审计量、不做校准扩展**（三条理由见 §15.5；它从未被 V1F 记过，重取需 ≈28 GB 快照，而它的水平带与"估计它的效应"直接冲突）。新增两条机械判据：claim-eligible 的指标除数值上限与 SESOI 外**还须具有非零方差**（同时挡住"把退化指标当成精度极好"与"把没有差异当成结论"）；以及**设计↔代码一致性控制**（文档的原因码词表与 P2 叙述必须与代码一致，防 §14 类错误重现）。**P4 水平带冻结为 ±10%**（§4 P4 第 2 条），故 P2 存在一个先验可失败的 Gate，由 pilot 提前回答
-- [ ] **V1H（校准扩展）：待实现**——只从 V1F 保留的 `replicate_metrics.csv` 重分析，产出扩展校准产物；**字段级忠实性检验须在 `umi` 执行**（CSV 是 workspace 产物、不入库），产物级检查（四个旧上限与已入库 `numerical_calibration.json` 逐位相等）在本地可执行
+- [x] **E2-C4 推断射程选择——已定 (B′)，见 §15**：校准扩展到 `wealth_variance`（可行性已逐位验证：以 V1F 自己的 `_weak_bound` 重算复现其四个上限、0 处浮点不匹配、无需模拟器时间；信号约为其数值上限的 64 倍）。**`zero_wealth_fraction` 退出估计量家族、保留为 P4 护栏**——实测在参考体制下退化（960 run 仅 4 个取值、clustered/dt=0.005 上 64/64 为 0 且 sd=0、`clustered − shuffled` 配对差在三个 dt 上恒为 0、上限测出 0.0）。**`mean_wealth` 定为水平审计量、不做校准扩展**（三条理由见 §15.5；它从未被 V1F 记过，重取需 ≈28 GB 快照，而它的水平带与"估计它的效应"直接冲突）。新增两条机械判据：claim-eligible 的指标除数值上限与 SESOI 外**还须具有非零方差**（同时挡住"把退化指标当成精度极好"与"把没有差异当成结论"）；以及**设计↔代码一致性控制**（文档的原因码词表与 P2 叙述必须与代码一致，防 §14 类错误重现）。**P4 水平带冻结为 ±10%**（§4 P4 第 2 条），故 P2 存在一个先验可失败的 Gate，由 pilot 提前回答
+- [x] **V1H（校准扩展）：已完成并入库**（2026-09-18，见 §16）——只从 V1F 保留的 `replicate_metrics.csv` 重分析；**字段级忠实性检验在 `umi` 执行并通过**（四个旧上限逐位重现，`field_mismatches = 0`），产物级检查（四个旧上限与已入库 `numerical_calibration.json` 逐位相等）在本地由 `record-calibration-extension` 执行并通过。扩展结果为 `wealth_variance: 0.056828569227561854`，无 ceiling；入库 `research/jobs/V1H-CALIBRATION-EXTENSION-C4/{numerical_calibration_extended,result,manifest}.json`
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
@@ -721,3 +721,69 @@ bounded_by_discretization，两者都已在 `aggregate_v1` 里定义、都不含
 > +43.6%，E2-C4 的 P2 就存在一个**先验可失败**的 Gate。pilot 会在真实体制（力关、全新
 > seed、5 单元）下量出该偏差，因此 pilot 的职责之一正是**提前**回答"P2 是否可比"；若 pilot
 > 显示超带，应在 E2 lock 冻结前收窄 P2 的射程，而不是投完预算再发现 inconclusive。
+
+## 16. V1H 执行与判定记录（2026-09-18）
+
+V1H 是 §15 收窄为 (B′) 之后的实施与回收。它**不跑模拟器**：只读 V1F 留在 workspace 里的
+`replicate_metrics.csv`（sha256 `902b286a…`），用 V1F 自己的 `_weak_bound` 重算分层误差界。
+墙钟 0.37 s，无 GPU，无新 seed。
+
+**预注册的判定式（提交前写下，事后不得更改）。**
+
+1. 四个旧上限必须**逐位重现**（3 landscape × 4 指标 × 2 层、每个 bound 6 个浮点字段全部相等），
+   否则**整份产物不发布**——差一点点不是"更严格"，而是对另一个对象的又一次测量。
+2. 扩展只**允许新增**上限：既有上限不得被改写、不得被重新声明为"扩展"。
+3. 不为新指标**发明 ceiling**：`numerical_error_ceilings` 是预注册的失败阈值，事后填写即为
+   未注册阈值；新指标只用数据导出的判据（`discretization_trend_pass` 与
+   `bounded_by_discretization`，两者都不含任意常数），ceiling 留给 SESOI 冻结时一并确定。
+
+**实测结果（`pass = true`）。**
+
+| 项 | 值 |
+|---|---|
+| 忠实性 | `field_mismatches = 0`；四个上限 `bit_equal = true` |
+| 复现出的旧上限 | spearman `0.004589992673223881`、Moran `0.0032587589468579255`、entropy `0.0009948207537034592`、Gini `0.0014407792015185721` |
+| 新增上限 | `wealth_variance = 0.056828569227561854`（取 discretization 层最差单元 `clustered`） |
+| 分层判据 | 三单元 `trend_pass = true`；order 层最细 dt 界 `0.005972…` 小于 discretization 界，故 `bounded_by_discretization = true` |
+| `mean_wealth` | 不在扩展范围（§15.5 定为审计量）；产物内以 `out_of_scope` 显式记录，不静默略过 |
+
+**回收：为什么需要一个新子命令。** `load_e2_c4_calibration` 只检查扩展件**自述**的两个性质
+（pin 了源的 sha256、自报忠实性干净）。这两条都写在同一个文件里，因此任何"自称扩展 V1F"的
+文件都能满足它们。`prepare_cycle4_confirmation.py record-calibration-extension` 在**入库前**
+把自述变成事实：读磁盘上那份 `numerical_calibration.json`、算出它的 sha256、再从**那份文件**
+里读回四个上限逐个比对，并拒绝以下情形——pin 与磁盘不符、旧上限被改写、某个旧指标被静默
+跳过、扩展集为空、把已冻结指标重新声明为"扩展"、配置声明的扩展指标与产物不符、以及为新指标
+带上 ceiling。所有校验都在任何写入之前完成，故失败时 job 目录保持原样。
+
+```bash
+python3 research/src/experiments/prepare_cycle4_confirmation.py record-calibration-extension \
+  --job-dir research/jobs/V1H-CALIBRATION-EXTENSION-C4 \
+  --jobctl-dir .autoresearcher/jobs/V1H-CALIBRATION-EXTENSION-C4 \
+  --source-calibration research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json \
+  --conclusion-artifact numerical_calibration_extended.json \
+  --workspace-artifact numerical_calibration_extended.json
+```
+
+入库的三份记录：
+
+| 文件 | 内容 |
+|---|---|
+| `numerical_calibration_extended.json` | 完整产物，sha256 `545363ea…`，与 workspace 源逐字节相同 |
+| `result.json` | 源绑定（路径 + sha256）、忠实性摘要、四个旧上限与一个新上限、`pathwise_claim = false`、ceiling 政策 |
+| `manifest.json` | jobctl 对账形状（exit 0、未超时、墙钟、产物 sha256） |
+
+**seed 处置（一处必须写清的细节）。** V1H 不消耗 seed，故声明集里只有 `seed_waiver.txt`，
+没有 `seeds.txt`；台账把它记为"无 seed 证据（已豁免）"而非消费者。但 `jobctl submit` 要求
+提交时必须给出 seed 声明，因此提交时传入的是 **V1F 的 64 个 seed**，其语义是**provenance**：
+它们标识保留表里那些 V1F run，而不是 V1H 要重抽的随机流。这一点写在 `seed_waiver.txt` 里，
+并且**列表必须与 V1F 的 `seeds.txt` 逐项相等**——由测试绑定，因为台账只检查 waiver 是否存在，
+一份**伪造的** provenance 列表本来可以躺在 git 里不被发现（本地确实先写错过一版，是这条
+测试把它挡下来的）。
+
+**测试与变异检验。** `record-calibration-extension` 有 **20 项测试**（含失败/超时/空产物/
+pin 不符/源路径不符/改写旧上限/静默跳过/非逐位相等/重复冻结/无新增/伪造 ceiling/指标漂移/
+判定自相矛盾/`pathwise_claim` 为真/非 V1F 源等），另有 **3 项入库忠实性检验**：从已入库的产物
+重导 `result.json`、把四个上限与 V1F 已入库的 `numerical_calibration.json` 对照、以及把待加载
+产物喂给 `_require_cycle4_calibration_identity`（记录器与加载器校验的是同一主张的两半，
+一个能过不等于另一个能过）。四类变异——产物内上限漂移、记录漏掉一个旧上限、V1F 事后
+被重新校准、记录把已冻结指标重新声明为扩展——**全部被捕获**。

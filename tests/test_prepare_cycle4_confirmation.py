@@ -1547,3 +1547,445 @@ def test_v1g_record_is_rederivable_from_its_committed_report():
     assert manifest["jobctl_reconcile"] == "completed"
     assert manifest["artifacts"][0]["path"] == "workspace/order_thermal_report.json"
     assert manifest["artifacts"][0]["sha256"] == record["conclusion_artifact_sha256"]
+
+
+# ── record-calibration-extension ─────────────────────────────────────
+
+V1F_RELATIVE = "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json"
+REPLICATE_METRICS_RELATIVE = (
+    "research/jobs/V1F-NONFLAT-CALIBRATION-C4/workspace/replicate_metrics.csv"
+)
+REPLICATE_METRICS_SHA256 = "a" * 64
+
+
+def _extension_inputs(root: Path, *, experiment: str = "V1H-CALIBRATION-EXTENSION-C4"):
+    """A synthetic finished calibration extension plus its jobctl record.
+
+    The source calibration is written first because the extension's own pin has to
+    be the real hash of that file: that is the binding the loader will re-check.
+    """
+    source_path = root / V1F_RELATIVE
+    source_path.parent.mkdir(parents=True)
+    _write_json(
+        source_path,
+        {
+            "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+            "pass": True,
+            "numerical_resolution_limits": {
+                "occupancy_entropy": 0.0005,
+                "wealth_gini": 0.00125,
+            },
+        },
+    )
+    source_sha256 = _sha256(source_path)
+
+    job_dir = root / "research" / "jobs" / experiment
+    workspace = job_dir / "workspace"
+    workspace.mkdir(parents=True)
+    _write_json(
+        job_dir / "config.json",
+        {
+            "experiment_id": experiment,
+            "source_experiment": "V1F-NONFLAT-CALIBRATION-C4",
+            "source_calibration": V1F_RELATIVE,
+            "source_calibration_sha256": source_sha256,
+            "source_replicate_metrics": REPLICATE_METRICS_RELATIVE,
+            "source_replicate_metrics_sha256": REPLICATE_METRICS_SHA256,
+            "extension_metrics": ["wealth_variance"],
+        },
+    )
+    artifact = {
+        "experiment": experiment,
+        "status": "completed",
+        "pass": True,
+        "scope": "numerical calibration extension by re-analysis of retained data",
+        "extends": {
+            "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+            "sha256": source_sha256,
+            "path": V1F_RELATIVE,
+        },
+        "source_replicate_metrics": {
+            "path": REPLICATE_METRICS_RELATIVE,
+            "sha256": REPLICATE_METRICS_SHA256,
+        },
+        "faithfulness": {
+            "field_mismatches": 0,
+            "metrics_compared": ["occupancy_entropy", "wealth_gini"],
+            "reproduced_limits": {
+                "occupancy_entropy": {
+                    "recomputed": 0.0005,
+                    "frozen": 0.0005,
+                    "bit_equal": True,
+                },
+                "wealth_gini": {
+                    "recomputed": 0.00125,
+                    "frozen": 0.00125,
+                    "bit_equal": True,
+                },
+            },
+            "method": "recomputed with V1F's own bound from the retained table",
+        },
+        "numerical_resolution_limits": {
+            "occupancy_entropy": 0.0005,
+            "wealth_gini": 0.00125,
+            "wealth_variance": 0.056,
+        },
+        "extension_metrics": ["wealth_variance"],
+        "extensions": {
+            "wealth_variance": {
+                "metric": "wealth_variance",
+                "numerical_resolution_limit": 0.056,
+                "ceiling": None,
+                "ceiling_pass": None,
+                "pass": True,
+            }
+        },
+        "pathwise_claim": False,
+    }
+    _write_json(workspace / "numerical_calibration_extended.json", artifact)
+
+    jobctl_dir = root / ".autoresearcher" / "jobs" / experiment
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 0, "timed_out": False, "wall_seconds": 7.5, "artifacts": []},
+    )
+    return job_dir, jobctl_dir, source_path, artifact
+
+
+def _record_extension(root: Path, job_dir: Path, jobctl_dir: Path, source_path: Path):
+    return promotion.record_calibration_extension(
+        root,
+        job_dir,
+        jobctl_dir,
+        source_calibration=source_path,
+        conclusion_artifact="numerical_calibration_extended.json",
+        workspace_artifacts=["numerical_calibration_extended.json"],
+    )
+
+
+def _rewrite_artifact(job_dir: Path, artifact: dict) -> None:
+    _write_json(job_dir / "workspace" / "numerical_calibration_extended.json", artifact)
+
+
+def test_record_calibration_extension_derives_its_records_from_the_artifact(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    summary = _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+    promoted = job_dir / "numerical_calibration_extended.json"
+    assert json.loads(promoted.read_text()) == artifact
+    assert summary["conclusion_artifact_sha256"] == _sha256(promoted)
+    assert summary["extends"] == V1F_RELATIVE
+
+    result = json.loads((job_dir / "result.json").read_text())
+    assert result["experiment"] == "V1H-CALIBRATION-EXTENSION-C4"
+    assert result["status"] == "completed" and result["pass"] is True
+    assert result["non_evidentiary"] is True and result["pathwise_claim"] is False
+    # The pin recorded in git is the one verified against the file on disk.
+    assert result["extends"] == {
+        "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+        "path": V1F_RELATIVE,
+        "sha256": _sha256(source_path),
+    }
+    assert result["frozen_limits"] == {"occupancy_entropy": 0.0005, "wealth_gini": 0.00125}
+    assert result["extended_limits"] == {"wealth_variance": 0.056}
+    assert result["extension_metrics"] == ["wealth_variance"]
+    assert result["faithfulness"]["reproduced_metrics"] == [
+        "occupancy_entropy",
+        "wealth_gini",
+    ]
+    assert result["faithfulness"]["field_mismatches"] == 0
+    assert result["source_replicate_metrics"]["sha256"] == REPLICATE_METRICS_SHA256
+    assert "no ceiling" in result["ceiling_policy"]
+
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert manifest["wall_seconds"] == 7.5
+    assert [entry["path"] for entry in manifest["artifacts"]] == [
+        "workspace/numerical_calibration_extended.json"
+    ]
+    assert manifest["artifacts"][0]["sha256"] == result["conclusion_artifact_sha256"]
+
+
+def test_record_calibration_extension_refuses_a_failed_job(tmp_path):
+    job_dir, jobctl_dir, source_path, _artifact = _extension_inputs(tmp_path)
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 1, "timed_out": False, "wall_seconds": 1.0},
+    )
+    with pytest.raises(RuntimeError, match="exit code 1"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    assert not (job_dir / "result.json").exists()
+    assert not (job_dir / "numerical_calibration_extended.json").exists()
+
+
+def test_record_calibration_extension_refuses_a_timed_out_job(tmp_path):
+    job_dir, jobctl_dir, source_path, _artifact = _extension_inputs(tmp_path)
+    _write_json(
+        jobctl_dir / "result.json",
+        {"exit_code": 0, "timed_out": True, "wall_seconds": 1.0},
+    )
+    with pytest.raises(RuntimeError, match="timeout"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_an_empty_declared_artifact(tmp_path):
+    job_dir, jobctl_dir, source_path, _artifact = _extension_inputs(tmp_path)
+    _write_json(job_dir / "workspace" / "numerical_calibration_extended.json", {})
+    (job_dir / "workspace" / "numerical_calibration_extended.json").write_text(
+        "", encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="missing or empty"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_calibration_extension_refuses_a_pin_that_does_not_match_disk(tmp_path):
+    """The loader's binding check must already be true when the record is written.
+
+    A name is not binding and neither is a self-reported hash: if the pin did not
+    have to equal the file on disk, an extension could cite V1F while re-deriving
+    its limits from something else entirely.
+    """
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["extends"]["sha256"] = "b" * 64
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="pins a different source artifact"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_calibration_extension_refuses_a_misconfigured_source_pin(tmp_path):
+    """The config's pre-registered pin and the on-disk artifact must agree."""
+    job_dir, jobctl_dir, source_path, _artifact = _extension_inputs(tmp_path)
+    config = json.loads((job_dir / "config.json").read_text())
+    config["source_calibration_sha256"] = "c" * 64
+    _write_json(job_dir / "config.json", config)
+    with pytest.raises(RuntimeError, match="job config declares a different source"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_a_source_path_that_is_not_the_pinned_one(
+    tmp_path,
+):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["extends"]["path"] = "research/jobs/SOMEWHERE-ELSE-C4/calibration.json"
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="not the path it was recorded against"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_checks_limits_against_the_committed_source(
+    tmp_path,
+):
+    """The decisive check the loader cannot make: against the source file itself.
+
+    The extension and its faithfulness block agree with each other here, and both
+    disagree with the artifact it claims to extend. Self-consistency is not
+    faithfulness, so only re-reading the source catches this.
+    """
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["faithfulness"]["reproduced_limits"]["wealth_gini"]["frozen"] = 0.009
+    artifact["numerical_resolution_limits"]["wealth_gini"] = 0.009
+    artifact["faithfulness"]["reproduced_limits"]["wealth_gini"]["recomputed"] = 0.009
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="freezes 0.00125"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_calibration_extension_refuses_a_silently_skipped_limit(tmp_path):
+    """Omitting a metric from the faithfulness block would let its limit drift."""
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    del artifact["faithfulness"]["reproduced_limits"]["wealth_gini"]
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="exactly the source's frozen limits"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_a_limit_that_is_not_bit_equal(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    entry = artifact["faithfulness"]["reproduced_limits"]["occupancy_entropy"]
+    entry["bit_equal"] = False
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="did not reproduce occupancy_entropy"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_an_altered_frozen_limit(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["numerical_resolution_limits"]["occupancy_entropy"] = 0.002
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="alters the frozen occupancy_entropy"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_to_refreeze_an_existing_metric(tmp_path):
+    """Re-declaring a frozen metric as an "extension" replaces a threshold."""
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["extensions"]["wealth_gini"] = {
+        "metric": "wealth_gini",
+        "numerical_resolution_limit": 0.00125,
+        "ceiling": None,
+        "ceiling_pass": None,
+        "pass": True,
+    }
+    artifact["extension_metrics"] = ["wealth_gini", "wealth_variance"]
+    config = json.loads((job_dir / "config.json").read_text())
+    config["extension_metrics"] = ["wealth_gini", "wealth_variance"]
+    _write_json(job_dir / "config.json", config)
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="may only add limits"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_an_extension_that_adds_nothing(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    del artifact["numerical_resolution_limits"]["wealth_variance"]
+    artifact["extensions"] = {}
+    config = json.loads((job_dir / "config.json").read_text())
+    config["extension_metrics"] = []
+    _write_json(job_dir / "config.json", config)
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="adds no new metric"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_config_metric_drift(tmp_path):
+    """The declaration is written before the run, so it is a real pre/post check."""
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["numerical_resolution_limits"]["density_morans_i"] = 0.003
+    artifact["extensions"]["density_morans_i"] = {
+        "metric": "density_morans_i",
+        "numerical_resolution_limit": 0.003,
+        "ceiling": None,
+        "ceiling_pass": None,
+        "pass": True,
+    }
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="declared different extension metrics"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_an_invented_ceiling(tmp_path):
+    """A ceiling is a pre-registered failure threshold; post-hoc ones are invalid."""
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["extensions"]["wealth_variance"]["ceiling"] = 0.06
+    artifact["extensions"]["wealth_variance"]["ceiling_pass"] = True
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="carries a ceiling"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    assert not (job_dir / "result.json").exists()
+
+
+def test_record_calibration_extension_refuses_a_failed_extension_check(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["extensions"]["wealth_variance"]["pass"] = False
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="disagrees with its per-metric extension"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_a_pathwise_claim(tmp_path):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["pathwise_claim"] = True
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="pathwise_claim false"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_a_report_naming_another_experiment(
+    tmp_path,
+):
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    artifact["experiment"] = "SOMEONE-ELSE-C4"
+    _rewrite_artifact(job_dir, artifact)
+    with pytest.raises(RuntimeError, match="not the job dir"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_refuses_a_non_v1f_source(tmp_path):
+    job_dir, jobctl_dir, source_path, _artifact = _extension_inputs(tmp_path)
+    _write_json(source_path, {"experiment": "V1F-NONFLAT-CALIBRATION-C4", "pass": False})
+    with pytest.raises(RuntimeError, match="not a passing"):
+        _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+
+
+def test_record_calibration_extension_follows_the_artifact(tmp_path):
+    """Mutation: change the artifact and the record must change with it."""
+    job_dir, jobctl_dir, source_path, artifact = _extension_inputs(tmp_path)
+    _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    first = json.loads((job_dir / "result.json").read_text())
+
+    artifact["extensions"]["wealth_variance"]["numerical_resolution_limit"] = 0.0068
+    artifact["numerical_resolution_limits"]["wealth_variance"] = 0.0068
+    _rewrite_artifact(job_dir, artifact)
+    _record_extension(tmp_path, job_dir, jobctl_dir, source_path)
+    second = json.loads((job_dir / "result.json").read_text())
+
+    assert second["extended_limits"] == {"wealth_variance": 0.0068}
+    assert second != first
+
+
+def test_v1h_record_is_rederivable_from_its_committed_artifact():
+    """The shipped V1H record must be re-derivable from the shipped artifact.
+
+    V1H's whole value is the faithfulness claim, so the committed record has to be
+    checkable rather than trusted: it is re-derived here from the report next to
+    it, and the four reproduced limits are compared against V1F's committed
+    calibration file. If any of the three files drifted, this fails.
+    """
+    root = Path(__file__).parents[1]
+    job_dir = root / "research/jobs/V1H-CALIBRATION-EXTENSION-C4"
+    artifact = json.loads(
+        (job_dir / "numerical_calibration_extended.json").read_text()
+    )
+    record = json.loads((job_dir / "result.json").read_text())
+    source_path = root / V1F_RELATIVE
+    source = json.loads(source_path.read_text())
+
+    assert record["experiment"] == artifact["experiment"] == "V1H-CALIBRATION-EXTENSION-C4"
+    assert record["pass"] == artifact["pass"] is True
+    assert record["non_evidentiary"] is True and record["pathwise_claim"] is False
+    assert record["conclusion_artifact_sha256"] == _sha256(
+        job_dir / "numerical_calibration_extended.json"
+    )
+    assert record["extends"] == {
+        "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+        "path": V1F_RELATIVE,
+        "sha256": _sha256(source_path),
+    }
+
+    # The claim that matters: every frozen limit is bit-for-bit what V1F freezes,
+    # and the record's copy of those limits is V1F's, not the extension's.
+    frozen = source["numerical_resolution_limits"]
+    assert record["frozen_limits"] == frozen
+    assert set(artifact["faithfulness"]["reproduced_limits"]) == set(frozen)
+    for metric, value in frozen.items():
+        entry = artifact["faithfulness"]["reproduced_limits"][metric]
+        assert entry["bit_equal"] is True
+        assert entry["recomputed"] == entry["frozen"] == value
+        assert artifact["numerical_resolution_limits"][metric] == value
+        assert record["extended_limits"].get(metric) is None
+
+    # The extension is exactly the set of limits V1F did not freeze, and it adds
+    # a resolution bound without inventing a post-hoc failure threshold.
+    assert set(record["extended_limits"]) == set(record["extension_metrics"])
+    assert set(record["extension_metrics"]) == set(artifact["extension_metrics"])
+    assert set(record["extended_limits"]).isdisjoint(frozen)
+    assert set(artifact["numerical_resolution_limits"]) == set(frozen) | set(
+        record["extension_metrics"]
+    )
+    for metric in record["extension_metrics"]:
+        assert artifact["extensions"][metric]["ceiling"] is None
+        assert artifact["extensions"][metric]["pass"] is True
+
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert manifest["artifacts"] == [
+        {
+            "path": "workspace/numerical_calibration_extended.json",
+            "sha256": record["conclusion_artifact_sha256"],
+            "valid": True,
+        }
+    ]
+

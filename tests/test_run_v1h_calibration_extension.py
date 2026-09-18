@@ -10,7 +10,9 @@ source.
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+import re
 import sys
 
 import pytest
@@ -317,3 +319,47 @@ def test_loader_rejects_an_extension_that_did_not_reproduce_a_metric_exactly():
     payload["faithfulness"]["reproduced_limits"]["density_morans_i"]["bit_equal"] = False
     with pytest.raises(RuntimeError, match="did not reproduce density_morans_i"):
         run_landscape_study._require_cycle4_calibration_identity(payload)
+
+
+def test_v1h_waiver_provenance_seeds_match_v1f():
+    """The waiver's provenance list must be V1F's own seeds, not a restatement.
+
+    V1H declares V1F's seeds to jobctl because a submission needs a seed
+    declaration, and the waiver explains that they are provenance rather than
+    consumption. That explanation is prose, and prose can be wrong — the ledger
+    only sees that a waiver exists, so a fabricated list would sit in git
+    unnoticed. Binding the list to V1F's own declaration is what makes the claim
+    checkable: it also guarantees the provenance cannot drift away from the
+    source whose table V1H actually re-read.
+    """
+    root = Path(__file__).parents[1]
+    waiver = (root / "research/jobs/V1H-CALIBRATION-EXTENSION-C4/seed_waiver.txt").read_text()
+    listed = [int(token) for token in re.findall(r"\b(\d{4,5})\b", waiver)]
+    declared = [
+        int(token)
+        for token in (root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/seeds.txt")
+        .read_text()
+        .split()
+    ]
+    assert listed == declared
+    assert len(listed) == 64
+
+
+def test_shipped_v1h_extension_is_accepted_by_the_loader():
+    """The recorded extension must satisfy the loader that will consume it.
+
+    The recorder and the loader validate different halves of the same claim — the
+    recorder checks the extension against the source artifact on disk, the loader
+    checks the extension against itself — so an artifact can pass one and fail the
+    other. This pins the two together on the file that will actually be loaded.
+    """
+    root = Path(__file__).parents[1]
+    artifact = root / "research/jobs/V1H-CALIBRATION-EXTENSION-C4"
+    calibration = json.loads((artifact / "numerical_calibration_extended.json").read_text())
+    run_landscape_study._require_cycle4_calibration_identity(calibration)
+    assert calibration["pass"] is True
+    assert calibration["pathwise_claim"] is False
+    # The four Cycle 4 effect metrics must all still carry a limit after extension.
+    for metric in run_landscape_study.C4_EFFECT_METRICS:
+        assert set(calibration["faithfulness"]["reproduced_limits"]) >= {metric}
+        assert metric in calibration["numerical_resolution_limits"]

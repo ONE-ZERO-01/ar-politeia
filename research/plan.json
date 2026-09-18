@@ -278,6 +278,21 @@
       "judgment": "Pre-frozen in the design before submission: bounded if and only if all four tail metrics satisfy |mean| + 2*SE <= the frozen numerical_resolution_limits. Diagnostic only; it produces no evidence for any E1/E2 landscape effect and must not be cited as such."
     },
     {
+      "id": "V1H-CALIBRATION-EXTENSION-C4",
+      "claim_ids": ["C1-NUM-C4"],
+      "objective": "Extend the Cycle 4 numerical resolution limits to wealth_variance by re-analysing V1F's retained replicate_metrics.csv, publishing nothing unless V1F's four frozen limits reproduce bit for bit.",
+      "mode": "server",
+      "execution_host": "umi",
+      "non_evidentiary": true,
+      "status": "completed",
+      "blocked_by": "cleared: V1F's replicate_metrics.csv was retained in the job workspace and its sha256 matches the value V1F's config declared, so the re-analysis needed no simulator time, no GPU and no new seeds.",
+      "execution": "Submitted on umi at 2026-09-18 under jobctl pid 3760366; 0.37 s of wall time (the job only reads a 5 MB table and runs no simulation) and jobctl reconcile returned completed. The verdict was recorded into the job dir by prepare_cycle4_confirmation.py record-calibration-extension, which hashes the source artifact on disk, re-reads V1F's four frozen limits from that file, and refuses to record an extension that rewrites, silently skips or re-freezes one of them.",
+      "design": "research/e2-cycle4-channel-design.md sections 15-16",
+      "artifacts": ["numerical_calibration_extended.json", "result.json", "manifest.json"],
+      "result": "pass: all four V1F limits reproduce bit for bit (0 mismatched float fields out of 144): spearman 0.004589992673223881, Moran 0.0032587589468579255, entropy 0.0009948207537034592, Gini 0.0014407792015185721. The extension adds exactly one limit, wealth_variance = 0.056828569227561854, taken from the worst cell (clustered) of the discretization layer; every cell passes its trend check and the order leg's finest-dt bound (0.005972) is below it, so the metric is bounded by discretization rather than by storage order. No ceiling is frozen: a ceiling is a pre-registered failure threshold, so it is left to be frozen with the scientific SESOI rather than written after seeing the data. mean_wealth stays out of scope (absent from the retained table; registered as a level audit, design section 15.5), which the artifact records explicitly instead of silently omitting.",
+      "judgment": "Pre-frozen before submission: an extension may only add limits. It must reproduce every source limit exactly (a near miss is a fresh measurement of a different object, not a second opinion about V1F's), may not restate an already frozen metric as an extension, and may not invent a ceiling. The extended metric must additionally pass the data-derived criteria already defined in the calibration aggregator (trend_pass, bounded_by_discretization), which contain no arbitrary constant. Diagnostic only: the extension declares pathwise_claim false and is not evidence for any E2-C4 effect."
+    },
+    {
       "id": "V0G-SIMULATOR-TESTS-C4",
       "claim_ids": ["C2-LANDSCAPE-C4"],
       "objective": "Validate the Cycle 4 promotion and binary-binding contracts, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi; produce the final reference binary.",
@@ -307,7 +322,7 @@
       "mode": "server",
       "execution_host": "umi",
       "status": "deferred",
-      "blocked_by": "implement and run V1H to supply the extended numerical limit for wealth_variance (inferential reach now decided as B', design section 15: wealth_gini + wealth_variance are the P2 estimands; zero_wealth_fraction is a P4 non-degeneracy guard only; mean_wealth is a level audit only with claim_eligible false; P4's level band is frozen at +/-10%, which makes P2 a priory-failable gate that the pilot must answer); freeze the available seed pool window 12300-13000 alongside R; read-only pilot variance to freeze R; E2-C4 design_contract lock authorising E2-CHANNEL-ABLATION-C4"
+      "blocked_by": "freeze the available seed pool window 12300-13000 alongside R; read-only pilot variance and P4 comparability to freeze R; E2-C4 design_contract lock authorising E2-CHANNEL-ABLATION-C4. V1H is done (see research/jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json), so the P2 estimands' numerical limits are in hand: wealth_gini from V1F and wealth_variance from V1H's extension. Inferential reach is decided as B' (design section 15): zero_wealth_fraction is a P4 non-degeneracy guard only, mean_wealth is a level audit with claim_eligible false, and P4's level band is frozen at +/-10%, which makes P2 a priory-failable gate that the pilot must answer."
     },
     {
       "id": "E3-ROBUSTNESS-C4",
@@ -327,7 +342,7 @@
     "stationarity_and_precision": "Separate verdicts; both are required for confirmatory effect estimation.",
     "multiplicity": "Holm family-wise correction within each frozen confirmatory family.",
     "missing_runs": "No outcome-dependent seed replacement; all failures are reported.",
-    "calibration_policy": "Flat terrain may test invariants but cannot calibrate resource-density correlation. Numerical resolution and minimum scientifically relevant effect are separate quantities.",
+    "calibration_policy": "Flat terrain may test invariants but cannot calibrate resource-density correlation. Numerical resolution and minimum scientifically relevant effect are separate quantities. A calibration extension may only add limits: it must reproduce its source's limits bit for bit, may not rewrite, skip or re-freeze one of them, and may not freeze a ceiling (a ceiling is a pre-registered failure threshold and is frozen with the SESOI, not written after seeing the data). The loader accepts an extension only while it pins the sha256 of the artifact it extends; the recorder additionally verifies that pin against the file on disk before anything is committed.",
     "change_control": "Any model, threshold, required-metric, or analysis change after outcome inspection creates a new lock/version and requires independent data."
   },
   "budget": {

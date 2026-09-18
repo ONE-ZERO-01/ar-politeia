@@ -1,3 +1,17 @@
-V1H is a deterministic reanalysis of V1F's retained replicate_metrics.csv. It reads no random values, initialises no state, and draws no new random numbers, so it consumes no seeds and holds no seeds.txt.
+V1H is a deterministic reanalysis of V1F's retained replicate_metrics.csv. It reads no
+random values, initialises no state, and draws no new random numbers, so it consumes no
+seeds and holds no seeds.txt.
 
-The jobctl submission declares V1F's 64 seeds. That declaration is provenance, not consumption: those are the seeds of the runs whose tail-window metrics the retained table contains, and naming them is what makes the reanalysis's source auditable. Not one of them is drawn again, so no random stream is shared with V1F or with any other job.
+The 64 seeds below are NOT consumed. They label the V1F runs whose tail-window metrics the
+retained table contains, and naming them here keeps the reanalysis's source auditable: this
+list must stay equal to V1F-NONFLAT-CALIBRATION-C4/seeds.txt. jobctl requires a seed
+declaration at submit time, so these are what were passed there — as provenance, not
+consumption. Nothing in V1H re-draws any of them, so no random stream is shared with V1F or
+with any other job, and the seed ledger records this job as a consumer of nothing.
+
+Provenance seeds (declared, not drawn):
+
+11003 11027 11047 11057 11059 11069 11071 11083 11087 11093 11113 11117 11119 11131 11149 11159
+11161 11171 11173 11177 11197 11213 11239 11243 11251 11257 11261 11273 11279 11287 11299 11311
+11317 11321 11329 11351 11353 11369 11383 11393 11399 11411 11423 11437 11443 11447 11467 11471
+11483 11489 11491 11497 11503 11519 11527 11549 11551 11579 11587 11593 11597 11617 11621 11633

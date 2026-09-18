@@ -1,0 +1,13 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 0.36855976842343807,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {
+      "path": "workspace/numerical_calibration_extended.json",
+      "sha256": "545363ea7ee01faf258482a2c4d135d77465ac5ffb79f7f8d097961288b2b00e",
+      "valid": true
+    }
+  ]
+}

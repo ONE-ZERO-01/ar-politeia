@@ -1,0 +1,99 @@
+{
+  "experiment": "V1H-CALIBRATION-EXTENSION-C4",
+  "status": "completed",
+  "pass": true,
+  "scope": "numerical calibration extension by re-analysis of retained V1F data; runs no simulation and supports no landscape-effect claim",
+  "extends": {
+    "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+    "sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+    "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json"
+  },
+  "source_replicate_metrics": {
+    "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/workspace/replicate_metrics.csv",
+    "sha256": "902b286a04647382449537707164cfdfc46881a0175107320a5b663fbf544dbc"
+  },
+  "faithfulness": {
+    "field_mismatches": 0,
+    "metrics_compared": [
+      "resource_density_spearman_rho",
+      "density_morans_i",
+      "occupancy_entropy",
+      "wealth_gini"
+    ],
+    "reproduced_limits": {
+      "resource_density_spearman_rho": {
+        "recomputed": 0.004589992673223881,
+        "frozen": 0.004589992673223881,
+        "bit_equal": true
+      },
+      "density_morans_i": {
+        "recomputed": 0.0032587589468579255,
+        "frozen": 0.0032587589468579255,
+        "bit_equal": true
+      },
+      "occupancy_entropy": {
+        "recomputed": 0.0009948207537034592,
+        "frozen": 0.0009948207537034592,
+        "bit_equal": true
+      },
+      "wealth_gini": {
+        "recomputed": 0.0014407792015185721,
+        "frozen": 0.0014407792015185721,
+        "bit_equal": true
+      }
+    },
+    "method": "recomputed with V1F's own _weak_bound from the retained replicate_metrics.csv; every recorded bound field compared exactly"
+  },
+  "numerical_resolution_limits": {
+    "resource_density_spearman_rho": 0.004589992673223881,
+    "density_morans_i": 0.0032587589468579255,
+    "occupancy_entropy": 0.0009948207537034592,
+    "wealth_gini": 0.0014407792015185721,
+    "wealth_variance": 0.056828569227561854
+  },
+  "extension_metrics": [
+    "wealth_variance"
+  ],
+  "extensions": {
+    "wealth_variance": {
+      "metric": "wealth_variance",
+      "numerical_resolution_limit": 0.056828569227561854,
+      "ceiling": null,
+      "ceiling_pass": null,
+      "ceiling_policy": "No ceiling is invented for an extended metric: a ceiling is a pre-registered failure threshold, so writing one after seeing the data would be an unregistered threshold. Freeze it together with the scientific SESOI.",
+      "discretization": {
+        "smooth": {
+          "fine_vs_finest_two_se_bound": 0.013350373016198045,
+          "fine_vs_finest_absolute_mean_difference": 0.0038014602550204175,
+          "trend_tolerance": 0.030922890126422947,
+          "trend_pass": true
+        },
+        "clustered": {
+          "fine_vs_finest_two_se_bound": 0.056828569227561854,
+          "fine_vs_finest_absolute_mean_difference": 0.014440292415778155,
+          "trend_tolerance": 0.12534111962167788,
+          "trend_pass": true
+        },
+        "shuffled": {
+          "fine_vs_finest_two_se_bound": 0.040738691522017895,
+          "fine_vs_finest_absolute_mean_difference": 0.00973095160445241,
+          "trend_tolerance": 0.06340655521045122,
+          "trend_pass": true
+        }
+      },
+      "discretization_trend_pass": true,
+      "storage_order": {
+        "finest_dt_two_se_bound": 0.005972248212004693,
+        "coarse_dt_two_se_bound": 0.012628192320670972,
+        "trend_pass": true,
+        "bounded_by_discretization": true
+      },
+      "pass": true
+    }
+  },
+  "out_of_scope": {
+    "mean_wealth": "Not extended. It is absent from the retained replicate_metrics.csv because V1F ran before snapshot_metrics computed it, so recovering it needs a raw-snapshot pass (~28 GB) rather than a CSV re-analysis. The design registers it as a level audit, not an estimand (design section 15.5)."
+  },
+  "threshold_policy": "Resolution limits bound numerical error only. Scientific relevance thresholds for E2-C4 must be frozen separately before confirmatory runs.",
+  "pathwise_claim": false
+}

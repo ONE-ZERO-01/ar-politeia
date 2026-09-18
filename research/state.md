@@ -311,7 +311,7 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   `simulator-remediation-status.md` section 4.9, and because it changes no model,
   threshold, required metric or analysis it does not trigger the `change_control`
   clause and requires no new lock.
-- `plan.json` now matches the evidence: V1F, V0G, V1G and E1-C4 are
+- `plan.json` now matches the evidence: V1F, V0G, V1G, V1H and E1-C4 are
   `executed_passed`/`completed`, C1-NUM-C4 and C2-LANDSCAPE-C4 are `supported`,
   and C3-CHANNELS-C4 / C4-ROBUSTNESS-C4 remain pending and deferred. S18 is
   **closed**: V1G-ORDER-THERMAL-C4 returned `bounded`, so the frozen
@@ -320,6 +320,30 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   `occupancy_entropy` uses 88% of its frozen limit (the tightest of the four),
   and 12 of 128 runs fail the per-run steady-window checks, which the design
   excludes from the verdict but which the bound inherits.
+- V1H-CALIBRATION-EXTENSION-C4 extends the Cycle 4 numerical limits to
+  `wealth_variance` without new simulation. It re-analyses V1F's retained
+  `replicate_metrics.csv` with V1F's own bound routine and reproduced all four
+  frozen limits bit for bit (0 mismatched fields out of 144), which is what makes
+  the new limit a continuation of V1F's measurement rather than a second,
+  unrelated one. The added limit is `wealth_variance = 0.0568`, bounded by
+  discretization rather than by storage order. No ceiling was frozen: a ceiling is
+  a pre-registered failure threshold, so it is left to be frozen with the
+  scientific SESOI instead of being written after seeing the data. This is the
+  last missing prerequisite for E2-C4's P2 estimands (`wealth_gini` from V1F,
+  `wealth_variance` from V1H); what remains before the E2 lock is the seed-pool
+  window, the pilot, and R.
+- Two bookkeeping gaps closed alongside V1H, both of which had the same shape: a
+  number existing only outside git. `record-calibration-extension` promotes a
+  calibration extension's artifact into the job dir and derives `result.json` and
+  `manifest.json` from it, verifying against the *source artifact on disk* rather
+  than trusting the extension's self-report — it refuses a pin that does not match
+  the file, a rewritten or silently skipped frozen limit, an extension that adds
+  nothing or re-freezes an existing metric, and a post-hoc ceiling. Separately,
+  V1H's `seed_waiver.txt` now lists the 64 V1F seeds that its jobctl submission
+  declared, with a test binding that list to V1F's own `seeds.txt`: the ledger only
+  checks that a waiver exists, so a fabricated provenance list could otherwise sit
+  in git unnoticed — a local draft of that list was in fact wrong, and the test is
+  what caught it.
 
 ## Cycle 3 E3 correction
 
