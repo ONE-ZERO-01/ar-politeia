@@ -278,6 +278,264 @@ def record_diagnostic(
     }
 
 
+# ── calibration extension recording ───────────────────────────────────
+
+
+def record_calibration_extension(
+    project_root: Path,
+    job_dir: Path,
+    jobctl_dir: Path,
+    *,
+    source_calibration: Path,
+    conclusion_artifact: str,
+    workspace_artifacts: Sequence[str],
+) -> dict[str, Any]:
+    """Promote a finished calibration extension into the tracked job dir.
+
+    The loader (``load_e2_c4_calibration``) accepts an extension only if it pins
+    its source's sha256 and self-reports a clean bit-for-bit comparison.  Both of
+    those are claims *inside* one file, so on their own they can be satisfied by
+    any artifact that names V1F and prints the expected numbers.  This recorder
+    turns them into facts before anything lands in git: it hashes the source
+    artifact on disk, reads the frozen limits back out of it, and refuses to
+    record unless the extension reproduces every one of them exactly, adds at
+    least one new metric, and takes nothing away.  As in ``record_diagnostic``,
+    every input is validated before the first write, so a failure cannot leave a
+    half-written record behind.
+    """
+    jobctl_result = _read_json(jobctl_dir / "result.json")
+    if jobctl_result.get("exit_code") != 0:
+        raise RuntimeError(
+            f"jobctl recorded exit code {jobctl_result.get('exit_code')!r}; "
+            "refusing to record a failed run"
+        )
+    if jobctl_result.get("timed_out"):
+        raise RuntimeError("jobctl recorded a timeout; refusing to record")
+
+    workspace = job_dir / "workspace"
+    declared = {
+        name: _check_workspace_artifact(workspace, name) for name in workspace_artifacts
+    }
+    source_artifact = _check_workspace_artifact(workspace, conclusion_artifact)
+
+    report = _read_json(source_artifact)
+    if report.get("experiment") != job_dir.name:
+        raise RuntimeError(
+            f"conclusion artifact names {report.get('experiment')!r}, not the job "
+            f"dir {job_dir.name!r}"
+        )
+
+    # An extension supports no landscape-effect claim of its own; it may only
+    # restate and widen numerical resolution coverage.
+    if report.get("pathwise_claim") is not False:
+        raise RuntimeError(
+            "a calibration extension must declare pathwise_claim false: it does not "
+            "recompute an effect, so it cannot carry one"
+        )
+
+    source = _read_json(source_calibration)
+    if source.get("experiment") != V1F_ID or source.get("pass") is not True:
+        raise RuntimeError(
+            f"the calibration being extended is not a passing {V1F_ID} calibration: "
+            f"{source_calibration}"
+        )
+    source_limits = source.get("numerical_resolution_limits")
+    if not isinstance(source_limits, Mapping) or not source_limits:
+        raise RuntimeError("the calibration being extended freezes no limits")
+    source_sha256 = _sha256(source_calibration)
+
+    config = _read_json(job_dir / "config.json")
+    extends = report.get("extends")
+    if not isinstance(extends, Mapping) or extends.get("experiment") != V1F_ID:
+        raise RuntimeError(
+            f"conclusion artifact does not declare that it extends {V1F_ID}"
+        )
+    # The pin the loader will check must already hold against the file on disk.
+    if extends.get("sha256") != source_sha256:
+        raise RuntimeError(
+            "conclusion artifact pins a different source artifact than the one on "
+            f"disk: {extends.get('sha256')!r} != {source_sha256!r}"
+        )
+    if config.get("source_calibration_sha256") != source_sha256:
+        raise RuntimeError(
+            "job config declares a different source calibration sha256 than the one "
+            f"on disk: {config.get('source_calibration_sha256')!r} != {source_sha256!r}"
+        )
+    declared_path = extends.get("path")
+    source_relative = _relative(project_root, source_calibration)
+    if declared_path != source_relative:
+        raise RuntimeError(
+            f"conclusion artifact extends {declared_path!r}, which is not the path it "
+            f"was recorded against: {source_relative!r}"
+        )
+
+    metrics_source = report.get("source_replicate_metrics")
+    if not isinstance(metrics_source, Mapping):
+        raise RuntimeError("conclusion artifact names no re-analysed source table")
+    if metrics_source.get("sha256") != config.get("source_replicate_metrics_sha256"):
+        raise RuntimeError(
+            "the artifact's re-analysed table sha256 disagrees with the job config "
+            "declaration: "
+            f"{metrics_source.get('sha256')!r} != "
+            f"{config.get('source_replicate_metrics_sha256')!r}"
+        )
+    if metrics_source.get("path") != config.get("source_replicate_metrics"):
+        raise RuntimeError(
+            "the artifact's re-analysed table path disagrees with the job config "
+            f"declaration: {metrics_source.get('path')!r} != "
+            f"{config.get('source_replicate_metrics')!r}"
+        )
+
+    faithfulness = report.get("faithfulness")
+    if not isinstance(faithfulness, Mapping):
+        raise RuntimeError("conclusion artifact reports no faithfulness block")
+    if faithfulness.get("field_mismatches") != 0:
+        raise RuntimeError("the extension did not reproduce its source bit-for-bit")
+    reproduced = faithfulness.get("reproduced_limits")
+    if not isinstance(reproduced, Mapping) or not reproduced:
+        raise RuntimeError("the extension reports no reproduced source limits")
+    # Every frozen limit must be accounted for, and nothing else: a block that
+    # silently skips a metric would let that metric's limit change unnoticed.
+    if set(reproduced) != set(source_limits):
+        raise RuntimeError(
+            "the faithfulness block must cover exactly the source's frozen limits: "
+            f"missing {sorted(set(source_limits) - set(reproduced))}, "
+            f"unexpected {sorted(set(reproduced) - set(source_limits))}"
+        )
+    for metric, entry in reproduced.items():
+        if not isinstance(entry, Mapping) or entry.get("bit_equal") is not True:
+            raise RuntimeError(f"the extension did not reproduce {metric} exactly")
+        if entry.get("recomputed") != entry.get("frozen"):
+            raise RuntimeError(
+                f"the extension reports disagreeing values for {metric}: "
+                f"{entry.get('recomputed')!r} != {entry.get('frozen')!r}"
+            )
+        # The decisive comparison the loader cannot make: against the committed
+        # source artifact rather than against the extension's own copy of it.
+        if float(entry["frozen"]) != float(source_limits[metric]):
+            raise RuntimeError(
+                f"the extension records {metric} as frozen at {entry['frozen']!r}, but "
+                f"{source_relative} freezes {source_limits[metric]!r}"
+            )
+
+    limits = report.get("numerical_resolution_limits")
+    if not isinstance(limits, Mapping) or not limits:
+        raise RuntimeError("the extension freezes no resolution limits")
+    extensions = report.get("extensions")
+    if not isinstance(extensions, Mapping) or not extensions:
+        raise RuntimeError("the extension adds no new metric")
+    added = set(limits) - set(source_limits)
+    if added != set(extensions):
+        raise RuntimeError(
+            "an extension may only add limits: it froze "
+            f"{sorted(added)} but declared entries for {sorted(extensions)}. "
+            "Re-freezing an already frozen limit is how a threshold is quietly "
+            "replaced after the fact."
+        )
+    configured = config.get("extension_metrics")
+    if not isinstance(configured, list) or set(configured) != set(extensions):
+        raise RuntimeError(
+            "the job config declared different extension metrics than the run "
+            f"extended: {configured!r} vs {sorted(extensions)}"
+        )
+    for metric, frozen in source_limits.items():
+        if float(limits[metric]) != float(frozen):
+            raise RuntimeError(
+                f"the extension alters the frozen {metric} limit: "
+                f"{limits[metric]!r} != {frozen!r}"
+            )
+    for metric, entry in extensions.items():
+        if not isinstance(entry, Mapping):
+            raise RuntimeError(f"extension entry for {metric} is not an object")
+        if entry.get("ceiling") is not None or entry.get("ceiling_pass") is not None:
+            raise RuntimeError(
+                f"{metric} carries a ceiling ({entry.get('ceiling')!r}). An extension "
+                "freezes resolution limits only: a ceiling is a pre-registered failure "
+                "threshold, and writing one after seeing the data would be an "
+                "unregistered threshold (design section 15.4). Freeze it together with "
+                "the scientific SESOI instead."
+            )
+    # The verdict must equal the conjunction of its own extension checks.
+    if bool(report.get("pass")) != all(
+        bool(entry.get("pass")) for entry in extensions.values()
+    ):
+        raise RuntimeError(
+            "conclusion artifact's verdict disagrees with its per-metric extension checks"
+        )
+
+    # Every input is valid; only now touch the job dir.
+    tracked = job_dir / conclusion_artifact
+    temporary = tracked.with_suffix(tracked.suffix + ".tmp")
+    shutil.copyfile(source_artifact, temporary)
+    os.replace(temporary, tracked)
+    if _sha256(tracked) != _sha256(source_artifact):
+        raise RuntimeError("promoted conclusion artifact does not match its source")
+
+    result = {
+        "experiment": report["experiment"],
+        "status": "completed",
+        "pass": bool(report["pass"]),
+        "non_evidentiary": True,
+        "scope": report.get("scope"),
+        "extends": {
+            "experiment": V1F_ID,
+            "path": source_relative,
+            "sha256": source_sha256,
+        },
+        "source_replicate_metrics": {
+            "path": metrics_source["path"],
+            "sha256": metrics_source["sha256"],
+        },
+        "faithfulness": {
+            "field_mismatches": 0,
+            "reproduced_limits_bit_equal": True,
+            "reproduced_metrics": sorted(reproduced),
+            "verified_against": source_relative,
+            "method": faithfulness.get("method"),
+        },
+        "frozen_limits": {
+            metric: float(value) for metric, value in sorted(source_limits.items())
+        },
+        "extended_limits": {
+            metric: float(limits[metric]) for metric in sorted(added)
+        },
+        "extension_metrics": sorted(added),
+        "ceiling_policy": (
+            "no ceiling is frozen by an extension; a ceiling is a pre-registered "
+            "failure threshold and is frozen with the scientific SESOI"
+        ),
+        "pathwise_claim": False,
+        "conclusion_artifact": conclusion_artifact,
+        "conclusion_artifact_sha256": _sha256(tracked),
+    }
+    _write_json(job_dir / "result.json", result)
+
+    manifest = {
+        "exit_code": int(jobctl_result["exit_code"]),
+        "timed_out": False,
+        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
+        "jobctl_reconcile": "completed",
+        "artifacts": [
+            {
+                "path": f"workspace/{name}",
+                "sha256": _sha256(path),
+                "valid": True,
+            }
+            for name, path in declared.items()
+        ],
+    }
+    _write_json(job_dir / "manifest.json", manifest)
+
+    return {
+        "experiment": result["experiment"],
+        "pass": result["pass"],
+        "promoted": conclusion_artifact,
+        "extends": source_relative,
+        "extension_metrics": result["extension_metrics"],
+        "conclusion_artifact_sha256": result["conclusion_artifact_sha256"],
+    }
+
+
 def _relative(root: Path, path: Path) -> str:
     resolved_root = root.resolve()
     resolved_path = path.resolve()
@@ -1961,6 +2219,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     record_parser.add_argument("--jobctl-dir", required=True)
     record_parser.add_argument("--conclusion-artifact", required=True)
     record_parser.add_argument("--workspace-artifact", action="append", default=[])
+    extension_parser = subparsers.add_parser("record-calibration-extension")
+    extension_parser.add_argument("--job-dir", required=True)
+    extension_parser.add_argument("--jobctl-dir", required=True)
+    extension_parser.add_argument("--source-calibration", required=True)
+    extension_parser.add_argument("--conclusion-artifact", required=True)
+    extension_parser.add_argument("--workspace-artifact", action="append", default=[])
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
@@ -2035,6 +2299,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 record_diagnostic(
                     (PROJECT_ROOT / args.job_dir).resolve(),
                     (PROJECT_ROOT / args.jobctl_dir).resolve(),
+                    conclusion_artifact=args.conclusion_artifact,
+                    workspace_artifacts=args.workspace_artifact,
+                ),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    elif args.command == "record-calibration-extension":
+        print(
+            json.dumps(
+                record_calibration_extension(
+                    PROJECT_ROOT,
+                    (PROJECT_ROOT / args.job_dir).resolve(),
+                    (PROJECT_ROOT / args.jobctl_dir).resolve(),
+                    source_calibration=(PROJECT_ROOT / args.source_calibration).resolve(),
                     conclusion_artifact=args.conclusion_artifact,
                     workspace_artifacts=args.workspace_artifact,
                 ),
