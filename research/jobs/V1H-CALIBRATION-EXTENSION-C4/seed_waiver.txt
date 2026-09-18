@@ -15,3 +15,8 @@ Provenance seeds (declared, not drawn):
 11161 11171 11173 11177 11197 11213 11239 11243 11251 11257 11261 11273 11279 11287 11299 11311
 11317 11321 11329 11351 11353 11369 11383 11393 11399 11411 11423 11437 11443 11447 11467 11471
 11483 11489 11491 11497 11503 11519 11527 11549 11551 11579 11587 11593 11597 11617 11621 11633
+
+This list was added after the run, so that the provenance claim is checkable from git instead of
+only asserted; the declaration commit 81d9bea0 carries this file with the paragraph above but
+without the list. Nothing in the executed contract depends on it: jobctl was given these seeds as
+its submit-time argument, and that argument, not this file, is what the submission recorded.

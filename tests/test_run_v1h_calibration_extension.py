@@ -12,7 +12,6 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
-import re
 import sys
 
 import pytest
@@ -334,7 +333,13 @@ def test_v1h_waiver_provenance_seeds_match_v1f():
     """
     root = Path(__file__).parents[1]
     waiver = (root / "research/jobs/V1H-CALIBRATION-EXTENSION-C4/seed_waiver.txt").read_text()
-    listed = [int(token) for token in re.findall(r"\b(\d{4,5})\b", waiver)]
+    # Only the list itself: lines made of nothing but numbers and spaces. Scanning
+    # the whole file for digit runs would also catch prose and commit hashes.
+    listed: list[int] = []
+    for line in waiver.splitlines():
+        tokens = line.split()
+        if tokens and all(token.isdigit() for token in tokens):
+            listed.extend(int(token) for token in tokens)
     declared = [
         int(token)
         for token in (root / "research/jobs/V1F-NONFLAT-CALIBRATION-C4/seeds.txt")
