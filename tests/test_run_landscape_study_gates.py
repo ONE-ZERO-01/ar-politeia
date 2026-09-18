@@ -1304,15 +1304,23 @@ def test_design_reason_vocabulary_equals_the_codes_the_function_emits():
     assert len(documented) == 4
 
 
-def test_design_p2_estimands_are_the_effect_metrics_minus_the_retired_one():
-    """P2's prose must name exactly the metrics the code may carry claims on."""
-    bullet = _design_section("### P2 — 源的空间组织消融", "- 关键性质")
-    estimand_line = bullet.split("估计量：", 1)[1].split("（", 1)[0]
-    named = set(re.findall(r"`([a-z_]+)`", estimand_line))
+def test_design_p2_accounts_for_every_metric_in_the_code_effect_family():
+    """P2's prose must split the code's effect family into estimands and audits.
 
-    assert named == set(run_landscape_study.E2_C4_EFFECT_METRICS) - {"zero_wealth_fraction"}
-    # The retired metric stays named in P2 only as an exclusion, not as an estimand.
-    assert "zero_wealth_fraction" in bullet
+    A metric that the code computes but the design never mentions is exactly the
+    section-14 failure: reach asserted in prose that the code does not grant, or
+    granted by the code but never written down.
+    """
+    bullet = _design_section("### P2 — 源的空间组织消融", "- 关键性质")
+    estimand_line = bullet.split("- 估计量：", 1)[1].split("。", 1)[0]
+    estimands = set(re.findall(r"`([a-z_]+)`", estimand_line))
+
+    assert estimands == {"wealth_gini", "wealth_variance"}
+    # The other two are named, but only to state the role they may not exceed.
+    non_estimands = {"zero_wealth_fraction", "mean_wealth"}
+    for metric in sorted(non_estimands):
+        assert f"`{metric}`：" in bullet
+    assert estimands | non_estimands == set(run_landscape_study.E2_C4_EFFECT_METRICS)
     assert run_landscape_study.E2_C4_EFFECT_METRICS == (
         "wealth_gini",
         "wealth_variance",

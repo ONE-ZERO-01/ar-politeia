@@ -136,11 +136,16 @@ S09 不是命名问题，而是**可识别性缺陷**：旧 `production` 因子�
   精确置乱；`flat` = 空间均匀源）。三者的区别**仅**在于源在空间上如何排布。
 - 主对比：`clustered − shuffled`（像素直方图逐位相同，只隔离空间排列）；次要：`clustered − flat`
   （同时改变直方图，只作参考）。
-- 估计量：源的空间组织对财富结构的效应 —— `wealth_gini`、`wealth_variance`、
-  `mean_wealth` 的配对尾窗均值差。
-  （`zero_wealth_fraction` **不在**估计量内：实测在本参考体制下退化——全部 960 个 run
-  只有 4 个取值、`clustered − shuffled` 的配对差在三个 dt 上恒为 0——故它只能承担 P4 的
-  非退化护栏，不能承担效应断言，否则会产出空洞的 null。详见 §15.2 与 §15.3。）
+- 估计量：源的空间组织对财富结构的效应 —— `wealth_gini`、`wealth_variance` 的配对尾窗
+  均值差。家族里另两个指标**不承担效应断言**，但都由同一段代码算出并随结果报告：
+  - `zero_wealth_fraction`：承担 P4 的**非退化护栏**。实测在本参考体制下退化（全部 960 个
+    run 只有 4 个取值、`clustered − shuffled` 的配对差在三个 dt 上恒为 0），做成估计量会产出
+    空洞的 null。详见 §15.2 与 §15.3。
+  - `mean_wealth`：承担**水平审计**而非效应断言。P4 第 2 条要求三单元实测平均财富落在
+    ±10% 带内（否则该对比记 inconclusive），而 §5 力开实测的 `clustered − shuffled` 为
+    +43.6%；若力关同向，则"估计 `mean_wealth`"等于宣称一个设计已声明**必须不存在**的差异。
+    其配对差照常计算并报告（`claim_eligible = false`，理由码
+    `missing_numerical_resolution_limit`），供读者核算 P4 与 §6 的财富尺度通道。详见 §15.5。
 - 关键性质：位置逐位相同，所以这不是"景观改变人口分布"的效应，而是**同一套扩散轨迹下
   源的时空相关结构如何改变财富分配**。这是干净的单通道估计量。
 - 空间家族（Spearman/Moran/entropy）不用于任何科学结论，只用于 P1 恒等检查；
@@ -174,8 +179,8 @@ S09 不是命名问题，而是**可识别性缺陷**：旧 `production` 因子�
 2. **水平匹配以"单元之间一致"为准，不以 `w_ref` 为目标**。实测平衡水平由 `s/d` 决定，
    参考值为 `clustered / d=0.02` 的实测 ~1.98（力开）与 ~0.59（力关）。
    P2 三单元由构造匹配（均值都为 1），P3 三单元由 `s/d` 常数匹配；
-   判据是单元间实测平均财富的相对偏差落在冻结带内（建议 ±10%，实施时冻结），
-   **不是**要求等于 5.0；
+   判据是单元间实测平均财富的相对偏差落在冻结带内 **±10%**（2026-09-17 定夺并冻结，
+   见 §15.5），**不是**要求等于 5.0；
 3. 工作点：报告 `mean(w)/w_ref`，作为解释变量而非合格线；
 4. 承继 Cycle 4 契约的尾窗稳态、相邻双窗稳定性与独立 seed 精度 Gate。
 
@@ -370,7 +375,8 @@ E1-C4 的主 family 是 `resource_density_spearman_rho`、`density_morans_i`、`
 - [x] P1/P2/P3/P4 四块聚合器 `aggregate_e2_c4`（新 ID 下，旧三效应字段不出现）（2026-09-17，代码）
 - [x] seeds 互斥审计（记账式，覆盖全部历史 job）（2026-09-17，`seeds-audit` 子命令 + 36 项测试；台账 211 seeds / 28 jobs / 91 重叠组 / 3 component，每条带可机器校验的 basis；重分析 job 的标识按引用记账，见 §8）
 - [ ] 冻结可用池窗口（`--pool-min/--pool-max` 无默认值，须与 R 一同写入 lock）——**待办**，判据与候选见 [e2-cycle4-seed-pool-decision.md](e2-cycle4-seed-pool-decision.md)；阻塞 pilot（pilot 自身即需 8 个全新 seed）；窗口已定为 `12300–13000`，待写入 lock
-- [ ] **E2-C4 推断射程选择——已定 (B)，但实测收窄为 (B′)，见 §15**：扩展校准到 `wealth_variance` 与 `mean_wealth`（可行性已逐位验证：重算复现 V1F 四个上限、0 处浮点不匹配、无需模拟器时间）；**`zero_wealth_fraction` 退出估计量家族、保留为 P4 护栏**——实测在参考体制下退化（960 run 仅 4 个取值、clustered/dt=0.005 上 64/64 为 0 且 sd=0、`clustered − shuffled` 配对差在三个 dt 上恒为 0、上限测出 0.0）。新增一条机械判据：claim-eligible 的指标除数值上限与 SESOI 外**还须具有非零方差**，以同时挡住"把退化指标当成精度极好"与"把没有差异当成结论"两类错误
+- [ ] **E2-C4 推断射程选择——已定 (B′)，见 §15**：校准扩展到 `wealth_variance`（可行性已逐位验证：以 V1F 自己的 `_weak_bound` 重算复现其四个上限、0 处浮点不匹配、无需模拟器时间；信号约为其数值上限的 64 倍）。**`zero_wealth_fraction` 退出估计量家族、保留为 P4 护栏**——实测在参考体制下退化（960 run 仅 4 个取值、clustered/dt=0.005 上 64/64 为 0 且 sd=0、`clustered − shuffled` 配对差在三个 dt 上恒为 0、上限测出 0.0）。**`mean_wealth` 定为水平审计量、不做校准扩展**（三条理由见 §15.5；它从未被 V1F 记过，重取需 ≈28 GB 快照，而它的水平带与"估计它的效应"直接冲突）。新增两条机械判据：claim-eligible 的指标除数值上限与 SESOI 外**还须具有非零方差**（同时挡住"把退化指标当成精度极好"与"把没有差异当成结论"）；以及**设计↔代码一致性控制**（文档的原因码词表与 P2 叙述必须与代码一致，防 §14 类错误重现）。**P4 水平带冻结为 ±10%**（§4 P4 第 2 条），故 P2 存在一个先验可失败的 Gate，由 pilot 提前回答
+- [ ] **V1H（校准扩展）：待实现**——只从 V1F 保留的 `replicate_metrics.csv` 重分析，产出扩展校准产物；**字段级忠实性检验须在 `umi` 执行**（CSV 是 workspace 产物、不入库），产物级检查（四个旧上限与已入库 `numerical_calibration.json` 逐位相等）在本地可执行
 - [x] E1-C4 侧：Gini 限定预注册（`e1-cycle4-readiness.md`，2026-09-16，`prepare` 之前）+ `mean_wealth`/`wealth_scale_ratio` 入表 + 经 `analysis_commit` 绑定释放（2026-09-17 复核确认；见 §6 复核修正）
 - [ ] pilot 只读方差与可比性，冻结 R 后生成正式声明——**待办**，需 `umi` 算力
 - [ ] preflight 通过、`confirmative_mode`、`nprocs=1`、`OMP=1` 写入 config——**待办**
@@ -704,3 +710,14 @@ bounded_by_discretization，两者都已在 `aggregate_v1` 里定义、都不含
 | (iii) 由 pilot 定夺 | 先按 (i) 推进；pilot 数据到手后再定 (i)/(ii) | 0（延后） |
 
 无论选哪个，`wealth_variance` 的扩展都不受影响（它就在 CSV 里，代价为零）。
+
+> **定夺（2026-09-17）。** 选 **(i) 审计量**：不做 `mean_wealth` 的校准扩展，那 ≈28 GB 的
+> 快照重取**不做**。它随结果报告、参与 P4 可比性判据，`claim_eligible = false`，理由码
+> `missing_numerical_resolution_limit`。同时把 P4 第 2 条的水平带**冻结为 ±10%**（不再写
+> "建议／实施时冻结"），即明确接受上面第 3 条的后果：若实测单元间偏差超出该带，P2 主对比按
+> 设计自己的 Gate 记为 **inconclusive**——不得记为 null、不得放宽带子。
+
+> **推论（须在 E2-C4 提交前登记）。** 水平带既然冻结在 ±10%，而 §5 力开体制的实测偏差是
+> +43.6%，E2-C4 的 P2 就存在一个**先验可失败**的 Gate。pilot 会在真实体制（力关、全新
+> seed、5 单元）下量出该偏差，因此 pilot 的职责之一正是**提前**回答"P2 是否可比"；若 pilot
+> 显示超带，应在 E2 lock 冻结前收窄 P2 的射程，而不是投完预算再发现 inconclusive。
