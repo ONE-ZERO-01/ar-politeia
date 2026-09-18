@@ -1,0 +1,23 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 13717.366880904883,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {
+      "path": "workspace/order_thermal_report.json",
+      "sha256": "93a014935f9c1354c3fe866625cac23e3b87c4649acb8a7db5876f5aaec04fe5",
+      "valid": true
+    },
+    {
+      "path": "workspace/replicate_metrics.csv",
+      "sha256": "fa798aa6c06b01452023fed403241c966b0ba10d75049352cd69a43ce6acb7bf",
+      "valid": true
+    },
+    {
+      "path": "workspace/matched_input_audit.json",
+      "sha256": "9c631de010e53b11c17371aa91faf3d3fe70be562bbae8af4488eb5943f5d896",
+      "valid": true
+    }
+  ]
+}

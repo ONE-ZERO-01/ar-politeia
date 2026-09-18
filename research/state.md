@@ -311,10 +311,15 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   `simulator-remediation-status.md` section 4.9, and because it changes no model,
   threshold, required metric or analysis it does not trigger the `change_control`
   clause and requires no new lock.
-- `plan.json` now matches the evidence: V1F, V0G and E1-C4 are `executed_passed`,
-  C1-NUM-C4 and C2-LANDSCAPE-C4 are `supported`, and C3-CHANNELS-C4 /
-  C4-ROBUSTNESS-C4 remain pending and deferred. S18 stays open and is covered by
-  the already frozen V1G-ORDER-THERMAL-C4 probe.
+- `plan.json` now matches the evidence: V1F, V0G, V1G and E1-C4 are
+  `executed_passed`/`completed`, C1-NUM-C4 and C2-LANDSCAPE-C4 are `supported`,
+  and C3-CHANNELS-C4 / C4-ROBUSTNESS-C4 remain pending and deferred. S18 is
+  **closed**: V1G-ORDER-THERMAL-C4 returned `bounded`, so the frozen
+  storage-order bound does cover the thermal-noise/row-order coupling at the
+  reference temperature. The verdict carries two pre-registered reservations —
+  `occupancy_entropy` uses 88% of its frozen limit (the tightest of the four),
+  and 12 of 128 runs fail the per-run steady-window checks, which the design
+  excludes from the verdict but which the bound inherits.
 
 ## Cycle 3 E3 correction
 

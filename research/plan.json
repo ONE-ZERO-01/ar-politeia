@@ -41,7 +41,7 @@
       "type": "calibration",
       "priority": "P0",
       "status": "supported",
-      "resolution": "V1F passed all six frozen calibration layers on 64 unseen seeds, including non-flat timestep convergence and a valid status for every required metric. Open residual S18: the frozen storage-order bound was measured at temperature 0.0 while the confirmatory reference configuration runs at temperature 0.5; V1G-ORDER-THERMAL-C4 is the frozen test for that gap.",
+      "resolution": "V1F passed all six frozen calibration layers on 64 unseen seeds, including non-flat timestep convergence and a valid status for every required metric. Residual S18, that the frozen storage-order bound was measured at temperature 0.0 while the confirmatory reference configuration runs at temperature 0.5, was tested by V1G-ORDER-THERMAL-C4 and came back bounded: all four tail bounds fall under the frozen limits, so the bound covers the thermal-noise/row-order coupling and S18 is closed as quantified. The verdict carries two pre-registered reservations: occupancy_entropy uses 88% of its frozen limit, and 12 of 128 runs fail the per-run steady-window checks.",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
       "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V0E-SIMULATOR-TESTS-C4", "V0F-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4", "V1ED-SAMPLING-DIAGNOSTIC-C4", "V1F-NONFLAT-CALIBRATION-C4"]
     },
@@ -269,11 +269,12 @@
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
-      "status": "running",
+      "status": "completed",
       "blocked_by": "cleared: E1-C4 finished and released the concurrency slots (design section 8).",
-      "execution": "Submitted on umi at 2026-09-17 under jobctl pid 2149600; 128 run directories (64 seeds x canonical/permuted) were created and sixteen OMP=1 simulator processes entered execution with the reference temperature confirmed in the generated cfg.",
+      "execution": "Submitted on umi at 2026-09-17 under jobctl pid 2149600; all 128 runs (64 seeds x canonical/permuted) completed in 13717 s (3.81 h). jobctl reconcile returned completed, and the verdict was recorded into the job dir by prepare_cycle4_confirmation.py record-diagnostic, which derives result.json and manifest.json from the report instead of transcribing numbers.",
       "design": "research/v1g-order-thermal-design.md",
-      "artifacts": ["order_thermal_report.json"],
+      "artifacts": ["order_thermal_report.json", "result.json", "manifest.json"],
+      "result": "bounded: all four tail bounds fall under the frozen numerical_resolution_limits (0.001845 <= 0.004590 spearman; 0.001503 <= 0.003259 Moran; 0.000876 <= 0.000995 entropy; 0.001086 <= 0.001441 Gini). Ledger S18 is therefore closed as quantified, and no C++ change or recalibration is needed. Two reservations travel with the verdict and are pre-registered: occupancy_entropy has only 12% headroom (the tightest of the four, so any change raising its noise by more than 13.6% crosses the limit first), and 12 of 128 runs fail the per-run steady-window checks, which the design excludes from the verdict but which the bound inherits.",
       "judgment": "Pre-frozen in the design before submission: bounded if and only if all four tail metrics satisfy |mean| + 2*SE <= the frozen numerical_resolution_limits. Diagnostic only; it produces no evidence for any E1/E2 landscape effect and must not be cited as such."
     },
     {

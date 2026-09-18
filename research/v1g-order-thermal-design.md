@@ -1,8 +1,13 @@
 # V1G：参考温度下的存储顺序通道判定（预注册）
 
-**状态**：已于 2026-09-17 在 umi 提交运行（jobctl pid 2149600；128/128 run 目录已建立，
-16 个 OMP=1 进程在跑，`temperature = 0.5` 已核对）。前置 E1-C4 已结束。判定待
-`order_thermal_report.json` 产出后按 §5 的回填，不在看到结果后更改任何阈值。
+**状态**：**已完成判定（2026-09-17）**。于 2026-09-17 在 umi 提交运行（jobctl pid 2149600，
+128/128 run 全部完成，墙钟 13717 s ≈ 3.81 h，`temperature = 0.5` 已核对）。判定按 §5 的
+预先冻结表回填：**`bounded`**（四项界全部 ≤ 冻结上限），故 S18 关闭为"已量化"，不改任何
+阈值、不做 C++ 改动。判定记录见 `research/jobs/V1G-ORDER-THERMAL-C4/`：
+`order_thermal_report.json`（完整报告，sha256 `93a01493…`）及其 `result.json`/`manifest.json`
+（由 `prepare_cycle4_confirmation.py record-diagnostic` 从报告机械导出，非手抄）。
+**两处必须随结论引用**：`occupancy_entropy` 已用掉冻结上限的 88%（四项中最紧），
+以及 12/128 个 run 未通过逐 run 稳态窗口检查（按 §6 不参与判定）。
 **ID**：`V1G-ORDER-THERMAL-C4`（诊断，不是确认性实验）
 **对应台账**：S18 / S10；`research/simulator-remediation-status.md` §4.7
 **交付物**：`research/src/experiments/run_v1g_order_thermal.py`、
@@ -115,8 +120,9 @@ python3 -m autoresearcher.foundation.jobctl submit \
   --seeds 11003,11027,...  # 与 config.json 的 seeds 一致
 ```
 
-- 完成后：`jobctl reconcile` → 把 `order_thermal_report.json` 的判定回填台账 S18 →
-  按 §5 的对应行行动。**不运行前不写任何结论。**
+- 完成后：`jobctl reconcile` → `record-diagnostic` 把报告与判定落进 job 目录 →
+  把判定回填台账 S18 → 按 §5 的对应行行动。**不运行前不写任何结论。**
+  这四步均已于 2026-09-17 完成，判定 `bounded`，记录方式见 §9。
 
 ## 8. 提交时序
 
@@ -130,3 +136,34 @@ E1-C4 正在 umi 上运行，占用并发槽位；V1G 使用 `parallel = 16`，�
 拖慢并使运行时长估计失真。另外：**在 E1-C4 运行期间不改共享驱动**——崩溃恢复可能重跑
 `prepare_inputs`，改动会让已授权实验的生成 cfg 与既存 run 目录不一致（S15 同类风险）。
 V1G 的新文件都是新增，不触碰共享路径，因此可以在 E1-C4 结束后立即提交。
+
+## 9. 判定记录与回收（2026-09-17 补记）
+
+`jobctl reconcile` 只**校验**声明产物，不写任何东西；它自己的记录在 git 忽略的
+`.autoresearcher/` 下，而 `workspace/` 同样被忽略。所以"数字只存在于 workspace"的诊断
+在 git 里不会有任何可审计痕迹。本轮为此新增 `prepare_cycle4_confirmation.py`
+的 `record-diagnostic` 子命令，把这一步做成机械的：
+
+```bash
+python3 research/src/experiments/prepare_cycle4_confirmation.py record-diagnostic \
+  --job-dir research/jobs/V1G-ORDER-THERMAL-C4 \
+  --jobctl-dir .autoresearcher/jobs/V1G-ORDER-THERMAL-C4 \
+  --conclusion-artifact order_thermal_report.json \
+  --workspace-artifact order_thermal_report.json \
+  --workspace-artifact replicate_metrics.csv \
+  --workspace-artifact matched_input_audit.json
+```
+
+它把结论产物原子地复制进 job 目录（复制后校验 sha256 与源相同），并由报告与 jobctl
+result **推导**出 `result.json` 与 `manifest.json`，不接受任何外部传入的数字；jobctl 记为
+失败或超时的 job 一律拒绝记录，且所有校验在任何写入之前完成，故失败时 job 目录保持原样。
+入库的三份记录：
+
+| 文件 | 内容 |
+|---|---|
+| `order_thermal_report.json` | 完整报告，sha256 `93a014935f9c…`，与 workspace 源逐字节相同 |
+| `result.json` | 判定 `bounded`、四项界与其冻结上限、run 数、窗口告警、绑定 SHA（参数锁 / V1F 校准 / 参考 binary） |
+| `manifest.json` | jobctl 对账形状，列出三个 workspace 产物各自的 sha256 |
+
+`tests/test_prepare_cycle4_confirmation.py` 有 9 项测试覆盖该步骤，含"改变产物则记录随之
+改变"的变异检验（防止记录退化成固定投影）。

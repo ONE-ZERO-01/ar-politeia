@@ -1498,3 +1498,52 @@ def test_record_diagnostic_follows_the_report_rather_than_a_fixed_projection(tmp
     assert second["by_metric"]["wealth_gini"]["two_se_bound"] == 0.00175
     assert second["run_count"] == 9
     assert second != first
+
+
+def test_v1g_record_is_rederivable_from_its_committed_report():
+    """The shipped V1G record must be re-derivable from the shipped artifact.
+
+    This is what makes the record auditable from a fresh clone: because the full
+    report is committed next to the summary, the summary is *checked* rather than
+    trusted. Without this, ``result.json`` could drift from the report silently.
+    """
+    job_dir = Path(__file__).parents[1] / "research/jobs/V1G-ORDER-THERMAL-C4"
+    report = json.loads((job_dir / "order_thermal_report.json").read_text())
+    record = json.loads((job_dir / "result.json").read_text())
+
+    assert record["experiment"] == report["experiment"] == "V1G-ORDER-THERMAL-C4"
+    assert record["pass"] == report["pass"] is True
+    assert record["verdict"] == report["verdict"] == "bounded"
+    assert record["run_count"] == report["run_count"] == 128
+    assert record["non_evidentiary"] is True
+    assert record["stationarity_failure_count"] == len(report["stationarity_failures"])
+    assert record["conclusion_artifact_sha256"] == _sha256(
+        job_dir / "order_thermal_report.json"
+    )
+
+    assert record["by_metric"].keys() == report["by_metric"].keys()
+    for metric, entry in report["by_metric"].items():
+        assert record["by_metric"][metric] == {
+            "two_se_bound": entry["bound"]["two_se_bound"],
+            "frozen_numerical_resolution_limit": entry[
+                "frozen_numerical_resolution_limit"
+            ],
+            "bounded": entry["bounded"],
+        }
+
+    # The verdict is the conjunction of its own bounds, and each bound is compared
+    # against the limit the record itself carries — so a record that claimed
+    # "bounded" while shipping a bound above its limit could not pass.
+    assert record["pass"] == all(
+        entry["bounded"] for entry in record["by_metric"].values()
+    )
+    for entry in record["by_metric"].values():
+        assert entry["bounded"] == (
+            entry["two_se_bound"] <= entry["frozen_numerical_resolution_limit"]
+        )
+    assert all(entry["bounded"] for entry in record["by_metric"].values())
+
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert manifest["artifacts"][0]["path"] == "workspace/order_thermal_report.json"
+    assert manifest["artifacts"][0]["sha256"] == record["conclusion_artifact_sha256"]

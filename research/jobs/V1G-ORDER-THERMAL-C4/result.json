@@ -1,0 +1,41 @@
+{
+  "experiment": "V1G-ORDER-THERMAL-C4",
+  "status": "completed",
+  "pass": true,
+  "non_evidentiary": true,
+  "verdict": "bounded",
+  "scope": "Measures the storage-order channel at the reference temperature. Produces no confirmatory scientific claim about E1/E2 and must not be cited as evidence for one.",
+  "run_count": 128,
+  "stationarity_failure_count": 12,
+  "window_caveat": "12 of 128 runs fail the per-run steady-window checks; the bound below inherits that instability",
+  "by_metric": {
+    "resource_density_spearman_rho": {
+      "two_se_bound": 0.0018449524776544208,
+      "frozen_numerical_resolution_limit": 0.004589992673223881,
+      "bounded": true
+    },
+    "density_morans_i": {
+      "two_se_bound": 0.0015029135400541282,
+      "frozen_numerical_resolution_limit": 0.0032587589468579255,
+      "bounded": true
+    },
+    "occupancy_entropy": {
+      "two_se_bound": 0.0008759930005677399,
+      "frozen_numerical_resolution_limit": 0.0009948207537034592,
+      "bounded": true
+    },
+    "wealth_gini": {
+      "two_se_bound": 0.0010862126364357435,
+      "frozen_numerical_resolution_limit": 0.0014407792015185721,
+      "bounded": true
+    }
+  },
+  "binding": {
+    "parameter_lock": "research/parameter_lock.cycle4.json",
+    "calibration_path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+    "calibration_sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+    "reference_binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3"
+  },
+  "conclusion_artifact": "order_thermal_report.json",
+  "conclusion_artifact_sha256": "93a014935f9c1354c3fe866625cac23e3b87c4649acb8a7db5876f5aaec04fe5"
+}
