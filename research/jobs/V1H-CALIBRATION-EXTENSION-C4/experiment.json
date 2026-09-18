@@ -1,0 +1,38 @@
+{
+  "id": "V1H-CALIBRATION-EXTENSION-C4",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": [],
+  "depends_on": [
+    "V1F-NONFLAT-CALIBRATION-C4"
+  ],
+  "objective": "Extend V1F's frozen numerical resolution limits to wealth_variance by re-analysing V1F's retained replicate_metrics.csv, publishing nothing unless V1F's four frozen limits reproduce bit-for-bit.",
+  "role": "This job tests no claim. It supplies the numerical resolution limit that lets wealth_variance be claim-eligible in E2-C4 (design section 15), re-derives the four V1F limits, and records mean_wealth as out of scope. It runs no simulation.",
+  "command": [
+    "python3",
+    "research/src/experiments/run_v1h_calibration_extension.py",
+    "--config",
+    "research/jobs/V1H-CALIBRATION-EXTENSION-C4/config.json",
+    "--output-dir",
+    "research/jobs/V1H-CALIBRATION-EXTENSION-C4/workspace"
+  ],
+  "config": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/config.json",
+  "config_sha256": "cf0d0416cea55e79312317bb69e5ed6cdd5988c20d41a4f033402a00fc9b6086",
+  "env_snapshot": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/env.txt",
+  "seed_evidence": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/seed_waiver.txt",
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "none",
+    "dependency_calibration": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+    "source_replicate_metrics": "902b286a04647382449537707164cfdfc46881a0175107320a5b663fbf544dbc",
+    "reference_binary": "none (V1H does not run the simulator)"
+  },
+  "artifacts": [
+    "research/jobs/V1H-CALIBRATION-EXTENSION-C4/workspace/numerical_calibration_extended.json"
+  ],
+  "timeout_seconds": 3600,
+  "gpu_count": 0,
+  "design": "research/e2-cycle4-channel-design.md",
+  "failure_policy": "A non-reproduction of any recorded bound field fails the job: the extension is then not published at all, because a near miss is a fresh measurement of a different object, not a second opinion about V1F's. A failed ceiling-free criterion for the extended metric publishes the artifact with pass=false and the metric stays claim-ineligible."
+}

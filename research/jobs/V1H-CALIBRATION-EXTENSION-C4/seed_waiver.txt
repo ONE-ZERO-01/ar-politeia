@@ -1,0 +1,1 @@
+V1H is a deterministic reanalysis of V1F's retained replicate_metrics.csv. It reads no random values, initialises no state, and draws no new random numbers, so it declares no seeds and consumes none. Every number it produces is a function of the retained table alone, which is why it is submitted with this waiver instead of a seeds.txt.

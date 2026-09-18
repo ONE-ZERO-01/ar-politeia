@@ -1,0 +1,7 @@
+{
+  "approach": "Re-read V1F's retained replicate_metrics.csv and re-derive, with V1F's own _weak_bound primitive, every recorded bound field of numerical_calibration.json; publish an extension only if all four frozen limits reproduce bit-for-bit.",
+  "evidence_role": "numerical calibration extension",
+  "evidence_boundary": "V1H supplies a numerical resolution limit for wealth_variance and re-derives the four V1F limits. It runs no simulation, tests no landscape-effect claim, and invent no ceiling: a ceiling is a pre-registered failure threshold and is to be frozen together with the scientific SESOI.",
+  "simulation": "none",
+  "supports_core_claim": false
+}
