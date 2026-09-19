@@ -9,7 +9,9 @@ rebuilt OpenMP-OFF binary before it makes the lock final and E1 executable.
 declarations and compact it into tracked evidence; neither recomputes an effect
 or has any authority to relax a gate.  ``record-pilot`` promotes the E2-C4
 pilot's reports, recomputes its replicate requirement, and records the criterion
-actually applied next to the verdict the run produced.  ``seeds-audit`` builds the
+actually applied next to the verdict the run produced.  ``record-e2`` promotes a
+finished E2-C4 confirmatory run: it re-derives the composition of that payload's
+own gates and copies the artifacts into git unchanged.  ``seeds-audit`` builds the
 bookkeeping ledger of every seed any job has consumed and refuses to let a new
 experiment reuse one silently.
 """
@@ -910,6 +912,345 @@ def record_pilot(
         "wealth_variance_reference": derived["wealth_variance_reference"],
         "promoted": name,
         "conclusion_artifact_sha256": result["artifacts"]["conclusion_sha256"],
+        "reference_report": result["reference_report"],
+    }
+
+
+# ── E2-C4: recording the confirmatory verdict ─────────────────────────
+#
+# The confirmatory verdict is produced by the frozen runner and is promoted
+# verbatim: this recorder never recomputes an effect, applies a threshold, or has
+# any authority to relax a gate.  What it does instead is re-derive the
+# *structural* claims the payload makes about itself -- that the five gates
+# compose into ``analysis_gate_pass`` exactly as declared, that the P4 gate's
+# failure is what marks a contrast inconclusive a priori, that the P1 identity
+# the run reports is the one the run wrote, that the batch is the declared 80 --
+# and then copies the artifacts into git unchanged.  A recorder that could only
+# restate the verdict would add nothing; one that could recompute it would be a
+# second, competing analysis.
+
+E2_REQUIRED_ARTIFACTS = (
+    "channel_separation.json",
+    "steady_estimand_report.json",
+    "isolation_identity_report.json",
+    "stationarity_report.json",
+    "replicate_metrics.csv",
+    "matched_input_audit.json",
+)
+# The five components the payload declares, in the order they compose.  Naming
+# them here is what makes the composition check below possible.
+E2_GATE_KEYS = (
+    "v1f_numerical_calibration",
+    "three_condition_inputs",
+    "isolation_identity",
+    "comparability",
+    "steady_estimand",
+)
+
+
+def record_e2(
+    project_root: Path,
+    job_dir: Path,
+    jobctl_dir: Path,
+) -> dict[str, Any]:
+    """Promote a finished E2-C4 confirmatory run into tracked evidence.
+
+    Every branch either reproduces a number the run already recorded or refuses.
+    The two refusals worth spelling out: a payload whose ``analysis_gate_pass``
+    does not equal the conjunction of its own five gates is internally
+    inconsistent and must not be promoted, and a P4 comparability failure that is
+    not carried through as ``inconclusive`` would silently convert a
+    pre-registered "cannot attribute this contrast" into an unqualified null.
+    """
+    import importlib.util
+    import sys
+
+    experiments_dir = Path(__file__).resolve().parent
+    sys.path.insert(0, str(experiments_dir))
+    for required in ("landscape_study", "run_landscape_study", "prepare_cycle4_confirmation"):
+        if required not in sys.modules:
+            spec = importlib.util.spec_from_file_location(
+                required, experiments_dir / f"{required}.py"
+            )
+            if spec is None or spec.loader is None:
+                raise RuntimeError(f"cannot load {required} to record E2-C4")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[required] = module
+            spec.loader.exec_module(module)
+    study = sys.modules["run_landscape_study"]
+
+    jobctl_result = _read_json(jobctl_dir / "result.json")
+    if jobctl_result.get("exit_code") != 0:
+        raise RuntimeError(
+            f"jobctl recorded exit code {jobctl_result.get('exit_code')!r}; "
+            "refusing to record a failed run"
+        )
+    if jobctl_result.get("timed_out"):
+        raise RuntimeError("jobctl recorded a timeout; refusing to record")
+
+    config = _read_json(job_dir / "config.json")
+    if config.get("experiment_id") != E2_ID or job_dir.name != E2_ID:
+        raise RuntimeError("the E2-C4 job config declares another experiment")
+
+    # The authorization, re-checked against the lock that is in git now rather
+    # than assumed from the fact that the run happened.
+    lock_path = (project_root / E2_LOCK_RELATIVE).resolve()
+    _relative(project_root, lock_path)
+    lock = _read_json(lock_path)
+    if lock.get("status") != "final" or (
+        lock.get("confirmatory_execution_authorized") is not True
+    ):
+        raise RuntimeError("E2-C4 was not authorized by a final parameter lock")
+    if E2_ID not in (lock.get("authorized_experiments") or []):
+        raise RuntimeError("the E2 lock does not authorize E2-CHANNEL-ABLATION-C4")
+    if config.get("parameter_lock_sha256") != _sha256(lock_path):
+        raise RuntimeError("the E2-C4 config does not bind the final E2 lock")
+    audit = study.audit_parameter_lock(config, lock)
+    if not audit["pass"]:
+        raise RuntimeError(
+            f"the recorded run's parameters do not match its lock: "
+            f"missing={audit['missing_parameters']}, mismatches={sorted(audit['mismatches'])}"
+        )
+    calibration_block = lock.get("numerical_calibration")
+    if not isinstance(calibration_block, Mapping):
+        raise RuntimeError("the E2 lock has no numerical calibration block")
+    if config.get("binary_sha256") != calibration_block.get("reference_binary_sha256"):
+        raise RuntimeError("the E2-C4 config does not bind the calibrated reference binary")
+    calibration = _read_json(project_root / str(config["numerical_calibration"]))
+    study._require_cycle4_calibration_identity(calibration)
+    if calibration.get("experiment") != C4_EXTENSION_ID:
+        raise RuntimeError(
+            "E2-C4 must be calibrated by the V1H extension, not "
+            f"{calibration.get('experiment')!r}"
+        )
+    study.validate_e2_c4_sesoi_derivations(config)
+
+    # The battery is the declared one, counted from the run's own markers rather
+    # than from the summary it wrote about itself.
+    units = list(study.E2_C4_UNIT_NAMES)
+    seeds = [int(seed) for seed in config.get("seeds") or []]
+    expected_runs = len(units) * len(seeds)
+    design = lock.get("design_contract")
+    if not isinstance(design, Mapping):
+        raise RuntimeError("the E2 lock has no design contract")
+    if design.get("units") != units or int(design.get("run_count", -1)) != expected_runs:
+        raise RuntimeError("the recorded run's unit battery is not the locked one")
+    declared_seeds = sorted(
+        int(token)
+        for token in (job_dir / "seeds.txt").read_text(encoding="utf-8").split()
+        if token.strip()
+    )
+    if declared_seeds != sorted(seeds):
+        raise RuntimeError("the job's seeds.txt and config disagree about the battery")
+
+    workspace = job_dir / "workspace"
+    sources = {
+        name: _check_workspace_artifact(workspace, name) for name in E2_REQUIRED_ARTIFACTS
+    }
+    raw = _read_json(workspace / "result.json")
+    if raw.get("experiment") != E2_ID:
+        raise RuntimeError("the workspace result belongs to another experiment")
+    if raw.get("status") != "completed":
+        raise RuntimeError(f"the workspace result status is {raw.get('status')!r}")
+    if int(raw.get("runs_completed", -1)) != expected_runs:
+        raise RuntimeError(
+            f"the run completed {raw.get('runs_completed')!r} runs, not {expected_runs}"
+        )
+    returns = int(raw.get("runs_executed_this_invocation", 0)) + int(
+        raw.get("runs_reused_from_completion_markers", 0)
+    )
+    if returns != expected_runs:
+        raise RuntimeError(
+            f"executed + reused = {returns}, which is not the declared {expected_runs}"
+        )
+    for name in E2_REQUIRED_ARTIFACTS:
+        if name not in (raw.get("artifacts") or []):
+            raise RuntimeError(f"the workspace result does not list {name}")
+    if raw.get("parameter_lock_sha256") != _sha256(lock_path):
+        raise RuntimeError("the workspace result was produced under another lock")
+    if raw.get("config_sha256") != _sha256(job_dir / "config.json"):
+        raise RuntimeError("the workspace result was produced under another config")
+
+    marker_root = workspace / "runs"
+    markers = sorted(marker_root.glob("*/completion.json"))
+    finished = [
+        marker
+        for marker in markers
+        if _read_json(marker).get("status") == "completed"
+    ]
+    if len(finished) != expected_runs:
+        raise RuntimeError(
+            f"{len(finished)} of {len(markers)} runs carry a completed marker; the "
+            f"frozen battery needs {expected_runs}"
+        )
+
+    payload = _read_json(sources["channel_separation.json"])
+    if payload.get("experiment") != E2_ID:
+        raise RuntimeError("the promoted payload belongs to another experiment")
+    gates = payload.get("gates")
+    if not isinstance(gates, Mapping) or set(gates) != set(E2_GATE_KEYS):
+        raise RuntimeError(
+            f"the payload's gates are {sorted(gates or {})}, not {list(E2_GATE_KEYS)}"
+        )
+    if any(not isinstance(value, bool) for value in gates.values()):
+        raise RuntimeError("a gate value is not a boolean; refusing an ambiguous verdict")
+    gate_pass = payload.get("analysis_gate_pass")
+    composed = all(gates[key] for key in E2_GATE_KEYS)
+    if gate_pass is not composed:
+        raise RuntimeError(
+            "the payload's analysis_gate_pass is not the conjunction of its own "
+            f"gates: {gate_pass!r} != {composed!r}"
+        )
+    if bool(payload.get("claim_supported")) and not gate_pass:
+        raise RuntimeError("the payload claims support from a failed analysis gate")
+
+    identity_payload = payload.get("P1_isolation_identity")
+    if not isinstance(identity_payload, Mapping):
+        raise RuntimeError("the payload carries no P1 isolation identity block")
+    if identity_payload.get("violations"):
+        raise RuntimeError(
+            "the P1 isolation identity reported violations; positions were not "
+            "exogenous, so no effect in this payload may be reported"
+        )
+    if not isinstance(payload.get("P4_comparability"), Mapping):
+        raise RuntimeError("the payload carries no P4 comparability block")
+    if bool(payload["P4_comparability"].get("pass")) is False:
+        if bool(payload.get("inconclusive")) is not True:
+            raise RuntimeError(
+                "the P4 comparability gate failed but the payload is not marked "
+                "inconclusive; a contrast that cannot be attributed must not be "
+                "promoted as a null"
+            )
+
+    provenance = payload.get("threshold_provenance")
+    if not isinstance(provenance, Mapping):
+        raise RuntimeError("the payload carries no threshold provenance")
+    eligible = provenance.get("claim_eligible_metrics")
+    if not isinstance(eligible, list):
+        raise RuntimeError("the payload does not list its claim-eligible metrics")
+    declared_family = list(design.get("estimand_family") or [])
+    unregistered = sorted(set(eligible) - set(declared_family))
+    if unregistered:
+        raise RuntimeError(
+            f"the payload claims eligibility for {unregistered}, which the E2 lock "
+            f"did not register as estimands ({declared_family})"
+        )
+    reasons = provenance.get("ineligibility_reasons") or {}
+    for metric in declared_family:
+        if metric not in eligible and metric not in reasons:
+            raise RuntimeError(
+                f"{metric} is neither claim-eligible nor given an ineligibility "
+                "reason; an unstated demotion is indistinguishable from a mistake"
+            )
+
+    rows = (sources["replicate_metrics.csv"]).read_text(encoding="utf-8").splitlines()
+    header = rows[0].split(",") if rows else []
+    if "condition" not in header or "seed" not in header:
+        raise RuntimeError("replicate_metrics.csv does not carry condition/seed columns")
+    condition_at = header.index("condition")
+    seed_at = header.index("seed")
+    per_unit: dict[str, set[int]] = {}
+    for row in rows[1:]:
+        if not row.strip():
+            continue
+        cells = row.split(",")
+        per_unit.setdefault(cells[condition_at], set()).add(int(cells[seed_at]))
+    if sorted(per_unit) != sorted(units):
+        raise RuntimeError(
+            f"replicate_metrics.csv covers {sorted(per_unit)}, not the locked units"
+        )
+    for unit, found in per_unit.items():
+        if sorted(found) != sorted(seeds):
+            raise RuntimeError(
+                f"unit {unit} was read at {len(found)} seeds, not the declared {len(seeds)}"
+            )
+
+    # Promotion: the artifacts are copied byte for byte, and every hash recorded
+    # in the manifest is computed from the copy that is now in git.
+    promoted: dict[str, Path] = {}
+    for name, source in sources.items():
+        tracked = job_dir / name
+        temporary = tracked.with_suffix(tracked.suffix + ".tmp")
+        shutil.copyfile(source, temporary)
+        os.replace(temporary, tracked)
+        if _sha256(tracked) != _sha256(source):
+            raise RuntimeError(f"promoted {name} does not match its source")
+        promoted[name] = tracked
+    # ``result.json`` stays derived rather than copied: it is this cycle's record
+    # of the run, and the run's own file is hashed into it so the two remain
+    # distinguishable.
+    result = {
+        "experiment": E2_ID,
+        "status": "completed",
+        "non_evidentiary": False,
+        "analysis_gate_pass": bool(gate_pass),
+        "claim_supported": bool(payload.get("claim_supported")),
+        "inconclusive": bool(payload.get("inconclusive")),
+        "gates": {key: bool(gates[key]) for key in E2_GATE_KEYS},
+        "runs_planned": expected_runs,
+        "runs_completed": expected_runs,
+        "replicates_per_unit": len(seeds),
+        "units": units,
+        "seeds": seeds,
+        "execution_host": raw.get("execution_host"),
+        "source_commit": raw.get("source_commit"),
+        "binary_sha256": raw.get("binary_sha256"),
+        "config_sha256": raw.get("config_sha256"),
+        "parameter_lock_sha256": raw.get("parameter_lock_sha256"),
+        "workspace_result_sha256": _sha256(workspace / "result.json"),
+        "omp_threads": raw.get("omp_threads"),
+        "elapsed_seconds_executed": raw.get("elapsed_seconds_executed_this_invocation"),
+        "claim_eligible_metrics": sorted(eligible),
+        "descriptive_only_metrics": sorted(provenance.get("descriptive_only_metrics") or []),
+        "ineligibility_reasons": {
+            metric: list(value)
+            for metric, value in sorted(reasons.items())
+        },
+        "scientific_sesoi": dict(design.get("scientific_sesoi") or {}),
+        "replicate_requirement": dict(design.get("replicate_requirement") or {}),
+        "P4_comparability": {
+            "pass": bool(payload["P4_comparability"].get("pass")),
+            "frozen_policy": payload["P4_comparability"].get("frozen_policy"),
+            "group_level_matching": payload["P4_comparability"].get("group_level_matching"),
+        },
+        "P1_isolation_identity": {
+            "pass": bool(identity_payload.get("pass")),
+            "checked_comparisons": identity_payload.get("checked_comparisons"),
+            "violations": list(identity_payload.get("violations") or []),
+        },
+        "artifacts": {
+            name: {"path": name, "sha256": _sha256(path)}
+            for name, path in sorted(promoted.items())
+        },
+        "reference_report": _relative(project_root, promoted["channel_separation.json"]),
+    }
+    _write_json(job_dir / "result.json", result)
+
+    manifest = {
+        "exit_code": int(jobctl_result["exit_code"]),
+        "timed_out": False,
+        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
+        "jobctl_reconcile": "completed",
+        "artifacts": [
+            {
+                "path": f"workspace/{name}",
+                "sha256": _sha256(job_dir / name),
+                "source_sha256": _sha256(workspace / name),
+                "valid": True,
+            }
+            for name in E2_REQUIRED_ARTIFACTS
+        ],
+    }
+    _write_json(job_dir / "manifest.json", manifest)
+
+    return {
+        "experiment": E2_ID,
+        "analysis_gate_pass": result["analysis_gate_pass"],
+        "claim_supported": result["claim_supported"],
+        "inconclusive": result["inconclusive"],
+        "gates": result["gates"],
+        "claim_eligible_metrics": result["claim_eligible_metrics"],
+        "run_count": expected_runs,
         "reference_report": result["reference_report"],
     }
 
@@ -3340,6 +3681,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     pilot_parser.add_argument("--conclusion-artifact", default=None)
     pilot_parser.add_argument("--workspace-artifact", action="append", default=[])
     subparsers.add_parser("prepare-e2")
+    record_e2_parser = subparsers.add_parser("record-e2")
+    record_e2_parser.add_argument("--job-dir", default=f"research/jobs/{E2_ID}")
+    record_e2_parser.add_argument("--jobctl-dir", default=f".autoresearcher/jobs/{E2_ID}")
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
@@ -3431,6 +3775,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     source_calibration=(PROJECT_ROOT / args.source_calibration).resolve(),
                     conclusion_artifact=args.conclusion_artifact,
                     workspace_artifacts=args.workspace_artifact,
+                ),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    elif args.command == "record-e2":
+        print(
+            json.dumps(
+                record_e2(
+                    PROJECT_ROOT,
+                    (PROJECT_ROOT / args.job_dir),
+                    (PROJECT_ROOT / args.jobctl_dir),
                 ),
                 ensure_ascii=False,
                 indent=2,
