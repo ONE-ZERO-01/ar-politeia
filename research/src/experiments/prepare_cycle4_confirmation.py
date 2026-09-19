@@ -1053,8 +1053,10 @@ def record_e2(
     # The runner lists artifacts as project-relative paths, so compare basenames:
     # a run whose own manifest does not mention an artifact it is supposed to have
     # produced has not produced it, whatever the file happens to contain.
+    # ``result.json`` cannot list itself: the runner enumerates the output directory
+    # and only then writes the summary, so it is excluded from its own manifest.
     listed = {Path(str(entry)).name for entry in (raw.get("artifacts") or [])}
-    for name in (*E2_REQUIRED_ARTIFACTS, "result.json"):
+    for name in E2_REQUIRED_ARTIFACTS:
         if name not in listed:
             raise RuntimeError(f"the workspace result does not list {name}")
     if raw.get("parameter_lock_sha256") != _sha256(lock_path):

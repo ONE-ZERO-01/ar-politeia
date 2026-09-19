@@ -340,7 +340,7 @@ def test_record_e2_refuses_a_result_that_does_not_list_an_artifact(tmp_path):
     workspace_result = {
         "artifacts": sorted(
             f"research/jobs/{E2_ID}/workspace/{name}"
-            for name in (*recorder.E2_REQUIRED_ARTIFACTS, "result.json")
+            for name in recorder.E2_REQUIRED_ARTIFACTS
             if name != hidden
         )
     }
