@@ -264,6 +264,15 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   visible rather than implied. Two historical accounting defects are recorded
   without rewriting them: seed `1103` is shared by `E0-NUMERICS` and
   `E1-MATCHED-LANDSCAPES`, and `6407`, `6503` (V1) and `9071` (V1C) are not prime.
+  The ledger now holds 219 distinct seeds across 30 jobs (2026-09-19). Getting there
+  cost one instructive detour: an undeclared `MPI-SMOKE` directory on `umi` made the
+  audit fail closed, which is the audit working as intended (a job with no seed
+  evidence would otherwise pass silently); the directory was moved to
+  `archive/MPI-SMOKE-20260903/` inside the project root rather than the check being
+  relaxed. The same episode produced a second lesson: probing the ledger by copying
+  the jobs tree with `cp -al` took minutes and two SSH timeouts, when reading
+  `audit_seeds` and calling `ledger_seed_partition` would have answered the question
+  with no copy at all.
   Each authorisation now carries a machine-verified basis instead of prose: a
   same-`experiment_id` re-execution, a citation to a tracked document that must
   still contain the declaring text, or disjointness from the evidence-bearing seed
@@ -330,8 +339,9 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   a pre-registered failure threshold, so it is left to be frozen with the
   scientific SESOI instead of being written after seeing the data. This is the
   last missing prerequisite for E2-C4's P2 estimands (`wealth_gini` from V1F,
-  `wealth_variance` from V1H); what remains before the E2 lock is the seed-pool
-  window, the pilot, and R.
+  `wealth_variance` from V1H); the seed-pool window, the pilot and R followed on
+  2026-09-19 (see the E2-C4 item below), so all that remains before the E2 lock is
+  the lock file and the E2-C4 declaration set.
 - Two bookkeeping gaps closed alongside V1H, both of which had the same shape: a
   number existing only outside git. `record-calibration-extension` promotes a
   calibration extension's artifact into the job dir and derives `result.json` and
@@ -378,6 +388,42 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   the reference reading and its provenance are recorded in `threshold_components`
   so the derivation stays checkable. What remains before the E2 lock is the
   seed-pool window (`12300-13000`), the non-evidentiary pilot, and R.
+- The E2-C4 pilot has now run and is recorded (2026-09-19), and R is frozen. The
+  seed window holds 77 unused primes after the pilot's eight; the pilot is the eight
+  smallest (`12301..12379`). It executed 40 runs (5 units x 8 seeds) on `umi` in 4.12
+  CPU-hours / 36.5 wall-minutes at parallel 8, binding the same reference binary and
+  the same protocol as E1-C4. Its P1 isolation identity passed (32 comparisons, zero
+  violations) and the family's frozen ensemble steady contract passed on all five
+  units, so its dispersion is usable. Four of forty runs failed their *per-run*
+  stationarity diagnostic, all on `wealth_variance` and all on `clustered` units: one
+  seed decays slowly at three sink rates, another violates the reversal-span rule.
+  That exposed a defect in the pilot's own pre-registered criterion rather than in the
+  experiment: the design counted per-run stationarity as one of three blocking
+  modules, while the family's frozen gate role is `per_run_diagnostic_only` with
+  `steady_estimand_report.json` as the gate (E1-C4 carries that string verbatim and
+  completed with 8 of 128 such failures, one of them also on `wealth_variance`).
+  Re-running was not an available remedy either: the simulator is deterministic in
+  `(seed, config)`, so the same seeds reproduce the same trajectory bit for bit. The
+  criterion actually applied is therefore P1 and the ensemble contract and batch
+  completeness, the basis for that reading predates the reading itself, and the four
+  diagnostics are named in `result.json`; the report's own `pass` field stays `False`
+  as produced. A recorder (`record-pilot`) does the promotion so that R is recomputed
+  from the two reports rather than transcribed, the promoted report is byte-identical
+  to the measured one, and a dozen mutations (a direction reaching the artifact, an
+  ensemble failure, disagreeing stationarity reports, a truncated batch, a
+  hand-written R) are refused. Frozen with the pilot: `Var_ref = 0.7856779131825528`,
+  `delta_wealth_variance = 0.3928389565912764`, `delta_wealth_gini = 0.025`, and
+  **R = 16**. R is not the design's literal SESOI-only rule (which would give 8): the
+  implementation takes the maximum over the SESOI power term (8), the frozen
+  independent-replicate precision bound (9) and the frozen adjacent-window bound (12),
+  because those last two *are* the gate the confirmatory analysis runs under. That
+  tightening was written before any pilot reading and is strictly more conservative
+  than the letter of the rule. The E2-C4 confirmatory battery is therefore 5 units x
+  16 seeds = 80 runs, about 8.2 CPU-hours, and P4's readings (mean wealth within 0.5%
+  of a +/-10% band, zero-wealth fraction at 1e-6 against 0.01) leave ample margin.
+  What remains before the E2 lock is the file itself: `research/parameter_lock.e2.json`
+  with these frozen values and the E2 parameters, plus the E2-C4 declaration set for
+  the 80-run battery.
 
 ## Cycle 3 E3 correction
 

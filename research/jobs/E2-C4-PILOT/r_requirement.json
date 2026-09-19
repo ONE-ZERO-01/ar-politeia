@@ -1,0 +1,549 @@
+{
+  "policy": "R = next_power_of_two(max(SESOI power, frozen precision width, frozen adjacent-window bound)); V1ED's rule throughout, one-sided upper SD at alpha=0.1 and a floor of 3 replicates",
+  "delta_wealth_gini": 0.025,
+  "delta_wealth_variance": 0.3928389565912764,
+  "delta_wealth_variance_ratio": 0.5,
+  "wealth_variance_reference": 0.7856779131825528,
+  "worst_required_replicates": 12,
+  "r_replicates": 16,
+  "requirements": {
+    "sesoi": [
+      {
+        "constraint": "sesoi",
+        "contrast": "clustered-minus-shuffled",
+        "metric": "wealth_gini",
+        "delta": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 8
+      },
+      {
+        "constraint": "sesoi",
+        "contrast": "clustered-minus-shuffled",
+        "metric": "wealth_variance",
+        "delta": 0.3928389565912764,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "sesoi",
+        "contrast": "d0.04-minus-d0.01",
+        "metric": "wealth_gini",
+        "delta": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "sesoi",
+        "contrast": "d0.04-minus-d0.01",
+        "metric": "wealth_variance",
+        "delta": 0.3928389565912764,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      }
+    ],
+    "independent_replicate_precision": [
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.01",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.01",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.01",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 6
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.01",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_absolute_mean",
+        "threshold": 0.2,
+        "measured_at_replicates": 8,
+        "required_replicates": 4
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.01",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 7
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_absolute_mean",
+        "threshold": 0.2,
+        "measured_at_replicates": 8,
+        "required_replicates": 5
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.04",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.04",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.04",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 9
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.04",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_absolute_mean",
+        "threshold": 0.2,
+        "measured_at_replicates": 8,
+        "required_replicates": 5
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "clustered-d0.04",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "flat-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "flat-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "flat-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "flat-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_absolute_mean",
+        "threshold": 0.2,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "flat-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "shuffled-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "shuffled-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "shuffled-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "shuffled-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_absolute_mean",
+        "threshold": 0.2,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "independent_replicate_precision",
+        "unit": "shuffled-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "required_replicates": 3
+      }
+    ],
+    "adjacent_window_stability": [
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.01",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.05,
+        "window_drift": 0.0003692499504990527,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.01",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 2.8899630621345707e-05,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.01",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 0.00183392917371053,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.01",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_larger_window_mean",
+        "threshold": 0.1,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.1157338121690203,
+        "window_drift": 0.018754819807488055,
+        "required_replicates": 12
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.01",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.01,
+        "window_drift": 0.0,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.05,
+        "window_drift": 0.0003692499504990527,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 2.8899630621345707e-05,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 0.0013084005717549224,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_larger_window_mean",
+        "threshold": 0.1,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.11433459149869107,
+        "window_drift": 0.014517341726126565,
+        "required_replicates": 11
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.01,
+        "window_drift": 0.0,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.04",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.05,
+        "window_drift": 0.0003692499504990527,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.04",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 2.8899630621345707e-05,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.04",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 0.0010556326312141373,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.04",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_larger_window_mean",
+        "threshold": 0.1,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.108026946063001,
+        "window_drift": 0.011993874839876045,
+        "required_replicates": 11
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "clustered-d0.04",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.01,
+        "window_drift": 0.0,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "flat-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.05,
+        "window_drift": 0.0003692499504990527,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "flat-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 2.8899630621345707e-05,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "flat-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 0.00047048048509540363,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "flat-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_larger_window_mean",
+        "threshold": 0.1,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.06089858525921832,
+        "window_drift": 0.0009289270979519065,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "flat-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.01,
+        "window_drift": 0.0,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "shuffled-d0.02",
+        "metric": "density_morans_i",
+        "bound_kind": "absolute",
+        "threshold": 0.05,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.05,
+        "window_drift": 0.0003692499504990527,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "shuffled-d0.02",
+        "metric": "occupancy_entropy",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 2.8899630621345707e-05,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "shuffled-d0.02",
+        "metric": "wealth_gini",
+        "bound_kind": "absolute",
+        "threshold": 0.025,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.025,
+        "window_drift": 0.00046264915277505203,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "shuffled-d0.02",
+        "metric": "wealth_variance",
+        "bound_kind": "relative_to_larger_window_mean",
+        "threshold": 0.1,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.06192193136946911,
+        "window_drift": 0.00022904933478741507,
+        "required_replicates": 3
+      },
+      {
+        "constraint": "adjacent_window_stability",
+        "unit": "shuffled-d0.02",
+        "metric": "zero_wealth_fraction",
+        "bound_kind": "absolute",
+        "threshold": 0.01,
+        "measured_at_replicates": 8,
+        "resolved_bound": 0.01,
+        "window_drift": 0.0,
+        "required_replicates": 3
+      }
+    ]
+  }
+}

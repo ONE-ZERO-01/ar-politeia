@@ -1,0 +1,382 @@
+{
+  "experiment": "E2-C4-PILOT",
+  "role": "non-evidentiary pilot: supplies the dispersion and comparability readings that freeze E2-C4's replicate count",
+  "not_evidence": "by construction this report contains no contrast mean, direction, interval or p-value; it must never be cited as evidence for C3-CHANNELS-C4",
+  "binding": {
+    "config": "research/jobs/E2-C4-PILOT/config.json",
+    "config_sha256": "8bb80efc3d46821b84f624a5fc949f9cbbabecd172ffb442aeefeb6b8e54bcc3",
+    "parameter_lock": "research/parameter_lock.cycle4.json",
+    "reference_binary": "research/jobs/V0G-SIMULATOR-TESTS-C4/workspace/build-off/src/politeia",
+    "reference_binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3"
+  },
+  "protocol": {
+    "temperature": 0.5,
+    "dt": 0.005,
+    "total_time": 4500.0,
+    "output_time_interval": 5.0,
+    "steady_snapshots": 144,
+    "population": 1000,
+    "grid_shape": [
+      64,
+      64
+    ],
+    "bounds": [
+      0.0,
+      100.0,
+      0.0,
+      100.0
+    ],
+    "friction": 1.0,
+    "interaction_range": 2.5,
+    "exchange_rate": 0.5,
+    "exchange_noise_strength": 0.05,
+    "exchange_reversion_rate": 1.0,
+    "epsilon_log_sigma": 0.5,
+    "wealth_log_sigma": 0.01,
+    "consumption_rate": 0.0,
+    "terrain_force_scale": 1.0,
+    "terrain_production_scale": 1.0,
+    "social_strength": 0.0,
+    "ability_saturation_w": 5.0,
+    "ranks": 1,
+    "mpi_enabled": false,
+    "omp_threads": 1,
+    "confirmative_mode": true,
+    "strict_numerics": true,
+    "units": [
+      "clustered-d0.02",
+      "shuffled-d0.02",
+      "flat-d0.02",
+      "clustered-d0.01",
+      "clustered-d0.04"
+    ],
+    "seeds": [
+      12301,
+      12323,
+      12329,
+      12343,
+      12347,
+      12373,
+      12377,
+      12379
+    ],
+    "replicates_per_unit": 8,
+    "seed_window": [
+      12300,
+      13000
+    ],
+    "upper_sd_alpha": 0.1,
+    "steady_contract_reference": "E1-MATCHED-LANDSCAPES-C4"
+  },
+  "run_count": 40,
+  "execution": {
+    "executed": 40,
+    "skipped_completed": 0,
+    "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+    "completed_run_ids": [
+      "seed-12301--clustered-d0.01",
+      "seed-12301--clustered-d0.02",
+      "seed-12301--clustered-d0.04",
+      "seed-12301--flat-d0.02",
+      "seed-12301--shuffled-d0.02",
+      "seed-12323--clustered-d0.01",
+      "seed-12323--clustered-d0.02",
+      "seed-12323--clustered-d0.04",
+      "seed-12323--flat-d0.02",
+      "seed-12323--shuffled-d0.02",
+      "seed-12329--clustered-d0.01",
+      "seed-12329--clustered-d0.02",
+      "seed-12329--clustered-d0.04",
+      "seed-12329--flat-d0.02",
+      "seed-12329--shuffled-d0.02",
+      "seed-12343--clustered-d0.01",
+      "seed-12343--clustered-d0.02",
+      "seed-12343--clustered-d0.04",
+      "seed-12343--flat-d0.02",
+      "seed-12343--shuffled-d0.02",
+      "seed-12347--clustered-d0.01",
+      "seed-12347--clustered-d0.02",
+      "seed-12347--clustered-d0.04",
+      "seed-12347--flat-d0.02",
+      "seed-12347--shuffled-d0.02",
+      "seed-12373--clustered-d0.01",
+      "seed-12373--clustered-d0.02",
+      "seed-12373--clustered-d0.04",
+      "seed-12373--flat-d0.02",
+      "seed-12373--shuffled-d0.02",
+      "seed-12377--clustered-d0.01",
+      "seed-12377--clustered-d0.02",
+      "seed-12377--clustered-d0.04",
+      "seed-12377--flat-d0.02",
+      "seed-12377--shuffled-d0.02",
+      "seed-12379--clustered-d0.01",
+      "seed-12379--clustered-d0.02",
+      "seed-12379--clustered-d0.04",
+      "seed-12379--flat-d0.02",
+      "seed-12379--shuffled-d0.02"
+    ],
+    "elapsed_seconds_executed": 14837.909225145355
+  },
+  "stationarity_failures": [
+    "seed-12323--clustered-d0.02",
+    "seed-12323--clustered-d0.01",
+    "seed-12323--clustered-d0.04",
+    "seed-12373--clustered-d0.02"
+  ],
+  "P1_isolation_identity": {
+    "role": "structural regression guard, not a scientific test: with terrain force off and social_strength zero, particle positions are exogenous to every wealth-family factor and must be bitwise identical across source patterns",
+    "metrics": [
+      "occupancy_entropy",
+      "density_morans_i"
+    ],
+    "units": [
+      "clustered-d0.02",
+      "shuffled-d0.02",
+      "flat-d0.02"
+    ],
+    "excluded_metrics": {
+      "resource_density_spearman_rho": "depends on the resource field, so it is allowed to differ and is undefined on the constant flat field"
+    },
+    "seeds": 8,
+    "checked_comparisons": 32,
+    "violations": [],
+    "pass": true
+  },
+  "P4_comparability": {
+    "pass": true,
+    "gate_role": "mandatory; a unit that fails comparability makes its contrast inconclusive, never null, and no unit may be dropped or re-banded",
+    "non_degenerate": true,
+    "levels_matched": true,
+    "frozen_policy": {
+      "zero_wealth_fraction_max": 0.01,
+      "wealth_variance_min": 0.056828569227561854,
+      "mean_wealth_relative_band": 0.1,
+      "target": "matched between units, not matched to ability_saturation_w"
+    },
+    "units": {
+      "clustered-d0.02": {
+        "replicates": 8,
+        "mean_wealth": 0.5029525626240119,
+        "wealth_scale_ratio": 0.10059051252480238,
+        "mean_zero_wealth_fraction": 8.680555555555556e-07,
+        "mean_wealth_variance": 1.1288285732607841,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "shuffled-d0.02": {
+        "replicates": 8,
+        "mean_wealth": 0.5010701918409854,
+        "wealth_scale_ratio": 0.10021403836819709,
+        "mean_zero_wealth_fraction": 0.0,
+        "mean_wealth_variance": 0.6192193136946911,
+        "minimum_wealth_observed": 9.1372297383271e-10,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "flat-d0.02": {
+        "replicates": 8,
+        "mean_wealth": 0.5002860471944287,
+        "wealth_scale_ratio": 0.10005720943888574,
+        "mean_zero_wealth_fraction": 0.0,
+        "mean_wealth_variance": 0.6089858525921832,
+        "minimum_wealth_observed": 6.750306518116688e-06,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "clustered-d0.01": {
+        "replicates": 8,
+        "mean_wealth": 0.5031176580865391,
+        "wealth_scale_ratio": 0.10062353161730782,
+        "mean_zero_wealth_fraction": 8.680555555555556e-07,
+        "mean_wealth_variance": 1.138583301882715,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "clustered-d0.04": {
+        "replicates": 8,
+        "mean_wealth": 0.5029172905104158,
+        "wealth_scale_ratio": 0.10058345810208316,
+        "mean_zero_wealth_fraction": 8.680555555555556e-07,
+        "mean_wealth_variance": 1.068275585790134,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      }
+    },
+    "group_level_matching": {
+      "P2_source_pattern": {
+        "group_mean_wealth": 0.5014362672198086,
+        "unit_mean_wealth": {
+          "clustered-d0.02": 0.5029525626240119,
+          "shuffled-d0.02": 0.5010701918409854,
+          "flat-d0.02": 0.5002860471944287
+        },
+        "relative_deviations": {
+          "clustered-d0.02": 0.0030239045384776735,
+          "shuffled-d0.02": 0.000730053653384207,
+          "flat-d0.02": 0.0022938508850930237
+        },
+        "max_relative_deviation": 0.0030239045384776735,
+        "frozen_band": 0.1,
+        "pass": true
+      },
+      "P3_sink_rate": {
+        "group_mean_wealth": 0.5029958370736556,
+        "unit_mean_wealth": {
+          "clustered-d0.01": 0.5031176580865391,
+          "clustered-d0.02": 0.5029525626240119,
+          "clustered-d0.04": 0.5029172905104158
+        },
+        "relative_deviations": {
+          "clustered-d0.01": 0.00024219089683172725,
+          "clustered-d0.02": 8.603341509833681e-05,
+          "clustered-d0.04": 0.00015615748173339043
+        },
+        "max_relative_deviation": 0.00024219089683172725,
+        "frozen_band": 0.1,
+        "pass": true
+      }
+    }
+  },
+  "paired_dispersion": {
+    "contrasts": {
+      "clustered-minus-shuffled": {
+        "claim_bearing": true,
+        "treatment": "clustered-d0.02",
+        "control": "shuffled-d0.02",
+        "metrics": {
+          "wealth_gini": {
+            "replicates": 8,
+            "paired_sample_sd": 0.021348874705786888,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.033557726188606904,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "wealth_variance": {
+            "replicates": 8,
+            "paired_sample_sd": 0.14672084372175914,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.23062657716762783,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "zero_wealth_fraction": {
+            "replicates": 8,
+            "paired_sample_sd": 2.455231879119957e-06,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 3.859313442254308e-06,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "mean_wealth": {
+            "replicates": 8,
+            "paired_sample_sd": 0.015662841658373484,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.024620002644201656,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          }
+        }
+      },
+      "clustered-minus-flat": {
+        "claim_bearing": false,
+        "treatment": "clustered-d0.02",
+        "control": "flat-d0.02",
+        "metrics": {
+          "wealth_gini": {
+            "replicates": 8,
+            "paired_sample_sd": 0.021733986800280002,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.034163073608413426,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "wealth_variance": {
+            "replicates": 8,
+            "paired_sample_sd": 0.14805692836505802,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.23272673294831975,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "zero_wealth_fraction": {
+            "replicates": 8,
+            "paired_sample_sd": 2.455231879119957e-06,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 3.859313442254308e-06,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "mean_wealth": {
+            "replicates": 8,
+            "paired_sample_sd": 0.015147920960515883,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.023810612546330694,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          }
+        }
+      },
+      "d0.04-minus-d0.01": {
+        "claim_bearing": true,
+        "treatment": "clustered-d0.04",
+        "control": "clustered-d0.01",
+        "metrics": {
+          "wealth_gini": {
+            "replicates": 8,
+            "paired_sample_sd": 0.006813095991898075,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.010709323697086343,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "wealth_variance": {
+            "replicates": 8,
+            "paired_sample_sd": 0.035757966743628126,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.05620699327626485,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "zero_wealth_fraction": {
+            "replicates": 8,
+            "paired_sample_sd": 0.0,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.0,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          },
+          "mean_wealth": {
+            "replicates": 8,
+            "paired_sample_sd": 0.002379799608697925,
+            "upper_sd_alpha": 0.1,
+            "upper_sample_sd": 0.0037407434702303797,
+            "rule": "sample_sd uses an n-1 denominator; the upper bound is sample_sd*sqrt((n-1)/chi2.ppf(alpha, n-1)) (V1ED). No contrast mean is computed: R depends on SD alone."
+          }
+        }
+      }
+    }
+  },
+  "wealth_variance_reference": {
+    "P2_source_pattern": {
+      "mean_wealth_variance": 0.7856779131825528,
+      "units": {
+        "clustered-d0.02": {
+          "mean_wealth_variance": 1.1288285732607841
+        },
+        "shuffled-d0.02": {
+          "mean_wealth_variance": 0.6192193136946911
+        },
+        "flat-d0.02": {
+          "mean_wealth_variance": 0.6089858525921832
+        }
+      },
+      "role": "P4 guard-type level reading; the reference level of the frozen rule Δ_var := 0.50 × Var_ref; not an effect size and not for inference"
+    }
+  },
+  "steady_contract_at_pilot_n": {
+    "informational": true,
+    "gate_role": "not a pilot verdict: the adjacent and precision predicates are functions of the replicate count, which is the quantity the pilot determines. They are recorded at the pilot's n, and the R they imply is derived by --derive-r.",
+    "replicates_per_condition": 8,
+    "pass": true,
+    "tail_stationarity_valid": true,
+    "adjacent_window_stability_valid": true,
+    "independent_replicate_precision_valid": true,
+    "report": "steady_estimand_report.json",
+    "report_sha256": "c5d0d68d7ed3bb63f2dddd07f3af0c5dd206fc13fbe5729e1bd49b95d60f65e0"
+  },
+  "replicate_requirement_policy": "R is NOT recorded here. It is derived after this pilot by `run_e2_c4_pilot.py --derive-r` from this report plus steady_estimand_report.json, as the maximum over the SESOI power rule and the frozen steady bounds, rounded up to a power of two, and frozen in the E2-C4 design_contract.",
+  "pass": false
+}

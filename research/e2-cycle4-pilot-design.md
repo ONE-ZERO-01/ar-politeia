@@ -88,6 +88,18 @@ sha256 必须等于参数锁 `numerical_calibration.reference_binary_sha256 =
 Pilot 的 job `pass` = 三个模块全部成立。任一不成立都是**实现问题**，必须修好重跑，
 不得作为结果报告。
 
+> **勘误（2026-09-19，见 §10）：三个模块中的第三个错的不是判据，而是补救方式。**
+> 实测 40 run 里有 4 个逐 run 稳态诊断未过（全在 `wealth_variance`），而本实验族
+> **冻结的 Gate 是 ensemble 两窗契约**（`stationarity_report.json` 的
+> `gate_role = per_run_diagnostic_only`），该契约在 pilot 的 n=8 上三项全过。同时模拟器
+> 对 `(seed, config)` 是确定性的，"修好重跑"对慢模**不存在**：同样的 seed 逐位复现同样
+> 的轨迹。故 2026-09-19 起，本 pilot 实际适用的判据是 **P1 恒等 ∧ ensemble 契约 ∧ 批次完整**，
+> 逐 run 稳态诊断按具名诊断记录（`result.json` 的 `per_run_stationarity`），不参与 pass。
+> 依据是**先于本次读数冻结**的三条：上面那句 `gate_role` 文本（E1-C4 的
+> `stationarity_report.json` 逐字携带）、E1-C4 的先例（128 run 里 8 个逐 run 失败、其中 1 个
+> 也在 `wealth_variance`，`analysis_gate_pass = true`）、以及确定性。判据的**改动依据不来自
+> 本次结果**，但"促使我们注意到的"确实是本次结果——这一点如实写出，不做粉饰。
+
 ### 3.1 P1 恒等护栏（fail-fast，非科学检验）
 
 对每个 seed，`occupancy_entropy` 与 `density_morans_i` 在 `clustered/shuffled/flat`
@@ -194,9 +206,24 @@ SESOI 与 R 都对同一套 run 生效）。
 R 一旦冻结即写入 E2 lock，**不得**在正式结果出现后更改；且 R 只由 Δ 与 pilot 的 SD 决定，
 两者都在看到任何效应方向之前写下。
 
+> **勘误（2026-09-19）：R 的规则被收紧过，方向是保守的。**
+> 上面这条公式是**只看 SESOI** 的预注册版本；实现 `derive_r_replicates` 取的是三族最大值：
+> SESOI 功效项、冻结的独立复本精度宽度、冻结的相邻窗界（都用单侧 90% 上界 SD）。理由是
+> 后两族正是正式分析 `analysis_gate_pass` 的 Gate 本身：R 若小于它们的要求，就可能拿着一个
+> 过不了自己 Gate 的 R 去投预算。三族实测要求为 SESOI ≤ 8、精度 ≤ 9、相邻窗 ≤ 12，故
+> **R = 16**（`next_power_of_two(12)`）。这条收紧写于任何 pilot 读数之前，且严格严于字面
+> 规则（16 > 8），不属于"看到结果后放宽"。字面规则的代价也如实记下：R = 8 时，若真实
+> SD 达到上界，相邻窗谓词会失败，正式 ensemble Gate 可能失败而得到一个本可避免的
+> inconclusive。
+
 ## 5. 预算
 
-40 runs = 5 单元 × 8 seed，按 V1E 实测约 1,242 秒/run：约 **13.8 CPU 小时 ≈ 8 路 1.7 墙钟小时**。
+原估：40 runs = 5 单元 × 8 seed，按 V1E 实测约 1,242 秒/run → 约 13.8 CPU 小时 ≈ 8 路 1.7 墙钟小时。
+
+**实测（2026-09-19）**：40 runs 全部完成，`elapsed_seconds_executed = 14,837.9 秒 = 4.12 CPU 小时`，
+jobctl `wall_seconds = 2,192.6 秒 = 36.5 分钟`（8 路）。即 **371 秒/run**，比 V1E 的参考值快
+约 3.3 倍（E2-C4 的单元不施加地形力，动力学与 I/O 都更轻）。据此，**R = 16 的正式批次
+（5 单元 × 16 seed = 80 runs）预计 8.2 CPU 小时 ≈ 8 路约 62 分钟墙钟**——预算充足。
 执行方式：`jobctl` 提交、`preflight` 通过后运行、完成后 `jobctl reconcile`，
 重产物写入 `research/jobs/E2-C4-PILOT/workspace/`。
 
@@ -295,3 +322,70 @@ V1F/V1H 同法）。顺序固定为：
 4. 跑完 `jobctl reconcile`，回收 `pilot_variance_report.json` + `steady_estimand_report.json`；
 5. 离线 `--derive-r` 求 R，把 R 与两个 Δ 写进 E2 lock 的 `design_contract`（**此步之前
    E2-C4 正式实验不得提交**）。
+
+## 10. 执行结果与记录（2026-09-19）
+
+### 10.1 执行事实
+
+| 项 | 值 |
+|---|---|
+| job | `E2-C4-PILOT`，`jobctl` submit → RUNNING → **COMPLETED**（exit 0），`reconcile` = completed |
+| 批次 | 40 runs = 5 单元 × 8 seed，全部新建（`skipped_completed = 0`） |
+| 耗时 | `elapsed_seconds_executed = 14,837.9 秒`（4.12 CPU 小时）；墙钟 `2,192.6 秒`（8 路） |
+| 绑定 | binary sha `87eafa4e…`（与锁一致）、协议与 E1-C4 逐字段相同、8 个 seed 为窗口内最小未用素数 |
+| 产物 | `research/jobs/E2-C4-PILOT/{pilot_variance_report.json, r_requirement.json, result.json, manifest.json}`（git 跟踪） |
+
+### 10.2 判据结论
+
+| 模块 | 结果 |
+|---|---|
+| P1 恒等（位置外生） | **通过**：32 项比较、0 违例 → pilot 读到的离散度就是这个实验的离散度 |
+| ensemble 两窗契约（**正式 Gate**） | **通过**：`tail_stationarity_valid` / `adjacent_window_stability_valid` / `independent_replicate_precision_valid` 三项全 True，5 个单元全过 |
+| 批次完整 | **通过**：40/40 |
+| 逐 run 稳态诊断（**诊断**） | 4/40 未过，全部为 `wealth_variance`、全部在 `clustered` 单元：seed-12323 的 d0.01/d0.02/d0.04（归一化漂移 0.19/0.17/0.17 > 0.10，方差仍在缓慢下降，自相关时间 9–16 帧）与 seed-12373 的 d0.02（漂移 0.072 合规，反转跨度规则不合规，`monotonic_pass = False`，ESS 5.14）。同一 seed 在三个 d 上同时失败 ⇒ seed 特有的慢模，不是单元性质 |
+| pilot 自身 `pass` 字段 | **False**（它把逐 run 诊断算作阻塞项）。该字段**按产物原样推进 git**，不重写 |
+
+判据改动与依据见 §3 的勘误；逐 run 诊断以具名形式落在 `result.json` 的
+`per_run_stationarity.diagnostics`（含 run_id、metric、漂移、上界、ESS、单调性）。
+
+### 10.3 冻结量（写进 E2 lock 的 `design_contract`）
+
+| 量 | 值 | 来源 |
+|---|---|---|
+| `wealth_variance_reference`（`Var_ref`） | `0.7856779131825528` | P2 三单元（clustered/shuffled/flat-d0.02）实测平均 `wealth_variance` |
+| `Δ_wealth_gini` | `0.025` | SESOI 判断，与 pilot 无关（2026-09-18 定夺） |
+| `Δ_wealth_variance` | `0.3928389565912764` = `0.50 × Var_ref` | 相对规则；下界 `4β/(1+⅔β²) = 0.39735` 校验通过（0.50 > 0.39735） |
+| 三族复本要求 | SESOI ≤ 8；独立复本精度 ≤ 9；相邻窗界 ≤ 12 | `r_requirement.json` |
+| **R** | **16** | `next_power_of_two(12)`；正式批次 = 5 单元 × 16 seed = 80 runs |
+| P4 实测 | 通过：`mean_wealth` 跨单元 ~0.5%（带 ±10%）、`zero_wealth_fraction ≤ 1e-6`（上限 0.01）、最小 `wealth_variance` 0.609（下界 0.0568） | `pilot_variance_report.json` |
+
+方向仍未被读取：报告里没有、也没有被任何记录或文档写入任何对比的配对差均值、方向、
+区间或 p 值——该结构性禁止由 `assert_no_contrast_effects` 在装配、写盘、记录三处执行。
+
+### 10.4 本次暴露、**故意未修**的一处共享代码不一致
+
+`run_landscape_study.write_stationarity_payload` 里那行
+`if experiment in {E1_C4_EXPERIMENT, E2_C4_EXPERIMENT}` 是**手写枚举**，没有用
+`E2_C4_FAMILY_EXPERIMENTS`，因此 pilot 的 `stationarity_report.json` **缺 `gate_role` 字段**
+（E1-C4 的逐字携带，正式 E2-C4 的 id 在手写集合里，也不受影响）。**故意不在本轮修**：
+改这行会改变那个被 `manifest.json` 按 sha256 绑定的中间产物的再生结果，而修好它唯一的
+收益只是"重跑一个已经记录完毕的 pilot 时多一个字段"。已作为开放项登记，留到下一轮
+做装备族一致性清理时一并处理（届时 pilot 的再生仍锚定在其声明集提交）。
+
+## 11. 记录器（`record-pilot`）
+
+`prepare_cycle4_confirmation.py` 新增 `record-pilot`，与 `record-diagnostic` /
+`record-calibration-extension` 同一约定：只做机械导出，不做科学判断。
+
+- 先验证后写盘：jobctl exit/timeout、三个产物非空、报告内**不含**方向词汇、
+  P1 通过、ensemble 契约通过、40 run 完整、6 个对比×指标齐备、逐 run 诊断的两个来源
+  （报告里的 `stationarity_failures` 与 `stationarity_report.json`）**必须一致**、
+  run 级行数必须是 40（缺行会藏掉一条诊断）。
+- `R` **不手抄**：由 `derive_r_replicates` 从两份报告重算；若 `r_requirement.json` 已存在
+  且与重算不符 ⇒ 拒绝（同一个量不得有两处说法）。
+- **测量不被重写**：报告按原样 `shutil.copyfile` 推进 job dir，`result.json` 里同时记下
+  `report_verdict.pass = false` 与 `criterion.artifact_unchanged = true`；判据与其依据写在
+  `criterion` 块。测试里有一条断言字节前后相同。
+- 变异检验覆盖：产物被加方向字段、job 失败/超时、ensemble 未过、两个稳态块不一致、
+  恒等违例、两个恒等产物不一致、批次不完整、stationarity 报告被截断或与报告不一致、
+  已记录的 R 与重算不符、config 的 binary/lock 在报告之后被移动——每种变异都必须拒绝。

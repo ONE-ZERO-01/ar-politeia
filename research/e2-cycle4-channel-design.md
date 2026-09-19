@@ -876,3 +876,27 @@ R ∝ 1/ρ²，q = 0.5 时 ρ = 0.25/0.50 对应 R = 64/16，即算力降到四�
 `effective_claim_threshold`（`max(数值上限, SESOI)`，结构不变）与 `derivation`
 （规则、比例、参考字段、参考报告的 sha256、参考水平、换算值、`floor(band)` 与余量），
 使"这个数是怎么来的"可以被独立复核。
+
+## 18. E2 冻结契约：R 与两个 Δ（2026-09-19）
+
+pilot（`E2-C4-PILOT`，非证据）执行完毕并已记录，R 与两个 Δ 自此冻结。本节的数值是
+`research/parameter_lock.e2.json` 的 `design_contract` 与 `parameters` 的**权威来源**；
+lock 文件本身连同 E2-C4 的声明集在下一研究事件内生成（lock 的 `parameters` 必须与
+E2-C4 的 config 逐键相等，`audit_parameter_lock` 会强制这一点，故两者同批产出）。
+
+| 冻结量 | 值 | 依据 |
+|---|---|---|
+| 对比 | `clustered-minus-shuffled`、`d0.04-minus-d0.01`（承载主张）；`clustered-minus-flat`（参考，不承载） | 设计 §4 / §15 |
+| 估计量 | `wealth_gini`、`wealth_variance` | §15（`zero_wealth_fraction` 只作 P4 护栏；`mean_wealth` 只作水平审计，`claim_eligible = false`） |
+| `Δ_wealth_gini` | `0.025` | SESOI 判据（2026-09-18，与实测方差独立） |
+| `Δ_wealth_variance` | 相对规则 `Δ := 0.50 × Var_ref`，硬下界 `4β/(1+⅔β²)` | §17 |
+| `Var_ref` | `0.7856779131825528` | pilot 的 P2 三单元实测平均 `wealth_variance`（报告字段 `wealth_variance_reference.P2_source_pattern.mean_wealth_variance`） |
+| `Δ_wealth_variance` 实际值 | `0.3928389565912764` | `0.50 × Var_ref`；下界校验 `0.50 > 0.39735` 通过 |
+| 复本要求三族 | SESOI ≤ 8；独立复本精度 ≤ 9；相邻窗界 ≤ 12 | pilot 的单侧 90% 上界 SD |
+| **R（每个单元）** | **16** | `next_power_of_two(12)`；正式批次 = 5 单元 × 16 seed = **80 runs** |
+| P4 护栏 | `zero_wealth_fraction_max = 0.01`、`wealth_variance_min = 0.056828569227561854`、`mean_wealth` 相对带 `±0.10` | §15.5；pilot 实测均大幅通过 |
+| pilot 参考 | 报告 `research/jobs/E2-C4-PILOT/pilot_variance_report.json`、推导 `r_requirement.json`（及其 sha256）、记录 `result.json` | `record-pilot` 产出 |
+
+**顺序约束（不得违反）**：R 与两个 Δ 都在看到任何效应方向之前写下。pilot 的报告里
+不存在任何对比均值、方向、区间或 p 值（结构性禁止，见 pilot 设计 §3.4/§11），
+因此这一条不是承诺而是可核验的事实。

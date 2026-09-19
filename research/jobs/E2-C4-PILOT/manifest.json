@@ -1,0 +1,28 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 2192.5930275227875,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {
+      "path": "workspace/pilot_variance_report.json",
+      "sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776",
+      "valid": true
+    },
+    {
+      "path": "workspace/steady_estimand_report.json",
+      "sha256": "c5d0d68d7ed3bb63f2dddd07f3af0c5dd206fc13fbe5729e1bd49b95d60f65e0",
+      "valid": true
+    },
+    {
+      "path": "workspace/isolation_identity_report.json",
+      "sha256": "65e5171e77034f3316e578b322425df53a9c6c7d58267ef169121877299a30f4",
+      "valid": true
+    },
+    {
+      "path": "workspace/stationarity_report.json",
+      "sha256": "cc2b59bbd1f48366130a9f4eba16f30f999ab4710bff92792f8a2710b64827ba",
+      "valid": true
+    }
+  ]
+}
