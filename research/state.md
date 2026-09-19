@@ -447,7 +447,26 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   `wealth_variance` and never froze it). The check now takes an explicit
   `allow_extension` flag that routes through the shared identity check, so E1-C4's
   accepted input set is unchanged and an extension that did not reproduce its source
-  is still refused. The remaining step is to submit the 80-run battery.
+  is still refused.
+- **The 80-run battery was submitted (2026-09-19), and the recording path was landed
+  while it ran.** `record-e2` promotes a finished confirmatory run without ever
+  recomputing an effect, applying a threshold, or having standing to relax a gate: a
+  recorder that could only restate the verdict would add nothing, and one that could
+  recompute it would be a second, competing analysis. What it does instead is refuse
+  on the payload's structural claims about itself. It re-derives the conjunction of
+  the payload's own five gates and refuses when `analysis_gate_pass` disagrees with
+  it; it requires a failed P4 comparability gate to be carried through as
+  `inconclusive`, because that is the single direction that could convert a
+  pre-registered "cannot attribute this contrast" into an unqualified null; it
+  refuses a `claim_supported` that is not backed by the gate; it refuses a
+  claim-eligible metric the lock never registered as an estimand (or an unstated
+  demotion to descriptive-only, which is indistinguishable from a mistake); it counts
+  the battery from the run's own completion markers rather than the summary's account
+  of itself; and it re-checks the triple binding of config, lock and calibration
+  instead of inferring authorization from the fact that a run exists. Only then are
+  the artifacts copied byte for byte. `result.json` stays derived rather than copied
+  and carries the run's own workspace result hash in `workspace_result_sha256`, so
+  the cycle's record and the measurement remain distinguishable (design section 19).
 - Two conventions were tightened while landing the E2 declaration set. `audit_seeds`
   gained an `exclude` parameter: a job directory that is being generated *right now*
   must not be an input to its own seed choice, or else "the smallest unused primes"

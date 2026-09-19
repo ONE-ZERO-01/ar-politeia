@@ -28,10 +28,18 @@
     "historical_evidence_policy": "Cycle 3 outputs remain provenance. They do not inherit support into Cycle 4 and are not pooled with the remediated simulator."
   },
   "scope": {
-    "included_state": ["position", "momentum", "wealth", "ability"],
+    "included_state": [
+      "position",
+      "momentum",
+      "wealth",
+      "ability"
+    ],
     "fixed_population": true,
     "confirmatory_reference_mode": "single rank, single-shot execution, explicit OMP_NUM_THREADS",
-    "disabled_modes": ["MPI confirmatory execution", "checkpoint restart confirmatory execution"],
+    "disabled_modes": [
+      "MPI confirmatory execution",
+      "checkpoint restart confirmatory execution"
+    ],
     "inference_boundary": "Synthetic generative mechanism only; no claim about a historical civilization, state, empire, or political institution."
   },
   "claims": [
@@ -43,7 +51,24 @@
       "status": "supported",
       "resolution": "V1F passed all six frozen calibration layers on 64 unseen seeds, including non-flat timestep convergence and a valid status for every required metric. Residual S18, that the frozen storage-order bound was measured at temperature 0.0 while the confirmatory reference configuration runs at temperature 0.5, was tested by V1G-ORDER-THERMAL-C4 and came back bounded: all four tail bounds fall under the frozen limits, so the bound covers the thermal-noise/row-order coupling and S18 is closed as quantified. The verdict carries two pre-registered reservations: occupancy_entropy uses 88% of its frozen limit, and 12 of 128 runs fail the per-run steady-window checks.",
       "falsification": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
-      "experiments": ["V0-SIMULATOR-TESTS-C4", "V0B-SIMULATOR-TESTS-C4", "V0C-SIMULATOR-TESTS-C4", "V0D-SIMULATOR-TESTS-C4", "V0E-SIMULATOR-TESTS-C4", "V0F-SIMULATOR-TESTS-C4", "V1P-RUNTIME-PILOT-C4", "V1-NONFLAT-CALIBRATION-C4", "V1D-STATIONARITY-DIAGNOSTIC-C4", "V1B-NONFLAT-CALIBRATION-C4", "V1BD-ENSEMBLE-DIAGNOSTIC-C4", "V1C-NONFLAT-CALIBRATION-C4", "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4", "V1E-NONFLAT-CALIBRATION-C4", "V1ED-SAMPLING-DIAGNOSTIC-C4", "V1F-NONFLAT-CALIBRATION-C4"]
+      "experiments": [
+        "V0-SIMULATOR-TESTS-C4",
+        "V0B-SIMULATOR-TESTS-C4",
+        "V0C-SIMULATOR-TESTS-C4",
+        "V0D-SIMULATOR-TESTS-C4",
+        "V0E-SIMULATOR-TESTS-C4",
+        "V0F-SIMULATOR-TESTS-C4",
+        "V1P-RUNTIME-PILOT-C4",
+        "V1-NONFLAT-CALIBRATION-C4",
+        "V1D-STATIONARITY-DIAGNOSTIC-C4",
+        "V1B-NONFLAT-CALIBRATION-C4",
+        "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
+        "V1C-NONFLAT-CALIBRATION-C4",
+        "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
+        "V1E-NONFLAT-CALIBRATION-C4",
+        "V1ED-SAMPLING-DIAGNOSTIC-C4",
+        "V1F-NONFLAT-CALIBRATION-C4"
+      ]
     },
     {
       "id": "C2-LANDSCAPE-C4",
@@ -53,7 +78,10 @@
       "status": "supported",
       "resolution": "None of the pre-registered falsification conditions hold: the calibration is valid and non-flat (V1F), the paired effects sit far outside the frozen equivalence region, multiplicity control passes, and every required stationarity/precision gate passes. Scope is the calibrated reference configuration; system-size, density, grid-discretization and holdout-landscape generalization remain with C4-ROBUSTNESS-C4 (E3-ROBUSTNESS-C4, deferred).",
       "falsification": "After a valid non-flat calibration, paired effects are within the frozen numerical equivalence region, fail multiplicity control, or required runs fail stationarity/precision requirements.",
-      "experiments": ["V0G-SIMULATOR-TESTS-C4", "E1-MATCHED-LANDSCAPES-C4"]
+      "experiments": [
+        "V0G-SIMULATOR-TESTS-C4",
+        "E1-MATCHED-LANDSCAPES-C4"
+      ]
     },
     {
       "id": "C3-CHANNELS-C4",
@@ -62,7 +90,9 @@
       "priority": "P1",
       "status": "pending",
       "falsification": "The implemented causal paths do not match the registered estimands, a named disabled channel remains active, or a factorial contrast combines incomparable non-stationary cells.",
-      "experiments": ["E2-CHANNEL-ABLATION-C4"]
+      "experiments": [
+        "E2-CHANNEL-ABLATION-C4"
+      ]
     },
     {
       "id": "C4-ROBUSTNESS-C4",
@@ -72,35 +102,58 @@
       "status": "deferred",
       "blocked_by": "C1-NUM-C4 and C2-LANDSCAPE-C4; compute is authorized.",
       "falsification": "Effect direction reverses, falls inside the frozen equivalence region, or depends on conflated scale/density/grid changes.",
-      "experiments": ["E3-ROBUSTNESS-C4"]
+      "experiments": [
+        "E3-ROBUSTNESS-C4"
+      ]
     }
   ],
   "experiments": [
     {
       "id": "V0-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Build the remediated C++ simulator with OpenMP OFF and ON on umi and run the complete CTest suite; run Python contract tests and record the exact source commit and environment.",
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
       "status": "completed_failed",
       "result": "Both builds succeeded and Python tests passed; exchange_kernel failed because a three-particle exact storage-permutation invariant does not hold for serial in-place updates.",
-      "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "environment.txt", "result.json"]
+      "artifacts": [
+        "build-off.log",
+        "ctest-off.log",
+        "build-on.log",
+        "ctest-on.log",
+        "environment.txt",
+        "result.json"
+      ]
     },
     {
       "id": "V0B-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Repeat the umi OpenMP OFF/ON build and CTest gate after correcting the test scope: stable-ID random draws and exchange invariants are unit requirements; multi-particle sequential-order sensitivity is measured in V1 rather than assumed exactly absent.",
       "mode": "server",
       "execution_host": "umi",
       "non_evidentiary": true,
       "status": "executed_passed",
       "result": "Umi Python 141/141; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; jobctl reconcile completed.",
-      "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
+      "artifacts": [
+        "build-off.log",
+        "ctest-off.log",
+        "build-on.log",
+        "ctest-on.log",
+        "pytest.log",
+        "environment.json",
+        "result.json"
+      ]
     },
     {
       "id": "V0C-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Validate the explicit stable-GID/position/momentum IC path required to isolate storage-order sensitivity, plus the registered V1 matrix and analysis contracts, in umi OpenMP OFF/ON builds.",
       "mode": "server",
       "execution_host": "umi",
@@ -108,11 +161,21 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "Umi Python 147/147; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; jobctl reconcile completed.",
-      "artifacts": ["build-off.log", "ctest-off.log", "build-on.log", "ctest-on.log", "pytest.log", "environment.json", "result.json"]
+      "artifacts": [
+        "build-off.log",
+        "ctest-off.log",
+        "build-on.log",
+        "ctest-on.log",
+        "pytest.log",
+        "environment.json",
+        "result.json"
+      ]
     },
     {
       "id": "V0D-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Validate the condition-ensemble Gate implementation and all existing Python/C++ contracts on umi before V1C.",
       "mode": "server",
       "execution_host": "umi",
@@ -120,11 +183,18 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "Umi Python 148/148; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; rebuilt binary exactly matches V0C SHA-256; jobctl reconcile completed.",
-      "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
+      "artifacts": [
+        "pytest.log",
+        "ctest-off.log",
+        "ctest-on.log",
+        "result.json"
+      ]
     },
     {
       "id": "V1P-RUNTIME-PILOT-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Run three short, non-evidentiary umi profiles at the target population/grid to estimate the complete V1 CPU and wall time with a 1.5 safety factor.",
       "mode": "server",
       "execution_host": "umi",
@@ -132,22 +202,37 @@
       "status": "executed_passed",
       "blocked_by": "V0C-SIMULATOR-TESTS-C4",
       "result": "Three runs completed in 2.80 seconds; the frozen 75-run target is estimated at 3.47 CPU-hours or 0.43 wall-hours at parallel=8, including a 1.5 safety factor.",
-      "artifacts": ["run_specs.json", "runtime_estimate.json", "result.json"]
+      "artifacts": [
+        "run_specs.json",
+        "runtime_estimate.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1-NONFLAT-CALIBRATION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Measure timestep error on smooth non-flat, clustered, and shuffled landscapes with at least three timesteps at fixed physical duration; keep numerical tolerance separate from scientific relevance thresholds.",
       "mode": "server",
       "execution_host": "umi",
       "status": "executed_failed_gate",
       "blocked_by": "stationarity and precision failed; V1D diagnosis and independently seeded V1B are required",
       "result": "75/75 runs completed with no execution failure. Invariants, timestep convergence, and storage-order bounds passed; stationarity failed in 19/45 timestep runs and precision failed in 7/45.",
-      "artifacts": ["config.json", "run_specs.json", "replicate_metrics.csv", "numerical_calibration.json", "stationarity_report.json", "result.json"]
+      "artifacts": [
+        "config.json",
+        "run_specs.json",
+        "replicate_metrics.csv",
+        "numerical_calibration.json",
+        "stationarity_report.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1D-STATIONARITY-DIAGNOSTIC-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Diagnose the V1 stationarity failure without new simulation by comparing preregistered window lengths and decomposing drift, reversal-shape, and ESS failures; results select a new independent V1B design but cannot rescue V1.",
       "mode": "server",
       "execution_host": "umi",
@@ -155,11 +240,16 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "Reanalysis of all 75 V1 runs reproduced the archived 24/1-sigma counts exactly. Raising the reversal threshold to 2 sigma removed nearly all shape flags, while 48/96-snapshot windows exposed increasing drift and autocorrelation; V1B therefore extends the horizon before applying the frozen 96/2-sigma contract.",
-      "artifacts": ["window_sensitivity.json", "result.json"]
+      "artifacts": [
+        "window_sensitivity.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1B-NONFLAT-CALIBRATION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Independently revalidate non-flat timestep, storage-order, stationarity, and precision gates using new seeds and the stationarity contract frozen after V1D.",
       "mode": "server",
       "execution_host": "umi",
@@ -169,7 +259,9 @@
     },
     {
       "id": "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Reanalyse V1B without new simulation to compare the run-wise conjunction with condition-level ensemble stationarity over adjacent fixed windows and estimate the independent-replicate count required by the failed timestep ceiling.",
       "mode": "server",
       "execution_host": "umi",
@@ -177,22 +269,37 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "V1B run-wise counts reproduced exactly. All 9 tail-window condition ensembles passed stationarity; 6/9 remained below temporal ESS=4. The limiting numerical cell requires an estimated 14 replicates if observed moments persist.",
-      "artifacts": ["ensemble_stationarity_diagnostic.json", "result.json"]
+      "artifacts": [
+        "ensemble_stationarity_diagnostic.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1C-NONFLAT-CALIBRATION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Independently repeat the complete non-flat timestep and storage-order calibration with 15 new seeds, a post-equilibration 144-snapshot window, and condition-ensemble stationarity and precision gates frozen from V1BD.",
       "mode": "server",
       "execution_host": "umi",
       "status": "executed_failed_gate",
       "blocked_by": "V1CD deterministic diagnosis is required before designing another independent calibration",
       "result": "225/225 runs completed without execution failure; jobctl reconcile passed. Invariants, timestep convergence, and storage-order sensitivity passed. Condition-ensemble stationarity failed in 1/9 cells (smooth dt=0.02 Spearman drift), and precision failed in 6/9 cells because temporal ESS was below four.",
-      "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "numerical_calibration.json", "result.json"]
+      "artifacts": [
+        "run_specs.json",
+        "matched_input_audit.json",
+        "replicate_metrics.csv",
+        "stationarity_report.json",
+        "ensemble_stationarity_report.json",
+        "numerical_calibration.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Reanalyse the fixed V1C outputs over adjacent windows to separate persistent equilibration drift, temporal autocorrelation, and independent-seed precision without changing the negative V1C verdict.",
       "mode": "server",
       "execution_host": "umi",
@@ -200,11 +307,16 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "The V1C tail baseline reproduced exactly. Stationarity failures improved from 3/9 in the previous window to 1/9 in the tail; all 36 adjacent-window shifts were within planning widths. Independent-seed precision passed 30/36 bounded-metric cells, with clustered Moran and entropy requiring at most 20 seeds.",
-      "artifacts": ["steady_estimand_diagnostic.json", "result.json"]
+      "artifacts": [
+        "steady_estimand_diagnostic.json",
+        "result.json"
+      ]
     },
     {
       "id": "V0E-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Validate the V1E two-window steady-estimand and independent-seed precision implementation plus all existing Python and C++ contracts on umi before numerical execution.",
       "mode": "server",
       "execution_host": "umi",
@@ -212,11 +324,18 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "Umi Python 152/152; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; jobctl reconcile completed.",
-      "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
+      "artifacts": [
+        "pytest.log",
+        "ctest-off.log",
+        "ctest-on.log",
+        "result.json"
+      ]
     },
     {
       "id": "V1E-NONFLAT-CALIBRATION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Independently repeat the calibration with a later burn-in, adjacent-window stability, independent-seed precision, and 20 unseen seeds under the unchanged simulator and numerical-error ceilings.",
       "mode": "server",
       "execution_host": "umi",
@@ -224,11 +343,22 @@
       "blocked_by": "V1ED sampling diagnostic is required before another independent calibration",
       "execution": "Submitted on umi via jobctl with pid 1914738, parallel=8, OMP_NUM_THREADS=1, and overall timeout 129600 seconds.",
       "result": "300/300 runs completed without failure and jobctl reconcile passed. Invariants, timestep convergence, storage-order sensitivity, tail stationarity, and adjacent-window stability passed. Independent-seed precision failed in 6/9 conditions across clustered Moran/entropy and clustered/shuffled wealth variance.",
-      "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
+      "artifacts": [
+        "run_specs.json",
+        "matched_input_audit.json",
+        "replicate_metrics.csv",
+        "stationarity_report.json",
+        "ensemble_stationarity_report.json",
+        "steady_estimand_report.json",
+        "numerical_calibration.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1ED-SAMPLING-DIAGNOSTIC-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Diagnose V1E precision failures using point and one-sided upper-SD sample-size requirements and matched-pair variance without changing the negative V1E verdict.",
       "mode": "server",
       "execution_host": "umi",
@@ -236,11 +366,16 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "The V1E Gate reproduced exactly. Point and one-sided 90% upper-SD calculations require at most 38 and 61 independent replicates respectively; the frozen rounding policy selects 64. Paired primary metrics require at most 17.",
-      "artifacts": ["sampling_diagnostic.json", "result.json"]
+      "artifacts": [
+        "sampling_diagnostic.json",
+        "result.json"
+      ]
     },
     {
       "id": "V0F-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Validate V1F registration and all inherited V1E Gate contracts on umi before the 64-seed calibration.",
       "mode": "server",
       "execution_host": "umi",
@@ -248,11 +383,18 @@
       "status": "executed_passed",
       "blocked_by": "none",
       "result": "Umi Python 153/153; OpenMP OFF CTest 7/7; OpenMP ON CTest 7/7; rebuilt reference binary retained the validated SHA-256; jobctl reconcile completed.",
-      "artifacts": ["pytest.log", "ctest-off.log", "ctest-on.log", "result.json"]
+      "artifacts": [
+        "pytest.log",
+        "ctest-off.log",
+        "ctest-on.log",
+        "result.json"
+      ]
     },
     {
       "id": "V1F-NONFLAT-CALIBRATION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Independently repeat the unchanged V1E calibration with 64 unseen seeds selected by the conservative V1ED upper-SD rule.",
       "mode": "server",
       "execution_host": "umi",
@@ -260,11 +402,22 @@
       "blocked_by": "cleared: the run completed and passed every frozen calibration layer.",
       "result": "Completed 960/960 runs on umi and passed all six frozen calibration layers (invariants, timestep_convergence, storage_order_sensitivity, tail_stationarity, adjacent_window_stability, independent_replicate_precision). Archived as tracked evidence by prepare_cycle4_confirmation.py archive-v1f.",
       "execution": "Submitted on umi at 2026-09-15T10:01:13+08:00 under jobctl pid 2647912; 960 run directories were created and eight single-thread simulator processes entered execution with zero startup stderr failures.",
-      "artifacts": ["run_specs.json", "matched_input_audit.json", "replicate_metrics.csv", "stationarity_report.json", "ensemble_stationarity_report.json", "steady_estimand_report.json", "numerical_calibration.json", "result.json"]
+      "artifacts": [
+        "run_specs.json",
+        "matched_input_audit.json",
+        "replicate_metrics.csv",
+        "stationarity_report.json",
+        "ensemble_stationarity_report.json",
+        "steady_estimand_report.json",
+        "numerical_calibration.json",
+        "result.json"
+      ]
     },
     {
       "id": "V1G-ORDER-THERMAL-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Decide whether the frozen numerical resolution limits cover the storage-order channel at the reference temperature (S18), by rerunning V1F's order layer with temperature 0.0 changed to 0.5 and nothing else.",
       "mode": "server",
       "execution_host": "umi",
@@ -273,13 +426,19 @@
       "blocked_by": "cleared: E1-C4 finished and released the concurrency slots (design section 8).",
       "execution": "Submitted on umi at 2026-09-17 under jobctl pid 2149600; all 128 runs (64 seeds x canonical/permuted) completed in 13717 s (3.81 h). jobctl reconcile returned completed, and the verdict was recorded into the job dir by prepare_cycle4_confirmation.py record-diagnostic, which derives result.json and manifest.json from the report instead of transcribing numbers.",
       "design": "research/v1g-order-thermal-design.md",
-      "artifacts": ["order_thermal_report.json", "result.json", "manifest.json"],
+      "artifacts": [
+        "order_thermal_report.json",
+        "result.json",
+        "manifest.json"
+      ],
       "result": "bounded: all four tail bounds fall under the frozen numerical_resolution_limits (0.001845 <= 0.004590 spearman; 0.001503 <= 0.003259 Moran; 0.000876 <= 0.000995 entropy; 0.001086 <= 0.001441 Gini). Ledger S18 is therefore closed as quantified, and no C++ change or recalibration is needed. Two reservations travel with the verdict and are pre-registered: occupancy_entropy has only 12% headroom (the tightest of the four, so any change raising its noise by more than 13.6% crosses the limit first), and 12 of 128 runs fail the per-run steady-window checks, which the design excludes from the verdict but which the bound inherits.",
       "judgment": "Pre-frozen in the design before submission: bounded if and only if all four tail metrics satisfy |mean| + 2*SE <= the frozen numerical_resolution_limits. Diagnostic only; it produces no evidence for any E1/E2 landscape effect and must not be cited as such."
     },
     {
       "id": "V1H-CALIBRATION-EXTENSION-C4",
-      "claim_ids": ["C1-NUM-C4"],
+      "claim_ids": [
+        "C1-NUM-C4"
+      ],
       "objective": "Extend the Cycle 4 numerical resolution limits to wealth_variance by re-analysing V1F's retained replicate_metrics.csv, publishing nothing unless V1F's four frozen limits reproduce bit for bit.",
       "mode": "server",
       "execution_host": "umi",
@@ -288,13 +447,19 @@
       "blocked_by": "cleared: V1F's replicate_metrics.csv was retained in the job workspace and its sha256 matches the value V1F's config declared, so the re-analysis needed no simulator time, no GPU and no new seeds.",
       "execution": "Submitted on umi at 2026-09-18 under jobctl pid 3760366; 0.37 s of wall time (the job only reads a 5 MB table and runs no simulation) and jobctl reconcile returned completed. The verdict was recorded into the job dir by prepare_cycle4_confirmation.py record-calibration-extension, which hashes the source artifact on disk, re-reads V1F's four frozen limits from that file, and refuses to record an extension that rewrites, silently skips or re-freezes one of them.",
       "design": "research/e2-cycle4-channel-design.md sections 15-16",
-      "artifacts": ["numerical_calibration_extended.json", "result.json", "manifest.json"],
+      "artifacts": [
+        "numerical_calibration_extended.json",
+        "result.json",
+        "manifest.json"
+      ],
       "result": "pass: all four V1F limits reproduce bit for bit (0 mismatched float fields out of 144): spearman 0.004589992673223881, Moran 0.0032587589468579255, entropy 0.0009948207537034592, Gini 0.0014407792015185721. The extension adds exactly one limit, wealth_variance = 0.056828569227561854, taken from the worst cell (clustered) of the discretization layer; every cell passes its trend check and the order leg's finest-dt bound (0.005972) is below it, so the metric is bounded by discretization rather than by storage order. No ceiling is frozen: a ceiling is a pre-registered failure threshold, so it is left to be frozen with the scientific SESOI rather than written after seeing the data. mean_wealth stays out of scope (absent from the retained table; registered as a level audit, design section 15.5), which the artifact records explicitly instead of silently omitting.",
       "judgment": "Pre-frozen before submission: an extension may only add limits. It must reproduce every source limit exactly (a near miss is a fresh measurement of a different object, not a second opinion about V1F's), may not restate an already frozen metric as an extension, and may not invent a ceiling. The extended metric must additionally pass the data-derived criteria already defined in the calibration aggregator (trend_pass, bounded_by_discretization), which contain no arbitrary constant. Diagnostic only: the extension declares pathwise_claim false and is not evidence for any E2-C4 effect."
     },
     {
       "id": "V0G-SIMULATOR-TESTS-C4",
-      "claim_ids": ["C2-LANDSCAPE-C4"],
+      "claim_ids": [
+        "C2-LANDSCAPE-C4"
+      ],
       "objective": "Validate the Cycle 4 promotion and binary-binding contracts, matched two-condition runner, two-window ensemble gates, threshold separation, and complete simulator invariants on umi; produce the final reference binary.",
       "mode": "server",
       "execution_host": "umi",
@@ -305,7 +470,9 @@
     },
     {
       "id": "E1-MATCHED-LANDSCAPES-C4",
-      "claim_ids": ["C2-LANDSCAPE-C4"],
+      "claim_ids": [
+        "C2-LANDSCAPE-C4"
+      ],
       "objective": "Independently rerun the clustered-versus-shuffled comparison using new seeds, the remediated simulator, the frozen non-flat calibration, and required stationarity plus precision gates.",
       "mode": "server",
       "execution_host": "umi",
@@ -313,20 +480,28 @@
       "blocked_by": "cleared: the final Cycle 4 lock authorized E1-C4 and bound the calibrated reference binary.",
       "result": "Completed 128/128 runs on umi (64 seeds x matched clustered/shuffled), 0 failures, 34.97 CPU-hours over 18512 s wall, and passed all six analysis gates. Paired clustered-minus-shuffled effects exceed the frozen SESOI on all three required spatial metrics (resource_density_spearman_rho +0.2297, density_morans_i +0.5525, occupancy_entropy -0.0818; Holm p=3.0e-5). The secondary wealth_gini effect is +0.00303 with an interval containing zero, consistent with the registered S12 synthetic-effect caveat. Archived by the new archive-e1 command, which binds every completion marker to its final snapshot digest and cross-checks the lock, the jobctl contract, both audits and all three reports.",
       "design": "research/e1-cycle4-design.md",
-      "evidence": ["research/jobs/E1-MATCHED-LANDSCAPES-C4/result.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json", "research/jobs/E1-MATCHED-LANDSCAPES-C4/manifest.json"]
+      "evidence": [
+        "research/jobs/E1-MATCHED-LANDSCAPES-C4/result.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+        "research/jobs/E1-MATCHED-LANDSCAPES-C4/manifest.json"
+      ]
     },
     {
       "id": "E2-CHANNEL-ABLATION-C4",
-      "claim_ids": ["C3-CHANNELS-C4"],
+      "claim_ids": [
+        "C3-CHANNELS-C4"
+      ],
       "objective": "Disentangle spatial organisation from the explicitly named production-decay source-sink path under a factorial design (P1 landscape main effect, P2 landscape-at-closed-force, P3 exchange-kernel invariance, P4 force-on at frozen positions); treat the P3 spatial-production null as a structural isolation check rather than a substantive finding.",
       "mode": "server",
       "execution_host": "umi",
-      "status": "deferred",
-      "blocked_by": "Pilot executed and recorded (2026-09-19): research/jobs/E2-C4-PILOT/result.json - P1 isolation identity passed (32 comparisons, 0 violations), the family's frozen ensemble steady contract passed on all five units, 40/40 runs completed, and four per-run wealth_variance diagnostics are named in per_run_stationarity.diagnostics. R is frozen at 16 (worst family requirement 12, from the adjacent-window bound; SESOI 8, precision 9) and the two deltas are frozen with it: wealth_gini 0.025 and wealth_variance := 0.50 * Var_ref with Var_ref = 0.7856779131825528, i.e. 0.3928389565912764 (design section 18). The lock and the declaration set now exist (2026-09-19): research/parameter_lock.e2.json (status final, authorizes E2-CHANNEL-ABLATION-C4 only) plus research/jobs/E2-CHANNEL-ABLATION-C4/{config.json, experiment.json, seeds.txt, env.txt, outputs.txt, data_checksums.txt, computational_strategy.json}, all written by `prepare_cycle4_confirmation.py prepare-e2` from the recorded pilot and the second lock. They carry R = 16 and the 5-unit x 16-seed (80 run) battery on the sixteen smallest unused primes of window 12300-13000 (12391..12511; together with the pilot's eight these are the window's smallest twenty-four primes). Generating them exposed and fixed a start-up blocker: validate_c4_calibration_coverage hardcoded V1F as the only acceptable calibration, but E2-C4 can only be calibrated by the V1H extension (V1F recorded wealth_variance and never froze it), so E2-C4 would have exited before its first run; the check now takes an explicit allow_extension flag that routes through the shared identity check, leaving E1-C4's accepted input set unchanged (design section 18.1)."
+      "status": "submitted",
+      "blocked_by": "Pilot executed and recorded (2026-09-19): research/jobs/E2-C4-PILOT/result.json - P1 isolation identity passed (32 comparisons, 0 violations), the family's frozen ensemble steady contract passed on all five units, 40/40 runs completed, and four per-run wealth_variance diagnostics are named in per_run_stationarity.diagnostics. R is frozen at 16 (worst family requirement 12, from the adjacent-window bound; SESOI 8, precision 9) and the two deltas are frozen with it: wealth_gini 0.025 and wealth_variance := 0.50 * Var_ref with Var_ref = 0.7856779131825528, i.e. 0.3928389565912764 (design section 18). The lock and the declaration set now exist (2026-09-19): research/parameter_lock.e2.json (status final, authorizes E2-CHANNEL-ABLATION-C4 only) plus research/jobs/E2-CHANNEL-ABLATION-C4/{config.json, experiment.json, seeds.txt, env.txt, outputs.txt, data_checksums.txt, computational_strategy.json}, all written by `prepare_cycle4_confirmation.py prepare-e2` from the recorded pilot and the second lock. They carry R = 16 and the 5-unit x 16-seed (80 run) battery on the sixteen smallest unused primes of window 12300-13000 (12391..12511; together with the pilot's eight these are the window's smallest twenty-four primes). Generating them exposed and fixed a start-up blocker: validate_c4_calibration_coverage hardcoded V1F as the only acceptable calibration, but E2-C4 can only be calibrated by the V1H extension (V1F recorded wealth_variance and never froze it), so E2-C4 would have exited before its first run; the check now takes an explicit allow_extension flag that routes through the shared identity check, leaving E1-C4's accepted input set unchanged (design section 18.1). The 80-run battery was submitted to umi on 2026-09-19 (jobctl), and the recording path was landed before it could finish: `prepare_cycle4_confirmation.py record-e2` promotes the finished run by re-deriving the composition of the payload's own five gates, requiring a failed P4 comparability gate to be carried through as `inconclusive` rather than flattened into a null (that is the one direction that could turn an unattributable contrast into an unqualified zero), counting the battery from the run's own completion markers rather than from the summary it wrote about itself, and refusing a claim-eligible metric the lock did not register as an estimand or an unstated demotion to descriptive-only. It has no authority to recompute an effect; the artifacts are copied byte for byte, while `result.json` stays derived and hashes the run's own workspace result into `workspace_result_sha256` (design section 19)."
     },
     {
       "id": "E3-ROBUSTNESS-C4",
-      "claim_ids": ["C4-ROBUSTNESS-C4"],
+      "claim_ids": [
+        "C4-ROBUSTNESS-C4"
+      ],
       "objective": "Test system size, density, grid discretization, and holdout landscape family as separate robustness dimensions.",
       "mode": "server",
       "execution_host": "umi",
@@ -336,9 +511,22 @@
   ],
   "analysis_policy": {
     "confirmatory_unit": "paired random seed across matched landscapes",
-    "required_spatial_metrics": ["resource_density_spearman_rho", "density_morans_i", "occupancy_entropy"],
-    "required_wealth_diagnostics": ["wealth_gini", "wealth_variance", "zero_wealth_fraction", "total_wealth_relative_drift"],
-    "metric_status_contract": ["valid", "undefined", "invalid"],
+    "required_spatial_metrics": [
+      "resource_density_spearman_rho",
+      "density_morans_i",
+      "occupancy_entropy"
+    ],
+    "required_wealth_diagnostics": [
+      "wealth_gini",
+      "wealth_variance",
+      "zero_wealth_fraction",
+      "total_wealth_relative_drift"
+    ],
+    "metric_status_contract": [
+      "valid",
+      "undefined",
+      "invalid"
+    ],
     "stationarity_and_precision": "Separate verdicts; both are required for confirmatory effect estimation.",
     "multiplicity": "Holm family-wise correction within each frozen confirmatory family.",
     "missing_runs": "No outcome-dependent seed replacement; all failures are reported.",

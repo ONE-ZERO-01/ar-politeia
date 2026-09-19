@@ -937,3 +937,31 @@ if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:   # 即 V1F
 当作台账的一行，所以 job 目录一旦写出来，它自己声明的 seed 就会反过来缩小下一次的候选池，
 让"最小未用"变成"取决于是否跑过"。修法是给 `audit_seeds` 一个 `exclude` 参数，生成器把
 正在生成的 job 目录排除在自己的输入之外，并在选完后核对已有声明正是本次的选择。
+
+## 19. 判定记录路径：`record-e2` 只做拒绝，不做计算（2026-09-19）
+
+正式批次的判定由冻结的执行器在 run 内算出，写进 `channel_separation.json`。记录器的唯一
+职权是**拒斥**——它不重算任何效应、不施加任何阈值、没有任何放松门禁的权力。一个只能复述
+`pass` 字段的记录器等于没有；一个能重算的记录器等于第二份互相竞争的分析。所以它审的是
+这份 payload 关于它**自己**的结构性声明，审完把产物逐字节拷进 git：
+
+| 被核验的自述 | 拒斥条件 | 为什么这条不是形式主义 |
+|---|---|---|
+| `analysis_gate_pass` 是五个门禁的合取 | 与自身 `gates` 的合取不等 | 两者矛盾时无法说明究竟是哪一份说了算 |
+| P1 隔离恒等式无违例 | `P1_isolation_identity.violations` 非空 | 位置不外生时，该 payload 里任何效应都不得被报告 |
+| P4 可比性失败 ⇒ `inconclusive` | 门禁失败却没标 `inconclusive` | 这是唯一能把"不可归因"篡改成"零效应"的方向 |
+| `claim_supported` 蕴含门禁通过 | 门禁失败却声称支持 | 主张与门禁脱钩就等于门禁可被绕过 |
+| 可达主张的指标 ⊆ lock 注册的估计量 | 出现未注册指标 | `mean_wealth` 是审计量（§15）；越界即口径漂移 |
+| 家族内每个估计量要么可达要么有降格理由 | 出现未说明的降格 | 未说明的降格与失误无法区分 |
+| 批次 = 声明的 80 run | 完成标记数 ≠ `5 × 16`；summary 自报的完成数不一致 | 用 run 自己的完成标记计数，不用 summary 的自我陈述 |
+| 复本表覆盖 5 单元 × 16 seed 且逐单元可数 | 单元集或 seed 集不符 | 表是"哪些 run 真的产出数据"的唯一直接证据 |
+| config / lock / 校准三重绑定 | 任一 sha 不符、或校准不是 V1H 扩展 | 授权与校准是执行前冻结、记录时复核的，不从"它跑过"反推 |
+| jobctl `exit_code == 0` 且未超时 | 否则拒斥 | 失败或超时的 run 不进 git |
+
+判据本身与阈值的来源不在此处复述：它们记在 `/result.json` 的 `scientific_sesoi`、
+`replicate_requirement`、`claim_eligible_metrics`、`ineligibility_reasons` 里，正是从锁的
+`design_contract` 抄来，而锁的数值全部由 §18 记录在案的产物重导。
+
+`result.json` **保持派生而不是拷贝**：它是本循环对这次 run 的记录，workspace 自己的
+`result.json` 的 sha256 被写进它的 `workspace_result_sha256` 字段，两者因此始终可区分——
+把两者混为一谈，就等于让"记录"和"测量"在事后无法分开。
