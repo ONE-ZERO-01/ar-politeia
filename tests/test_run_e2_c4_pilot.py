@@ -30,6 +30,8 @@ import sys
 
 import numpy as np
 import pytest
+
+from conftest import assert_manifest_is_auditable
 from scipy.stats import chi2
 
 REPO_ROOT = Path(__file__).parents[1]
@@ -932,7 +934,9 @@ def _pilot_job(
     steady = _steady_stub() if steady is None else steady
     report = _report_from(steady) if report is None else report
     stationarity = _stationarity_stub(report) if stationarity is None else stationarity
-    job_dir = tmp_path / pilot.EXPERIMENT_ID
+    # The real layout: a job lives under <root>/research/jobs/<id>, and a manifest
+    # path is derived from that position.
+    job_dir = tmp_path / "research" / "jobs" / pilot.EXPERIMENT_ID
     workspace = job_dir / "workspace"
     workspace.mkdir(parents=True)
     (job_dir / "config.json").write_text(
@@ -950,7 +954,7 @@ def _pilot_job(
     }
     for name, payload in payloads.items():
         (workspace / name).write_text(json.dumps(payload), encoding="utf-8")
-    jobctl = tmp_path / "jobctl" / pilot.EXPERIMENT_ID
+    jobctl = tmp_path / ".autoresearcher" / "jobs" / pilot.EXPERIMENT_ID
     jobctl.mkdir(parents=True)
     (jobctl / "result.json").write_text(
         json.dumps(
@@ -1000,18 +1004,13 @@ def test_record_pilot_promotes_the_artifact_verbatim_and_derives_r(tmp_path):
 
     manifest = json.loads((job_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["jobctl_reconcile"] == "completed"
+    # Only what record-pilot keeps is attested; the steady, identity and
+    # stationarity reports are attested by hash inside result.json.
     assert {entry["path"] for entry in manifest["artifacts"]} == {
-        f"workspace/{name}"
-        for name in (
-            pilot.PILOT_REPORT_NAME,
-            pilot.STEADY_REPORT_NAME,
-            "isolation_identity_report.json",
-            "stationarity_report.json",
-        )
+        f"jobs/{pilot.EXPERIMENT_ID}/{name}"
+        for name in (pilot.PILOT_REPORT_NAME, "r_requirement.json", "result.json")
     }
-    for entry in manifest["artifacts"]:
-        assert entry["valid"] is True
-        assert entry["sha256"] == recorder._sha256(job_dir / entry["path"])
+    assert_manifest_is_auditable(manifest, tmp_path)
 
 
 def test_record_pilot_names_the_per_run_diagnostics_instead_of_smoothing_them(tmp_path):

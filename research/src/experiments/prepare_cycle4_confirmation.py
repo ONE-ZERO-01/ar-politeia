@@ -255,23 +255,20 @@ def record_diagnostic(
         "conclusion_artifact": conclusion_artifact,
         "conclusion_artifact_sha256": _sha256(tracked),
     }
-    _write_json(job_dir / "result.json", result)
-
-    manifest = {
-        "exit_code": int(jobctl_result["exit_code"]),
-        "timed_out": False,
-        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
-        "jobctl_reconcile": "completed",
-        "artifacts": [
-            {
-                "path": f"workspace/{name}",
-                "sha256": _sha256(path),
-                "valid": True,
-            }
-            for name, path in declared.items()
-        ],
+    _write_json(job_dir / "result.json", result)    # The declared workspace set is attested by hash inside result.json, because a
+    # manifest may only name files that survive in the job directory.
+    result["workspace_artifact_sha256"] = {
+        name: _sha256(value) for name, value in sorted(declared.items())
     }
+    _write_json(job_dir / "result.json", result)
+    manifest = _tracked_manifest(
+        job_dir,
+        [conclusion_artifact, "result.json"],
+        exit_code=jobctl_result["exit_code"],
+        wall_seconds=jobctl_result.get("wall_seconds", 0.0),
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
 
     return {
         "experiment": result["experiment"],
@@ -512,23 +509,20 @@ def record_calibration_extension(
         "conclusion_artifact": conclusion_artifact,
         "conclusion_artifact_sha256": _sha256(tracked),
     }
-    _write_json(job_dir / "result.json", result)
-
-    manifest = {
-        "exit_code": int(jobctl_result["exit_code"]),
-        "timed_out": False,
-        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
-        "jobctl_reconcile": "completed",
-        "artifacts": [
-            {
-                "path": f"workspace/{name}",
-                "sha256": _sha256(path),
-                "valid": True,
-            }
-            for name, path in declared.items()
-        ],
+    _write_json(job_dir / "result.json", result)    # The declared workspace set is attested by hash inside result.json, because a
+    # manifest may only name files that survive in the job directory.
+    result["workspace_artifact_sha256"] = {
+        name: _sha256(value) for name, value in sorted(declared.items())
     }
+    _write_json(job_dir / "result.json", result)
+    manifest = _tracked_manifest(
+        job_dir,
+        [conclusion_artifact, "result.json"],
+        exit_code=jobctl_result["exit_code"],
+        wall_seconds=jobctl_result.get("wall_seconds", 0.0),
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
 
     return {
         "experiment": result["experiment"],
@@ -884,23 +878,16 @@ def record_pilot(
     }
     _write_json(job_dir / "result.json", result)
 
-    manifest = {
-        "exit_code": int(jobctl_result["exit_code"]),
-        "timed_out": False,
-        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
-        "jobctl_reconcile": "completed",
-        "artifacts": [
-            {"path": f"workspace/{artifact}", "sha256": _sha256(path), "valid": True}
-            for artifact, path in {
-                name: source,
-                steady_name: steady_source,
-                identity_name: identity_source,
-                stationarity_name: stationarity_source,
-                **declared,
-            }.items()
-        ],
-    }
+    # Only the pilot report, the derivation and the record are kept; the steady,
+    # identity and stationarity reports are attested by hash inside result.json.
+    manifest = _tracked_manifest(
+        job_dir,
+        [name, "r_requirement.json", "result.json"],
+        exit_code=jobctl_result["exit_code"],
+        wall_seconds=jobctl_result.get("wall_seconds", 0.0),
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
 
     return {
         "experiment": result["experiment"],
@@ -1230,22 +1217,16 @@ def record_e2(
     }
     _write_json(job_dir / "result.json", result)
 
-    manifest = {
-        "exit_code": int(jobctl_result["exit_code"]),
-        "timed_out": False,
-        "wall_seconds": float(jobctl_result.get("wall_seconds", 0.0)),
-        "jobctl_reconcile": "completed",
-        "artifacts": [
-            {
-                "path": f"workspace/{name}",
-                "sha256": _sha256(job_dir / name),
-                "source_sha256": _sha256(workspace / name),
-                "valid": True,
-            }
-            for name in E2_REQUIRED_ARTIFACTS
-        ],
-    }
+    # Every declared artifact is promoted, so the manifest attests the promoted set
+    # itself: the same bytes the run produced, now kept in the job directory.
+    manifest = _tracked_manifest(
+        job_dir,
+        [*E2_REQUIRED_ARTIFACTS, "result.json"],
+        exit_code=jobctl_result["exit_code"],
+        wall_seconds=jobctl_result.get("wall_seconds", 0.0),
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
 
     return {
         "experiment": E2_ID,
@@ -1994,6 +1975,61 @@ def prepare_e2(project_root: Path) -> dict[str, Any]:
     }
 
 
+def _tracked_evidence(job_dir: Path, name: str) -> dict[str, Any]:
+    """One manifest artifact record, in the shape the audit gate accepts.
+
+    Cycle 3's manifests are the only ones that ever satisfied ``audit``, and they
+    pin all three fields as load-bearing:
+
+    * ``path`` is resolved by ``audit`` against its own run directory (``research/``),
+      hence ``jobs/<id>/<name>``.  Cycle 4 wrote ``workspace/<name>``, which resolves
+      to ``research/workspace/<name>`` -- a path that can never exist, because
+      ``research/jobs/*/workspace/`` is gitignored and no workspace file is ever
+      tracked.
+    * ``sha256`` is checked.
+    * ``size`` is checked as well, and a missing field compares unequal to the real
+      size and is reported as a mismatch.  Cycle 4's recorders omitted it.
+
+    So a manifest can only attest a file the recorder actually *kept* in the job
+    directory.  Hashes of workspace files that are deliberately not kept belong in
+    the job's ``result.json``, beside the verdict they support, which is where
+    several recorders already put them.
+    """
+    path = job_dir / name
+    if not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(
+            f"a manifest cannot attest {name}: it is not kept in the job directory"
+        )
+    parts = job_dir.resolve().parts
+    if "jobs" not in parts:
+        raise RuntimeError(f"the job directory {job_dir} is not under a 'jobs' directory")
+    index = len(parts) - 1 - parts[::-1].index("jobs")
+    return {
+        "path": "/".join((*parts[index:], name)),
+        "sha256": _sha256(path),
+        "size": path.stat().st_size,
+    }
+
+
+def _tracked_manifest(
+    job_dir: Path,
+    kept: Sequence[str],
+    *,
+    exit_code: Any,
+    wall_seconds: Any,
+    **extra: Any,
+) -> dict[str, Any]:
+    """The manifest of a recorded job: it attests exactly what was kept."""
+    return {
+        "exit_code": int(exit_code),
+        "timed_out": False,
+        "wall_seconds": float(wall_seconds),
+        "jobctl_reconcile": "completed",
+        **extra,
+        "artifacts": [_tracked_evidence(job_dir, name) for name in sorted(set(kept))],
+    }
+
+
 def _relative(root: Path, path: Path) -> str:
     resolved_root = root.resolve()
     resolved_path = path.resolve()
@@ -2381,21 +2417,14 @@ def archive_v1f(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
     }
     compact_result_path = job_dir / "result.json"
     _write_json(compact_result_path, compact_result)
-    manifest = {
-        "exit_code": 0,
-        "timed_out": False,
-        "wall_seconds": jobctl_result.get("wall_seconds"),
-        "jobctl_reconcile": "completed",
-        "artifacts": [
-            {
-                "path": f"workspace/{name}",
-                "sha256": artifact_hashes[name],
-                "valid": True,
-            }
-            for name in V1F_WORKSPACE_ARTIFACTS
-        ],
-    }
+    manifest = _tracked_manifest(
+        job_dir,
+        ["numerical_calibration.json", "result.json"],
+        exit_code=0,
+        wall_seconds=jobctl_result.get("wall_seconds"),
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
     if compact_result["pass"] is True:
         validate_v1f(tracked_calibration_path, compact_result_path, config_path)
     return compact_result
@@ -2700,25 +2729,18 @@ def archive_e1(root: Path, job_dir: Path, jobctl_dir: Path) -> dict[str, Any]:
     compact_result_path = job_dir / "result.json"
     _write_json(compact_result_path, compact_result)
 
-    manifest = {
-        "exit_code": 0,
-        "timed_out": False,
-        "wall_seconds": jobctl_result.get("wall_seconds"),
-        "jobctl_reconcile": "completed",
-        "archived_after_run": True,
-        "artifacts": [
-            {
-                "path": f"workspace/{name}",
-                "sha256": artifact_hashes[name],
-                "valid": True,
-            }
-            for name in E1_WORKSPACE_ARTIFACTS
-        ],
-        "undeclared_provenance_sha256": {
+    manifest = _tracked_manifest(
+        job_dir,
+        ["paired_effects.json", "result.json"],
+        exit_code=0,
+        wall_seconds=jobctl_result.get("wall_seconds"),
+        archived_after_run=True,
+        undeclared_provenance_sha256={
             name: artifact_hashes[name] for name in E1_UNDECLARED_PROVENANCE
         },
-    }
+    )
     _write_json(job_dir / "manifest.json", manifest)
+
 
     if _sha256(workspace / "paired_effects.json") != compact_result[
         "paired_effects_sha256"

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from conftest import assert_manifest_is_auditable
+
 
 MODULE_PATH = (
     Path(__file__).parents[1]
@@ -406,7 +408,13 @@ def test_archive_v1f_cross_checks_runs_and_writes_tracked_evidence(tmp_path):
     assert json.loads((job_dir / "result.json").read_text()) == result
     manifest = json.loads((job_dir / "manifest.json").read_text())
     assert manifest["jobctl_reconcile"] == "completed"
-    assert len(manifest["artifacts"]) == len(promotion.V1F_WORKSPACE_ARTIFACTS)
+    # Only what the archive keeps is attested; the eight workspace artifacts are
+    # attested by hash in result.json, which is why that block is checked above.
+    assert {entry["path"] for entry in manifest["artifacts"]} == {
+        f"jobs/{promotion.V1F_ID}/numerical_calibration.json",
+        f"jobs/{promotion.V1F_ID}/result.json",
+    }
+    assert_manifest_is_auditable(manifest, tmp_path)
 
 
 def _e1_fixture(root: Path) -> tuple[Path, Path]:
@@ -584,7 +592,11 @@ def test_archive_e1_archives_a_passing_run(tmp_path):
     manifest = json.loads((job_dir / "manifest.json").read_text())
     assert manifest["jobctl_reconcile"] == "completed"
     assert manifest["archived_after_run"] is True
-    assert len(manifest["artifacts"]) == len(promotion.E1_WORKSPACE_ARTIFACTS)
+    assert {entry["path"] for entry in manifest["artifacts"]} == {
+        f"jobs/{promotion.E1_ID}/paired_effects.json",
+        f"jobs/{promotion.E1_ID}/result.json",
+    }
+    assert_manifest_is_auditable(manifest, tmp_path)
     assert set(manifest["undeclared_provenance_sha256"]) == set(
         promotion.E1_UNDECLARED_PROVENANCE
     )
@@ -1410,13 +1422,17 @@ def test_record_diagnostic_derives_its_records_from_the_artifact(tmp_path):
     assert manifest["jobctl_reconcile"] == "completed"
     assert manifest["wall_seconds"] == 12.5
     assert [entry["path"] for entry in manifest["artifacts"]] == [
-        "workspace/order_thermal_report.json",
-        "workspace/replicate_metrics.csv",
+        f"jobs/{job_dir.name}/order_thermal_report.json",
+        f"jobs/{job_dir.name}/result.json",
     ]
-    assert all(entry["valid"] for entry in manifest["artifacts"])
-    assert manifest["artifacts"][1]["sha256"] == _sha256(
-        job_dir / "workspace" / "replicate_metrics.csv"
-    )
+    assert_manifest_is_auditable(manifest, tmp_path)
+    # The declared workspace set is outside the manifest but inside the record.
+    assert result["workspace_artifact_sha256"] == {
+        "order_thermal_report.json": _sha256(promoted),
+        "replicate_metrics.csv": _sha256(
+            job_dir / "workspace" / "replicate_metrics.csv"
+        ),
+    }
 
 
 def test_record_diagnostic_refuses_a_failed_job(tmp_path):
@@ -1700,10 +1716,14 @@ def test_record_calibration_extension_derives_its_records_from_the_artifact(tmp_
     manifest = json.loads((job_dir / "manifest.json").read_text())
     assert manifest["jobctl_reconcile"] == "completed"
     assert manifest["wall_seconds"] == 7.5
-    assert [entry["path"] for entry in manifest["artifacts"]] == [
-        "workspace/numerical_calibration_extended.json"
-    ]
-    assert manifest["artifacts"][0]["sha256"] == result["conclusion_artifact_sha256"]
+    assert {entry["path"] for entry in manifest["artifacts"]} == {
+        f"jobs/{job_dir.name}/numerical_calibration_extended.json",
+        f"jobs/{job_dir.name}/result.json",
+    }
+    assert_manifest_is_auditable(manifest, tmp_path)
+    assert result["workspace_artifact_sha256"]["numerical_calibration_extended.json"] == (
+        result["conclusion_artifact_sha256"]
+    )
 
 
 def test_record_calibration_extension_refuses_a_failed_job(tmp_path):

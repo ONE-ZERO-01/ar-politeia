@@ -19,6 +19,8 @@ import sys
 
 import pytest
 
+from conftest import assert_manifest_is_auditable
+
 
 REPO_ROOT = Path(__file__).parents[1]
 MODULE_PATH = REPO_ROOT / "research" / "src" / "experiments" / "prepare_cycle4_confirmation.py"
@@ -223,11 +225,10 @@ def test_record_e2_promotes_every_artifact_verbatim(tmp_path):
     manifest = json.loads((job_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["jobctl_reconcile"] == "completed"
     assert {entry["path"] for entry in manifest["artifacts"]} == {
-        f"workspace/{name}" for name in recorder.E2_REQUIRED_ARTIFACTS
+        f"jobs/{E2_ID}/{name}"
+        for name in (*recorder.E2_REQUIRED_ARTIFACTS, "result.json")
     }
-    for entry in manifest["artifacts"]:
-        assert entry["valid"] is True
-        assert entry["sha256"] == entry["source_sha256"]
+    assert_manifest_is_auditable(manifest, root)
 
 
 @pytest.mark.parametrize("exit_code,timed_out", [(1, False), (0, True)])
