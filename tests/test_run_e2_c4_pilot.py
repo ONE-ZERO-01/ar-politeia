@@ -823,3 +823,329 @@ def test_derive_r_mode_is_offline_and_writes_what_it_derived(tmp_path, monkeypat
 
     with pytest.raises(SystemExit, match="requires --pilot-report"):
         pilot.main(["--derive-r", "--pilot-report", str(pilot_path)])
+
+
+# ── 8. recording the pilot: promote the measurement, never rewrite it ──
+
+recorder = sys.modules["prepare_cycle4_confirmation"]
+
+
+def _steady_stub(*, passing: bool = True) -> dict:
+    """A steady report with real predicates behind the frozen bounds.
+
+    ``conditions`` is built by the shared summaries, so the replicate requirement
+    the recorder derives is arithmetically meaningful rather than a stub constant.
+    """
+    steady = _steady_report_for_derivation()
+    steady.update(
+        {
+            "experiment": pilot.EXPERIMENT_ID,
+            "pass": passing,
+            "tail_stationarity_valid": passing,
+            "adjacent_window_stability_valid": passing,
+            "independent_replicate_precision_valid": passing,
+        }
+    )
+    return steady
+
+
+def _report_from(steady: dict, *, rows=None, identity=None) -> dict:
+    specs = _specs()
+    rows = _rows(specs) if rows is None else rows
+    by_seed = _by_seed(rows)
+    return pilot.build_pilot_report(
+        config=_pilot_config(),
+        config_path=str(REPO_ROOT / PILOT_CONFIG),
+        execution={"executed": len(specs)},
+        identity=identity or study.e2_c4_identity_report(by_seed),
+        comparability=_comparability(rows),
+        dispersion=pilot.pilot_dispersion(rows, specs),
+        reference_variance=pilot.wealth_variance_reference(by_seed),
+        steady_report=steady,
+        steady_report_sha256="f" * 64,
+        rows=rows,
+    )
+
+
+def _stationarity_stub(report: dict) -> dict:
+    failing = {str(name) for name in report.get("stationarity_failures", [])}
+    runs = []
+    for spec in _specs():
+        if spec["run_id"] in failing:
+            runs.append(
+                {
+                    "run_id": spec["run_id"],
+                    "pass": False,
+                    "metrics": {
+                        "wealth_variance": {
+                            "pass": False,
+                            "drift_pass": False,
+                            "monotonic_pass": True,
+                            "normalized_window_drift": 0.19,
+                            "max_normalized_drift": 0.1,
+                            "effective_samples": 9.0,
+                        }
+                    },
+                }
+            )
+        else:
+            runs.append({"run_id": spec["run_id"], "pass": True, "metrics": {}})
+    return {
+        "experiment": pilot.EXPERIMENT_ID,
+        "pass": not failing,
+        "stationarity_valid": not failing,
+        "precision_valid": True,
+        "runs": runs,
+    }
+
+
+def _pilot_job(
+    tmp_path,
+    *,
+    report=None,
+    steady=None,
+    stationarity=None,
+    config=None,
+    exit_code=0,
+    timed_out=False,
+):
+    steady = _steady_stub() if steady is None else steady
+    report = _report_from(steady) if report is None else report
+    stationarity = _stationarity_stub(report) if stationarity is None else stationarity
+    job_dir = tmp_path / pilot.EXPERIMENT_ID
+    workspace = job_dir / "workspace"
+    workspace.mkdir(parents=True)
+    (job_dir / "config.json").write_text(
+        json.dumps(_pilot_config() if config is None else config), encoding="utf-8"
+    )
+    payloads = {
+        pilot.PILOT_REPORT_NAME: report,
+        pilot.STEADY_REPORT_NAME: steady,
+        "isolation_identity_report.json": {
+            "experiment": pilot.EXPERIMENT_ID,
+            "pass": True,
+            "violations": [],
+        },
+        "stationarity_report.json": stationarity,
+    }
+    for name, payload in payloads.items():
+        (workspace / name).write_text(json.dumps(payload), encoding="utf-8")
+    jobctl = tmp_path / "jobctl" / pilot.EXPERIMENT_ID
+    jobctl.mkdir(parents=True)
+    (jobctl / "result.json").write_text(
+        json.dumps(
+            {"exit_code": exit_code, "timed_out": timed_out, "wall_seconds": 3.0}
+        ),
+        encoding="utf-8",
+    )
+    return job_dir, jobctl
+
+
+def _rewrite(job_dir, name, mutate):
+    """Apply ``mutate`` to a workspace artifact's JSON and write it back."""
+    path = job_dir / "workspace" / name
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mutate(payload)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_record_pilot_promotes_the_artifact_verbatim_and_derives_r(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    before = (job_dir / "workspace" / pilot.PILOT_REPORT_NAME).read_bytes()
+
+    outcome = recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+    promoted = job_dir / pilot.PILOT_REPORT_NAME
+    assert promoted.read_bytes() == before  # the measurement is copied, not edited
+    assert outcome["pass"] is True
+    assert outcome["report_pass"] is True
+
+    result = json.loads((job_dir / "result.json").read_text(encoding="utf-8"))
+    assert result["non_evidentiary"] is True
+    assert result["per_run_stationarity"]["failure_count"] == 0
+    assert result["criterion"]["artifact_unchanged"] is True
+    assert result["reference_report"] == recorder._relative(tmp_path, promoted)
+    # R is derived here, from the promoted reports, by the same function the freeze
+    # step calls: nothing in the record is transcribed.
+    derived = json.loads((job_dir / "r_requirement.json").read_text(encoding="utf-8"))
+    report = json.loads(promoted.read_text(encoding="utf-8"))
+    steady = json.loads(
+        (job_dir / "workspace" / pilot.STEADY_REPORT_NAME).read_text(encoding="utf-8")
+    )
+    assert derived == pilot.derive_r_replicates(report, steady)
+    assert result["replicate_requirement"] == derived
+    assert result["artifacts"]["derivation_sha256"] == recorder._sha256(
+        job_dir / "r_requirement.json"
+    )
+
+    manifest = json.loads((job_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["jobctl_reconcile"] == "completed"
+    assert {entry["path"] for entry in manifest["artifacts"]} == {
+        f"workspace/{name}"
+        for name in (
+            pilot.PILOT_REPORT_NAME,
+            pilot.STEADY_REPORT_NAME,
+            "isolation_identity_report.json",
+            "stationarity_report.json",
+        )
+    }
+    for entry in manifest["artifacts"]:
+        assert entry["valid"] is True
+        assert entry["sha256"] == recorder._sha256(job_dir / entry["path"])
+
+
+def test_record_pilot_names_the_per_run_diagnostics_instead_of_smoothing_them(tmp_path):
+    steady = _steady_stub()
+    rows = _rows(_specs())
+    rows[0]["stationarity_pass"] = False
+    report = _report_from(steady, rows=rows)
+    assert report["pass"] is False  # the run's own verdict, recorded as such
+
+    job_dir, jobctl = _pilot_job(tmp_path, report=report, steady=steady)
+    outcome = recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+    result = json.loads((job_dir / "result.json").read_text(encoding="utf-8"))
+    assert result["pass"] is True
+    assert result["report_verdict"]["pass"] is False
+    block = result["per_run_stationarity"]
+    assert block["failure_count"] == 1
+    assert block["runs"] == len(_specs())
+    assert block["ensemble_contract_pass"] is True
+    assert block["gate_role_declared_in_this_artifact"] is False
+    assert block["family_gate_role"].startswith("per_run_diagnostic_only")
+    diagnostic = block["diagnostics"][0]
+    assert diagnostic["run_id"] == report["stationarity_failures"][0]
+    assert diagnostic["metric"] == "wealth_variance"
+    assert diagnostic["normalized_window_drift"] == pytest.approx(0.19)
+    assert any("deterministic" in item for item in result["criterion"]["basis"])
+    assert outcome["per_run_failures"] == 1
+
+
+@pytest.mark.parametrize("exit_code,timed_out", [(1, False), (0, True)])
+def test_record_pilot_refuses_a_failed_or_timed_out_job(tmp_path, exit_code, timed_out):
+    job_dir, jobctl = _pilot_job(tmp_path, exit_code=exit_code, timed_out=timed_out)
+    with pytest.raises(RuntimeError, match="refusing to record"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_a_direction_that_reached_the_artifact(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+
+    def mutate(payload):
+        payload["paired_dispersion"]["contrasts"]["clustered-minus-shuffled"][
+            "paired_mean_difference"
+        ] = 0.5
+
+    _rewrite(job_dir, pilot.PILOT_REPORT_NAME, mutate)
+    with pytest.raises(RuntimeError, match="contrast-effect"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_when_the_ensemble_contract_failed(tmp_path):
+    steady = _steady_stub(passing=False)
+    job_dir, jobctl = _pilot_job(tmp_path, steady=steady)
+    with pytest.raises(RuntimeError, match="ensemble steady contract did not pass"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_when_the_two_steady_blocks_disagree(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    _rewrite(
+        job_dir,
+        pilot.PILOT_REPORT_NAME,
+        lambda payload: payload["steady_contract_at_pilot_n"].__setitem__(
+            "adjacent_window_stability_valid", False
+        ),
+    )
+    with pytest.raises(RuntimeError, match="disagree on adjacent_window_stability_valid"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_an_identity_failure(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    _rewrite(
+        job_dir,
+        pilot.PILOT_REPORT_NAME,
+        lambda payload: payload["P1_isolation_identity"].__setitem__("pass", False),
+    )
+    with pytest.raises(RuntimeError, match="P1 isolation identity did not hold"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_identity_artifacts_that_disagree(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    _rewrite(
+        job_dir,
+        "isolation_identity_report.json",
+        lambda payload: payload.__setitem__("pass", False),
+    )
+    with pytest.raises(RuntimeError, match="does not pass"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_an_incomplete_batch(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    _rewrite(
+        job_dir,
+        pilot.PILOT_REPORT_NAME,
+        lambda payload: payload.__setitem__("run_count", payload["run_count"] - 1),
+    )
+    with pytest.raises(RuntimeError, match="runs; the frozen battery needs"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_a_truncated_stationarity_report(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    _rewrite(
+        job_dir,
+        "stationarity_report.json",
+        lambda payload: payload["runs"].pop(),
+    )
+    with pytest.raises(RuntimeError, match="a short file could hide"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_stationarity_reports_that_disagree(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+
+    def mutate(payload):
+        payload["runs"][0]["pass"] = False
+        payload["runs"][0]["metrics"] = {
+            "wealth_variance": {
+                "pass": False,
+                "drift_pass": False,
+                "monotonic_pass": True,
+                "normalized_window_drift": 0.19,
+                "max_normalized_drift": 0.1,
+                "effective_samples": 9.0,
+            }
+        }
+
+    _rewrite(job_dir, "stationarity_report.json", mutate)
+    with pytest.raises(RuntimeError, match="disagree about which runs failed"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_a_recorded_requirement_that_disagrees(tmp_path):
+    job_dir, jobctl = _pilot_job(tmp_path)
+    (job_dir / "r_requirement.json").write_text(
+        json.dumps({"r_replicates": 4}), encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="disagrees with the one this pilot's reports imply"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_a_config_that_moved_under_the_report(tmp_path):
+    config = _pilot_config()
+    config["binary_sha256"] = "0" * 64
+    job_dir, jobctl = _pilot_job(tmp_path, config=config)
+    with pytest.raises(RuntimeError, match="different reference binary"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
+
+
+def test_record_pilot_refuses_a_lock_that_moved_under_the_report(tmp_path):
+    config = _pilot_config()
+    config["parameter_lock"] = "research/parameter_lock.cycle3.json"
+    job_dir, jobctl = _pilot_job(tmp_path, config=config)
+    with pytest.raises(RuntimeError, match="different parameter lock"):
+        recorder.record_pilot(tmp_path, job_dir, jobctl)
