@@ -993,3 +993,42 @@ if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:   # 即 V1F
 2. **`zero_wealth_fraction` 与 `mean_wealth` 的任何读数都不得进入结论句**。前者是 P4 的
    非退化护栏、后者是水平审计量，两者 `claim_eligible = false`（§15），`record-e2` 会拒绝
    任何把它们列为可达主张的 payload（§19）。
+
+## 21. 正式结果与 C3 判定（2026-09-19）
+
+批次于 22:04 提交、23:09:12 跑满 80/80，聚合约 9 分钟，23:18:35 写出
+`workspace/channel_separation.json`。`jobctl reconcile` 通过后由 `record-e2` 记录
+（§19），产物逐字节拷入 `research/jobs/E2-CHANNEL-ABLATION-C4/`。
+
+**判定直接来自 §20 的表，不是事后解释。** 表中最后两行覆盖本例：五门禁全过、且存在
+越过有效阈值的承载主张对比 ⇒ **supported**。
+
+| 门禁 | 结果 | 判据来源 |
+|---|---|---|
+| `v1f_numerical_calibration` | ✅ | V1H 扩展（身份绑定，`load_e2_c4_calibration` 复核） |
+| `three_condition_inputs` | ✅ | `matched_input_audit.pass`（P2 三单元输入逐位匹配） |
+| `isolation_identity` | ✅ | P1 恒等式 64 次比较、0 违例（force 关、`social_strength = 0` 下位置对财富外生） |
+| `comparability` | ✅ | P4 三条护栏（`zero_wealth_fraction ≤ 0.01`、`wealth_variance ≥ 0.056828…`、`mean_wealth` 相对带 ±10%） |
+| `steady_estimand` | ✅ | 本装备族冻结的 ensemble 契约 |
+
+`analysis_gate_pass = true`、`claim_supported = true`、`inconclusive = false`，80/80 runs，
+5 单元 × 16 复本（R = 16，§18）。**P1 与 P4 这两个先验可失败的门禁都没有失败**，因此
+"这个对比能不能被归因"和"位置是不是外生"这两件事是被运行回答的，而不是被解释的。
+
+**可达主张的指标**：`wealth_gini`、`wealth_variance`——正是 E2 lock 注册的估计量家族
+（§18）。`zero_wealth_fraction`（P4 非退化护栏）与 `mean_wealth`（水平审计量）的
+`claim_eligible = false`，理由码是 `missing_numerical_resolution_limit` 与
+`missing_scientific_sesoi`，与 §15.5 定夺一致。记录器会拒绝任何把它们算作可达主张的
+payload（§19），所以这条不是承诺而是被强制的事实。
+
+**如实记下两处未按预注册字面执行的地方**，它们都在看到数据之前就已写入文档：
+
+1. pilot 的判据（§3 勘误）：`pass` 由 P1 + 装备族 ensemble 契约 + 完成度构成，4 个逐 run
+   稳态诊断作为具名事实记录，不阻塞。依据是 `gate_role` 文本与 E1-C4 先例。
+2. R（§4 勘误）：按 SESOI/精度/相邻窗三族取最大值的 `next_power_of_two`，即 16，
+   而非"只看 SESOI"的字面 8。这是**收紧**（复本数翻倍），并已写进 lock 的
+   `design_contract`。
+
+**证据边界**：P3（交换核不变性）的零结果是**结构隔离检查**，不是实质发现；`clustered −
+shuffled` 是同一轨迹上的源组织效应，不得读作"景观改变人口"（位置逐位共享）。
+`mean_wealth` 与 `zero_wealth_fraction` 的任何读数都不得进入结论句（§20 纪律 2）。
