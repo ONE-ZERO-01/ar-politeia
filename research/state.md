@@ -467,6 +467,34 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   the artifacts copied byte for byte. `result.json` stays derived rather than copied
   and carries the run's own workspace result hash in `workspace_result_sha256`, so
   the cycle's record and the measurement remain distinguishable (design section 19).
+- **E2-C4 ran and passed, and C3 is now `supported` (2026-09-19).** Submitted 22:04,
+  all 80 runs finished by 23:09:12, aggregation took about nine minutes, and the payload
+  appeared at 23:18:35. All five gates passed -- V1H-bound calibration, matched
+  three-condition inputs, the P1 isolation identity over 64 comparisons with zero
+  violations, the P4 comparability gate, and the equipment family's frozen ensemble
+  steady contract -- with `claim_supported = true` and `inconclusive = false`. The
+  verdict was read off the table written in design section 20 while the batch was still
+  running (16 of 80 markers), not off the numbers: the two pre-registered a-priori failure
+  modes were both answered by the run rather than by interpretation, and a claim-bearing
+  contrast cleared its effective threshold. Only `wealth_gini` and `wealth_variance` are
+  claim-eligible, exactly the lock's registered estimand family; `zero_wealth_fraction`
+  and `mean_wealth` carry their registered reasons. `record-e2` promoted it without
+  recomputing anything: it re-derived the payload's gate composition, counted the battery
+  from the run's own completion markers, and copied the artifacts byte for byte.
+- **The audit gate cannot pass, and could never have passed in Cycle 4 (2026-09-19).**
+  Running `audit --run-dir research` for the first time reports 70 failures, and 66 of
+  them are one convention: every Cycle 4 manifest records artifact paths as
+  `workspace/<name>`, which `audit` resolves against its run directory into
+  `research/workspace/<name>` -- a path that can never exist, because
+  `research/jobs/*/workspace/` is gitignored and no workspace file is ever tracked.
+  Cycle 3's manifests are the only ones that satisfy the gate, and they pin two further
+  requirements the Cycle 4 recorders also missed: the path must read
+  `jobs/<id>/<name>`, and each entry must carry `size`, which `audit` compares (an absent
+  field compares unequal and is reported as a mismatch). The recorders are fixed, the
+  declared workspace sets that archives deliberately do not keep are now attested by hash
+  inside `result.json`, and the tests no longer agree with the recorders about the
+  convention: they run each manifest through `audit`'s own resolver. The 14 manifests
+  already in git still carry the old convention and need a migration decision.
 - Two conventions were tightened while landing the E2 declaration set. `audit_seeds`
   gained an `exclude` parameter: a job directory that is being generated *right now*
   must not be an input to its own seed choice, or else "the smallest unused primes"
