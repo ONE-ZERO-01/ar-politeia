@@ -99,6 +99,13 @@ Pilot 的 job `pass` = 三个模块全部成立。任一不成立都是**实现�
 > `stationarity_report.json` 逐字携带）、E1-C4 的先例（128 run 里 8 个逐 run 失败、其中 1 个
 > 也在 `wealth_variance`，`analysis_gate_pass = true`）、以及确定性。判据的**改动依据不来自
 > 本次结果**，但"促使我们注意到的"确实是本次结果——这一点如实写出，不做粉饰。
+>
+> 同一句预注册措辞也写在 job 自己的 `research/jobs/E2-C4-PILOT/experiment.json` 的
+> `failure_policy` 里（"a run that fails its own steady-window check ... must be fixed
+> and re-run"）。**该文件按当时的原样保留，不回改**：它是一份事务性的预注册，事后编辑
+> 它就等于抹掉"当时预期什么"的唯一记录。实际适用的判据与依据记在产物 `result.json` 的
+> `criterion` 块（其中 `declared_in_design` 一栏明说设计原本把逐 run 诊断算作阻塞项），
+> 本条勘误是它的设计侧对应物。两者并排看时，差异是**已具名的**，不是遗漏。
 
 ### 3.1 P1 恒等护栏（fail-fast，非科学检验）
 

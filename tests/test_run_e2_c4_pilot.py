@@ -269,9 +269,29 @@ def test_frozen_seeds_are_the_smallest_unused_primes_in_the_window():
     partition = pilot.ledger_seed_partition(REPO_ROOT)
     available = pilot.window_pool(partition["others"])
     assert available[: pilot.PILOT_SEED_COUNT] == list(pilot.FROZEN_PILOT_SEEDS)
-    # The same window must still cover a confirmatory R = 64 with no overlap; if it
-    # ever cannot, the pilot is the wrong place to discover it.
-    assert len(available) >= pilot.PILOT_SEED_COUNT + 64
+    # The window must cover the pilot plus the whole confirmatory battery, and both
+    # must have been drawn as the *smallest* free primes: the pilot took the first
+    # eight, so the confirmatory declaration must be the next sixteen. That used to
+    # be written as a flat 64 because R was expected to be E1-C4's; R was then
+    # derived from this pilot's own dispersion and frozen at 16 (pilot design
+    # section 4 erratum), so the requirement is read from the recorded derivation
+    # instead of guessed.
+    requirement = json.loads(
+        (
+            REPO_ROOT / "research" / "jobs" / pilot.EXPERIMENT_ID / "r_requirement.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert len(available) >= requirement["r_replicates"]
+    declared = REPO_ROOT / "research" / "jobs" / "E2-CHANNEL-ABLATION-C4" / "seeds.txt"
+    if declared.is_file():
+        confirmatory = [
+            int(token) for token in declared.read_text(encoding="utf-8").split() if token
+        ]
+        assert len(confirmatory) == requirement["r_replicates"]
+        window_primes = pilot.window_pool(())
+        assert sorted(list(pilot.FROZEN_PILOT_SEEDS) + confirmatory) == window_primes[
+            : pilot.PILOT_SEED_COUNT + len(confirmatory)
+        ]
 
 
 # ── 2. the battery ──

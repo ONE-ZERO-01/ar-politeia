@@ -914,6 +914,725 @@ def record_pilot(
     }
 
 
+# ── E2-C4: the confirmatory lock and declaration set ───────────────────
+#
+# E2-C4 is authorized by a *second* lock version rather than by extending the
+# first. The first lock's ``amendment_policy`` says an outcome-informed change
+# needs a new lock version and a new cycle; E2-C4 is not an amendment (it changes
+# nothing E1-C4 declared) but it *is* a new authorization whose frozen quantities
+# -- R and the two SESOI values -- were unknown when the first lock was finalized.
+# Writing them into a second lock keeps "what was frozen, and what was known when"
+# legible, which is the whole point of the file.
+#
+# Every number in the lock is *derived*, never typed: R and the variance SESOI come
+# from the tracked ``r_requirement.json`` that ``record-pilot`` recomputed from the
+# pilot's two reports, the comparability guards and the steady bounds come from the
+# pilot's own declarations (R is only valid against the bounds the derivation was
+# computed against), and the seeds come from the ledger. What is typed here is only
+# what a human decided.
+
+E2_ID = "E2-CHANNEL-ABLATION-C4"
+E2_PILOT_ID = "E2-C4-PILOT"
+E2_LOCK_RELATIVE = "research/parameter_lock.e2.json"
+C4_EXTENSION_ID = "V1H-CALIBRATION-EXTENSION-C4"
+# Frozen when the pilot's window was chosen; the confirmatory battery draws from
+# the same primes so that no seed decision is made after the fact.
+E2_SEED_WINDOW = (12300, 13000)
+
+# The steady-window bounds and the comparability guards are taken from the pilot's
+# declaration rather than restated: ``derive_r_replicates`` solved the frozen steady
+# inequalities *of that report*, so a confirmatory config with different bounds would
+# carry a replicate count that was never derived for it.
+E2_FROM_PILOT_CONFIG = (
+    "independent_precision_absolute_half_widths",
+    "independent_precision_relative_half_widths",
+    "adjacent_window_absolute_bounds",
+    "adjacent_window_relative_bounds",
+    "binary",
+    "binary_sha256",
+)
+# Parameters this module decides and freezes. Everything here is copied into the
+# config verbatim and ``audit_parameter_lock`` refuses if the two ever disagree.
+E2_LOCKED_PARAMETERS = (    "population",
+    "grid_shape",
+    "bounds",
+    "dt",
+    "total_time",
+    "output_time_interval",
+    "steady_snapshots",
+    "stationarity_max_normalized_drift",
+    "stationarity_min_ess",
+    "stationarity_reversal_span_sigma",
+    "stationarity_gate_unit",
+    "independent_precision_absolute_half_widths",
+    "independent_precision_relative_half_widths",
+    "adjacent_window_absolute_bounds",
+    "adjacent_window_relative_bounds",
+    "temperature",
+    "friction",
+    "social_strength",
+    "interaction_range",
+    "exchange_rate",
+    "exchange_noise_strength",
+    "exchange_reversion_rate",
+    "epsilon_log_sigma",
+    "consumption_rate",
+    "terrain_force_scale",
+    "terrain_production_scale",
+    "ability_saturation_w",
+    "wealth_log_sigma",
+    "strict_numerics",
+    "confirmative_mode",
+    "mpi_enabled",
+    "ranks",
+    "omp_threads",
+    "parallel",
+    "per_run_timeout_seconds",
+    "familywise_alpha",
+    "bootstrap_samples",
+    "analysis_seed",
+    "scientific_sesoi",
+)
+
+
+def _write_e2_declarations(
+    job_dir: Path,
+    *,
+    project_root: Path,
+    config: Mapping[str, Any],
+    lock: Mapping[str, Any],
+    lock_path: Path,
+    calibration_path: Path,
+    pilot: Mapping[str, Any],
+    requirement: Mapping[str, Any],
+    seeds: Sequence[int],
+    runs: int,
+) -> None:
+    """Write the jobctl-facing declaration files for E2-C4.
+
+    Every checksum here is computed from the file it names, so the declaration
+    cannot drift from the artifacts it points at. A pre-existing file with
+    different contents is a refusal rather than a silent overwrite: these are
+    pre-registrations, and editing one after a reading would erase the only record
+    of what was expected.
+    """
+    design = lock["design_contract"]
+    checksums = {
+        "external_data": "none",
+        "generated_inputs": (
+            "unit terrain fields rebuilt from the frozen unit battery; every per-seed "
+            "input digest is recorded in run_specs.json before execution"
+        ),
+        "dependency_calibration": _sha256(calibration_path),
+        "parameter_lock": _sha256(lock_path),
+        "reference_binary": config["binary_sha256"],
+        "reference_protocol_config": _sha256(
+            project_root / "research/jobs/E1-MATCHED-LANDSCAPES-C4/config.json"
+        ),
+    }
+    artifacts = (
+        "channel_separation.json",
+        "steady_estimand_report.json",
+        "isolation_identity_report.json",
+        "stationarity_report.json",
+        "replicate_metrics.csv",
+    )
+    files: dict[str, str] = {
+        "seeds.txt": "".join(f"{seed}\n" for seed in seeds),
+        "env.txt": "\n".join(
+            [
+                "host=umi",
+                "execution=CPU_reference",
+                f"omp_threads={config['omp_threads']}",
+                f"parallel={config['parallel']}",
+                "mpi=OFF",
+                "gpu_count=0",
+                "reference_protocol_experiment=E1-MATCHED-LANDSCAPES-C4",
+                "reference_protocol_source_commit=b6d24b76a50529965469332644e7bed251c49eb1",
+                "reference_protocol_binding="
+                "the unit battery, the steady-window contract and the analysis path are "
+                "E2-C4's own; E1-C4 is the protocol reference for population, grid, "
+                "timestep, temperature and the CPU-reference execution mode",
+                "",
+            ]
+        ),
+        "outputs.txt": "".join(f"{name}\n" for name in artifacts),
+        "data_checksums.txt": "".join(
+            f"{key}={value}\n" for key, value in checksums.items()
+        ),
+        "computational_strategy.json": json.dumps(
+            {
+                "approach": (
+                    f"Run {runs} simulations ({len(lock['design_contract']['units'])} "
+                    f"frozen units x {len(seeds)} seeds, one replicate per unit and "
+                    f"seed) as {config['parallel']} OMP=1 CPU reference processes on the "
+                    "calibrated reference binary, then analyse the five units under the "
+                    "frozen condition-ensemble two-window steady contract, the P1 "
+                    "isolation identity guard, the mandatory P4 comparability gate and "
+                    "Holm-corrected paired contrasts."
+                ),
+                "evidence_role": "confirmatory",
+                "evidence_boundary": (
+                    "Synthetic generative mechanism only; no historical-state claim. The "
+                    "estimands are wealth_gini and wealth_variance on two claim-bearing "
+                    "contrasts. zero_wealth_fraction is a P4 non-degeneracy guard and "
+                    "mean_wealth a level audit, so neither carries a claim."
+                ),
+                "reference_method": (
+                    "validated OpenMP-OFF C++ simulator binary, sha256-bound to the "
+                    "cycle 4 E2 parameter lock"
+                ),
+                "validation_points": [
+                    "the parameter lock is final, authorizes E2-CHANNEL-ABLATION-C4, and "
+                    "every locked parameter is compared against the config before any run",
+                    "the calibration is the V1H extension, accepted only because it "
+                    "reproduced V1F's four limits bit for bit",
+                    "the relative wealth_variance SESOI is checked against the "
+                    "checksum-bound pilot report it was derived from, including its "
+                    "level-drift floor",
+                    "the seed battery is the smallest unused primes of the frozen window, "
+                    "verified against the seeds ledger",
+                ],
+                "agreement": {
+                    "criterion": (
+                        "the frozen analysis gate: the ensemble two-window steady "
+                        "contract passes, matched inputs hold, execution invariants "
+                        "hold, and the P4 comparability gate passes so no contrast is "
+                        "downgraded to inconclusive"
+                    )
+                },
+                "reference_validation_required": True,
+                "validation_artifact": "channel_separation.json",
+                "supports_core_claim": True,
+                "claim_ids": ["C3-CHANNELS-C4"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        "experiment.json": json.dumps(
+            {
+                "id": E2_ID,
+                "type": "command",
+                "mode": "server",
+                "priority": "P1",
+                "claim_ids": ["C3-CHANNELS-C4"],
+                "non_evidentiary": False,
+                "depends_on": [E2_PILOT_ID, C4_EXTENSION_ID, "V0G-SIMULATOR-TESTS-C4"],
+                "objective": (
+                    "Separate spatial organisation from the explicitly named "
+                    "production-decay source-sink path under the frozen five-unit "
+                    "battery: the P2 source-pattern contrasts at a shared sink rate and "
+                    "the P3 sink-rate ladder on the clustered source."
+                ),
+                "role": (
+                    "Confirmatory. The two claim-bearing contrasts are "
+                    "clustered-minus-shuffled and d0.04-minus-d0.01; their estimands are "
+                    "wealth_gini and wealth_variance at the frozen SESOI. The P4 "
+                    "comparability gate runs before any effect and can make a contrast "
+                    "inconclusive a priori, never null."
+                ),
+                "command": [
+                    "/usr/bin/env",
+                    "PYTHONPATH=src:research/src/experiments",
+                    "OMP_NUM_THREADS=1",
+                    "python3",
+                    "research/src/experiments/run_landscape_study.py",
+                    "--experiment",
+                    E2_ID,
+                    "--config",
+                    f"research/jobs/{E2_ID}/config.json",
+                    "--output-dir",
+                    f"research/jobs/{E2_ID}/workspace",
+                ],
+                "config": f"research/jobs/{E2_ID}/config.json",
+                "config_sha256": _sha256(job_dir / "config.json"),
+                "env_snapshot": f"research/jobs/{E2_ID}/env.txt",
+                "seeds": [int(seed) for seed in seeds],
+                "data_checksums": checksums,
+                "artifacts": list(artifacts),
+                "timeout_seconds": 86400,
+                "gpu_count": 0,
+                "design": "research/e2-cycle4-channel-design.md",
+                "failure_policy": (
+                    "A failed run, an analysis-gate failure or a P1 identity violation is "
+                    "an implementation problem, never a result. The P4 comparability gate "
+                    "may fail a priori: the affected contrast is then reported as "
+                    "pre-registered inconclusive, and no band, unit or delta may be "
+                    "adjusted from the outcome."
+                ),
+                "replicate_requirement": {
+                    "source": (
+                        f"research/jobs/{E2_PILOT_ID}/r_requirement.json"
+                    ),
+                    "source_sha256": _sha256(
+                        project_root / "research/jobs" / E2_PILOT_ID / "r_requirement.json"
+                    ),
+                    "r_replicates": int(requirement["r_replicates"]),
+                    "worst_required_replicates": int(
+                        requirement["worst_required_replicates"]
+                    ),
+                    "note": (
+                        "the full per-contrast, per-unit derivation lives in the cited "
+                        "file rather than here, so the same quantity has one home"
+                    ),
+                },
+                "replicate_count": int(lock["design_contract"]["replicates_per_unit"]),
+                "run_count": runs,
+                "scientific_sesoi": dict(lock["design_contract"]["scientific_sesoi"]),
+                "pilot_reference": {
+                    "experiment": E2_PILOT_ID,
+                    "path": pilot["reference_report"],
+                    "sha256": pilot["report_sha256"],
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+    }
+    for name, text in files.items():
+        path = job_dir / name
+        if path.is_file() and path.read_text(encoding="utf-8") != text:
+            raise RuntimeError(
+                f"a different {name} already exists for {E2_ID}; these are "
+                "pre-registrations and must not be rewritten in place"
+            )
+    for name, text in files.items():
+        path = job_dir / name
+        if not path.is_file():
+            path.write_text(text, encoding="utf-8")
+
+
+def _e2_pilot_artifacts(project_root: Path) -> dict[str, Any]:
+    """Read the recorded pilot, refusing anything that is not a usable reading.
+
+    The recorder already checked all of this; re-checking here is not redundant
+    because the *lock* must be derivable from the job directory alone, long after
+    the recorder ran. A pilot that was promoted without passing the isolation
+    identity, the ensemble contract or the batch-completeness test must not be able
+    to size R just because its files are present.
+    """
+    job_dir = project_root / "research" / "jobs" / E2_PILOT_ID
+    result = _read_json(job_dir / "result.json")
+    if result.get("non_evidentiary") is not True:
+        raise RuntimeError("the E2-C4 pilot result is not marked non-evidentiary")
+    if result.get("pass") is not True:
+        raise RuntimeError(
+            "the E2-C4 pilot was not recorded as usable; its readings may not size R"
+        )
+    per_run = result.get("per_run_stationarity")
+    if not isinstance(per_run, Mapping):
+        raise RuntimeError("the recorded pilot has no per-run stationarity block")
+    if per_run.get("ensemble_contract_pass") is not True:
+        raise RuntimeError(
+            "the recorded pilot's ensemble contract did not pass; there is no "
+            "dispersion to freeze R from"
+        )
+    requirement = _read_json(job_dir / "r_requirement.json")
+    if result.get("replicate_requirement") != requirement:
+        raise RuntimeError(
+            "the pilot's recorded result and its derivation disagree; one of them "
+            "was edited after recording"
+        )
+    report_name = "pilot_variance_report.json"
+    report = job_dir / report_name
+    if not report.is_file() or report.stat().st_size == 0:
+        raise RuntimeError(f"the tracked pilot report is missing: {report_name}")
+    if _sha256(report) != result["artifacts"]["conclusion_sha256"]:
+        raise RuntimeError(
+            "the tracked pilot report does not match the sha256 the record bound it to"
+        )
+    # The identity verdict is read off the promoted report, because that is the
+    # artifact the lock cites. A record whose summary and whose artifact disagree
+    # is not a reading anyone can act on.
+    payload = _read_json(report)
+    identity = payload.get("P1_isolation_identity")
+    if not isinstance(identity, Mapping) or identity.get("pass") is not True:
+        raise RuntimeError("the recorded pilot does not carry a passing P1 identity")
+    if int(identity.get("violations") or 0) != 0:
+        raise RuntimeError("the recorded pilot carries identity violations")
+    return {
+        "job_dir": job_dir,
+        "result": result,
+        "requirement": requirement,
+        "report_name": report_name,
+        "report_sha256": result["artifacts"]["conclusion_sha256"],
+        "reference_report": _relative(project_root, report),
+        "source_commit": _e2_source_commit(job_dir),
+    }
+
+
+def _e2_source_commit(job_dir: Path) -> str:
+    """The commit the pilot's declaration set was committed as.
+
+    Read rather than restated: the lock must point at the code that produced its
+    frozen readings, and the only trustworthy record of that is the one the job
+    itself carries.
+    """
+    path = job_dir / "commit.txt"
+    if not path.is_file() or not path.stat().st_size:
+        raise RuntimeError("the E2-C4 pilot has no commit.txt to bind the lock to")
+    value = path.read_text(encoding="utf-8").strip()
+    if len(value) != 40 or any(char not in "0123456789abcdef" for char in value):
+        raise RuntimeError(f"the pilot's commit.txt is not a 40-character sha: {value!r}")
+    return value
+
+
+def _e2_seeds(project_root: Path, count: int) -> list[int]:
+    """The smallest unused primes in the frozen window, excluding the pilot's.
+
+    Deterministic on purpose: "the smallest unused" needs no judgement, so the
+    choice cannot be steered, and a re-run of this function against the same ledger
+    reproduces the same battery. The pilot's own eight are excluded because a
+    non-evidentiary run must not become a replicate of the confirmatory one.
+    """
+    report = audit_seeds(project_root / "research" / "jobs", exclude=(E2_ID,))
+    used = set(int(seed) for seed in report["used_seeds"])
+    pool = [
+        value
+        for value in range(E2_SEED_WINDOW[0], E2_SEED_WINDOW[1] + 1)
+        if _is_prime(value) and value not in used
+    ]
+    if len(pool) < count:
+        raise RuntimeError(
+            f"the seed window {E2_SEED_WINDOW} holds {len(pool)} unused primes; "
+            f"{count} are needed"
+        )
+    chosen = pool[:count]
+    if len(set(chosen)) != count:
+        raise RuntimeError("seed selection produced duplicates")
+    # If this job already carries a declaration, it must be exactly this choice:
+    # the exclusion above is only sound while the excluded dir and the selection
+    # agree, and a re-run is the only way that can drift.
+    declared = project_root / "research" / "jobs" / E2_ID / "seeds.txt"
+    if declared.is_file():
+        existing = [
+            int(token)
+            for token in declared.read_text(encoding="utf-8").split()
+            if token.strip()
+        ]
+        if existing != chosen:
+            raise RuntimeError(
+                f"the existing E2-C4 declaration lists {existing} but the ledger "
+                f"implies {chosen}; the seed choice must not depend on whether the "
+                "job has been prepared before"
+            )
+    return chosen
+
+
+def prepare_e2(project_root: Path) -> dict[str, Any]:
+    """Write the E2-C4 parameter lock, then the config that binds to it.
+
+    The lock is written first because the config must pin the lock's sha256; both
+    files are validated before either is written, so a rejected declaration set
+    leaves no partially-written pair behind.
+    """
+    import importlib.util
+    import sys
+
+    experiments_dir = Path(__file__).resolve().parent
+    sys.path.insert(0, str(experiments_dir))
+    for required in ("landscape_study", "run_landscape_study", "prepare_cycle4_confirmation"):
+        if required not in sys.modules:
+            spec = importlib.util.spec_from_file_location(
+                required, experiments_dir / f"{required}.py"
+            )
+            if spec is None or spec.loader is None:
+                raise RuntimeError(f"cannot load {required} to prepare E2-C4")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[required] = module
+            spec.loader.exec_module(module)
+    study = sys.modules["run_landscape_study"]
+
+    pilot = _e2_pilot_artifacts(project_root)
+
+    # The irreversible precondition is checked before anything else is derived: a
+    # lock written over recorded outcomes would be an outcome-informed freeze
+    # wearing a pre-registration's clothes.
+    outcome_dir = project_root / "research" / "jobs" / E2_ID
+    for outcome in ("result.json", "channel_separation.json"):
+        if (outcome_dir / outcome).exists():
+            raise RuntimeError(
+                f"E2-C4 already has {outcome}; refusing to write a lock over "
+                "recorded outcomes"
+            )
+    requirement = pilot["requirement"]
+    if requirement.get("delta_wealth_variance_ratio") != 0.50:
+        raise RuntimeError(
+            f"the pilot's derivation was computed at ratio "
+            f"{requirement.get('delta_wealth_variance_ratio')!r}; "
+            "the frozen decision is 0.50"
+        )
+    replicates = int(requirement["r_replicates"])
+    if replicates < 1 or replicates & (replicates - 1):
+        raise RuntimeError(f"R must be a positive power of two, got {replicates}")
+    worst = int(requirement["worst_required_replicates"])
+    if replicates < worst:
+        raise RuntimeError(
+            f"R = {replicates} is below the worst family requirement {worst}; the "
+            "frozen battery would not be able to satisfy a contract it was sized for"
+        )
+
+    band = None
+    pilot_config = _read_json(project_root / "research" / "jobs" / E2_PILOT_ID / "config.json")
+    pilot_report = _read_json(pilot["job_dir"] / pilot["report_name"])
+    frozen_policy = pilot_report["P4_comparability"]["frozen_policy"]
+    band = float(frozen_policy["mean_wealth_relative_band"])
+    floor = study.e2_c4_level_drift_variance_floor(band)
+    ratio = float(requirement["delta_wealth_variance_ratio"])
+    if ratio <= floor:
+        raise RuntimeError(
+            f"the frozen ratio {ratio} is at or below the level-drift floor {floor}"
+        )
+    comparability = {
+        "comparability_zero_wealth_fraction_max": float(
+            frozen_policy["zero_wealth_fraction_max"]
+        ),
+        "comparability_wealth_variance_min": float(frozen_policy["wealth_variance_min"]),
+        "comparability_mean_wealth_relative_band": band,
+    }
+
+    calibration_relative = (
+        f"research/jobs/{C4_EXTENSION_ID}/numerical_calibration_extended.json"
+    )
+    calibration_path = project_root / calibration_relative
+    calibration = _read_json(calibration_path)
+    if calibration.get("experiment") != C4_EXTENSION_ID:
+        raise RuntimeError(
+            f"E2-C4 must be calibrated by {C4_EXTENSION_ID} (V1F never froze "
+            "wealth_variance), got "
+            f"{calibration.get('experiment')!r}"
+        )
+    limits = calibration.get("numerical_resolution_limits", {})
+    required_metrics = study.confirmatory_metrics_for_experiment(E2_ID)
+    for metric in required_metrics:
+        if metric not in limits:
+            raise RuntimeError(f"the calibration extension does not cover {metric}")
+
+    delta_gini = float(requirement["delta_wealth_gini"])
+    delta_variance = float(requirement["delta_wealth_variance"])
+    var_ref = float(requirement["wealth_variance_reference"])
+    if delta_variance != ratio * var_ref:
+        raise RuntimeError(
+            "the recorded variance SESOI is not the recorded rule applied to the "
+            "recorded reference level"
+        )
+    sesoi = {"wealth_gini": delta_gini, "wealth_variance": delta_variance}
+    derivations = {
+        "wealth_variance": {
+            "metric": "wealth_variance",
+            "rule": study.E2_C4_RELATIVE_SESOI_RULE,
+            "ratio": ratio,
+            "reference_field": study.E2_C4_SESOI_REFERENCE_FIELDS["wealth_variance"],
+            "reference_report": pilot["reference_report"],
+            "reference_report_sha256": pilot["report_sha256"],
+            "resolved_value": delta_variance,
+        }
+    }
+
+    seeds = _e2_seeds(project_root, replicates)
+    units = list(study.E2_C4_UNIT_NAMES)
+    run_count = len(units) * replicates
+
+    parameters: dict[str, Any] = {
+        # The model and analysis parameters are the cycle 4 reference configuration;
+        # reading them out of the finalized E1 lock is what makes that a fact rather
+        # than a claim, and the two locks agreeing is checked below.
+        key: value
+        for key, value in _read_json(project_root / "research" / "parameter_lock.cycle4.json")[
+            "parameters"
+        ].items()
+    }
+    # E2-C4 does not read base_production / wealth_decay_rate / mean_wealth from the
+    # config: the unit battery fixes them per unit. Locking them would force the
+    # config to carry values that no E2 run uses, which is how a lock stops
+    # describing the experiment it authorizes.
+    for per_unit in ("base_production", "wealth_decay_rate", "mean_wealth"):
+        parameters.pop(per_unit, None)
+    parameters["ability_saturation_w"] = 5.0
+    for key in E2_FROM_PILOT_CONFIG:
+        if key in ("binary", "binary_sha256"):
+            continue
+        parameters[key] = pilot_config[key]
+    parameters["scientific_sesoi"] = sesoi
+    if set(parameters) != set(E2_LOCKED_PARAMETERS):
+        raise RuntimeError(
+            "the E2-C4 locked parameter set drifted from its declaration: "
+            f"extra {sorted(set(parameters) - set(E2_LOCKED_PARAMETERS))}, "
+            f"missing {sorted(set(E2_LOCKED_PARAMETERS) - set(parameters))}"
+        )
+    # A lock that silently widened its input set would make the cross-lock check
+    # below meaningless, so the inherited values are compared key by key.
+    e1_parameters = _read_json(project_root / "research" / "parameter_lock.cycle4.json")[
+        "parameters"
+    ]
+    for key, value in parameters.items():
+        if key in e1_parameters and e1_parameters[key] != value:
+            if key in ("scientific_sesoi", "independent_precision_absolute_half_widths",
+                       "independent_precision_relative_half_widths",
+                       "adjacent_window_absolute_bounds", "adjacent_window_relative_bounds"):
+                continue
+            raise RuntimeError(
+                f"E2-C4 parameter {key!r} differs from the cycle 4 reference lock: "
+                f"{value!r} != {e1_parameters[key]!r}"
+            )
+
+    lock = {
+        "lock_id": "ar-politeia-cycle4-e2-v1",
+        "status": "final",
+        "confirmatory_execution_authorized": True,
+        "locked_before_confirmatory_outcomes": True,
+        "promotion_base_commit": pilot["source_commit"],
+        "source_commit": pilot["source_commit"],
+        "analysis_commit": pilot["source_commit"],
+        "authorized_experiments": [E2_ID],
+        "numerical_calibration": {
+            "experiment": C4_EXTENSION_ID,
+            "path": calibration_relative,
+            "sha256": _sha256(calibration_path),
+            "reference_binary_sha256": pilot_config["binary_sha256"],
+            "numerical_resolution_limits": dict(limits),
+            "extends": calibration.get("extends"),
+            "note": (
+                "V1F recorded but never froze wealth_variance, so E2-C4's estimands "
+                "require the extension. The extension is accepted only because it "
+                "reproduced V1F's four limits bit for bit, which "
+                "_require_cycle4_calibration_identity re-checks from the artifact."
+            ),
+        },
+        "parameters": parameters,
+        "design_contract": {
+            "units": units,
+            "source_pattern_group": list(study.E2_C4_PATTERN_UNITS),
+            "sink_rate_group": list(study.E2_C4_SINK_UNITS),
+            "claim_bearing_contrasts": [
+                "clustered-minus-shuffled",
+                "d0.04-minus-d0.01",
+            ],
+            "reference_contrast": "clustered-minus-flat",
+            "estimand_family": list(required_metrics),
+            "claim_ineligible": {
+                "zero_wealth_fraction": "P4 non-degeneracy guard only (design section 15)",
+                "mean_wealth": "level audit, never an estimand (design section 15)",
+            },
+            "run_count": run_count,
+            "seed_count": replicates,
+            "replicates_per_unit": replicates,
+            "full_initial_state_match_required": True,
+            "resource_histogram_and_accessible_area_match_required": True,
+            "temporal_ess_role": "diagnostic_only",
+            "valid_null_policy": (
+                "A passed analysis gate without a claim-bearing effect beyond the "
+                "effective threshold is retained as valid null/equivalence evidence."
+            ),
+            "scientific_sesoi": sesoi,
+            "replicate_requirement": requirement,
+            "pilot": {
+                "experiment": E2_PILOT_ID,
+                "path": pilot["reference_report"],
+                "sha256": pilot["report_sha256"],
+                "recorded_failures": int(pilot["result"]["per_run_stationarity"]["failure_count"]),
+                "role": (
+                    "non-evidentiary; supplied the dispersion and the reference level "
+                    "that size R and the variance SESOI. It read no direction: the "
+                    "report contains no contrast mean, interval or p-value."
+                ),
+            },
+        },
+        "amendment_policy": (
+            "After finalization, any outcome-informed change requires a new lock "
+            "version and research cycle."
+        ),
+    }
+
+    config: dict[str, Any] = {
+        "experiment_id": E2_ID,
+        "summary_result": f"research/jobs/{E2_ID}/result.json",
+        "numerical_calibration": calibration_relative,
+        "numerical_calibration_sha256": _sha256(calibration_path),
+        "parameter_lock": E2_LOCK_RELATIVE,
+        "seeds": seeds,
+        **parameters,
+        **comparability,
+        "scientific_sesoi_derivations": derivations,
+    }
+    for key in E2_FROM_PILOT_CONFIG:
+        config[key] = pilot_config[key]
+
+    # Both files are validated against the shared code before either is written:
+    # a lock that the runner would reject is not a declaration, it is a trap.
+    audit = study.audit_parameter_lock(config, lock)
+    if not audit["pass"]:
+        raise RuntimeError(
+            f"the generated E2-C4 config does not match its lock: missing "
+            f"{audit['missing_parameters']}, mismatches {sorted(audit['mismatches'])}"
+        )
+    study._validate_c4_steady_contract(config, E2_ID)
+    study.validate_c4_calibration_coverage(
+        calibration, sesoi, required_metrics, allow_extension=True
+    )
+
+    lock_path = project_root / E2_LOCK_RELATIVE
+    if lock_path.is_file():
+        existing = _read_json(lock_path)
+        if existing != lock:
+            raise RuntimeError(
+                "a different E2-C4 lock already exists; archive it or bump the "
+                "lock version rather than overwriting frozen quantities"
+            )
+    config["parameter_lock_sha256"] = "pending"
+    config_path = outcome_dir / "config.json"
+    if config_path.is_file():
+        existing_config = _read_json(config_path)
+        if {k: v for k, v in existing_config.items() if k != "parameter_lock_sha256"} != {
+            k: v for k, v in config.items() if k != "parameter_lock_sha256"
+        }:
+            raise RuntimeError(
+                "a different E2-C4 config already exists; refusing to overwrite it"
+            )
+
+    _write_json(lock_path, lock)
+    config["parameter_lock_sha256"] = _sha256(lock_path)
+    _write_json(config_path, config)
+    _write_e2_declarations(
+        outcome_dir,
+        project_root=project_root,
+        config=config,
+        lock=lock,
+        lock_path=lock_path,
+        calibration_path=calibration_path,
+        pilot=pilot,
+        requirement=requirement,
+        seeds=seeds,
+        runs=run_count,
+    )
+
+    # The written pair must satisfy the checks the runner performs, including the
+    # checksum the config now carries.
+    written_lock = _read_json(lock_path)
+    written_audit = study.audit_parameter_lock(config, written_lock)
+    if not written_audit["pass"]:
+        raise RuntimeError("the written E2-C4 lock and config disagree")
+    if config["parameter_lock_sha256"] != _sha256(lock_path):
+        raise RuntimeError("the written E2-C4 config does not pin the lock's sha256")
+    study.validate_e2_c4_sesoi_derivations(config)
+
+    return {
+        "lock": _relative(project_root, lock_path),
+        "lock_sha256": config["parameter_lock_sha256"],
+        "config": _relative(project_root, config_path),
+        "r_replicates": replicates,
+        "run_count": run_count,
+        "seed_count": replicates,
+        "seeds": seeds,
+        "scientific_sesoi": sesoi,
+        "wealth_variance_reference": var_ref,
+        "level_drift_floor": floor,
+        "level_drift_margin": ratio / floor - 1.0,
+    }
+
+
 def _relative(root: Path, path: Path) -> str:
     resolved_root = root.resolve()
     resolved_path = path.resolve()
@@ -2218,16 +2937,28 @@ def audit_seeds(
     pool_min: int | None = None,
     pool_max: int | None = None,
     propose: int | None = None,
+    exclude: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Build the bookkeeping ledger of every seed consumed by every job.
 
     Raises RuntimeError when the ledger is internally inconsistent, meaning a
     job repeats a seed inside one channel, or declares its seeds two different
     ways, or shares a seed with another job without a registered reason.
+
+    ``exclude`` names job directories to leave out. It exists for one case: a
+    declaration set being generated *right now* must not be an input to its own
+    seed choice. Without it, the act of writing the job dir would push its seeds
+    into the exclusion set -- making the selection depend on whether it had been
+    run before -- and would also make the dir fail the "records no seed
+    evidence" check while it is still being assembled. The caller is responsible
+    for the resulting declaration being exactly the choice it just made;
+    ``prepare_e2`` re-checks that.
     """
+    excluded = set(exclude)
     jobs = {
         job_dir.name: _harvest_job_seeds(job_dir)
         for job_dir in sorted(path for path in jobs_dir.iterdir() if path.is_dir())
+        if job_dir.name not in excluded
     }
 
     # A seed drawn twice inside one declaration list is not a larger sample, it
@@ -2608,6 +3339,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     pilot_parser.add_argument("--jobctl-dir", required=True)
     pilot_parser.add_argument("--conclusion-artifact", default=None)
     pilot_parser.add_argument("--workspace-artifact", action="append", default=[])
+    subparsers.add_parser("prepare-e2")
     args = parser.parse_args(argv)
     if args.command == "archive-v1f":
         archive_v1f(
@@ -2704,6 +3436,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 indent=2,
             )
         )
+    elif args.command == "prepare-e2":
+        print(json.dumps(prepare_e2(PROJECT_ROOT), ensure_ascii=False, indent=2))
     elif args.command == "record-pilot":
         print(
             json.dumps(

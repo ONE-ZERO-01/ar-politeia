@@ -448,6 +448,66 @@ def test_c4_calibration_keeps_numerical_and_scientific_thresholds_separate():
         )
 
 
+def test_c4_coverage_admits_the_extension_only_when_asked(tmp_path, monkeypatch):
+    """E2-C4 needs a limit V1F never froze, but the default must stay strict.
+
+    V1F recorded ``wealth_variance`` and did not freeze it, so a coverage check
+    that only accepted the pristine artifact would make the V1H extension pointless
+    and E2-C4 unrunnable. The opt-in keeps E1-C4's accepted input set unchanged and
+    still refuses an extension that is not bound to the artifact it re-derived.
+    """
+    scientific = {"wealth_gini": 0.025, "wealth_variance": 0.048}
+    extension = {
+        "experiment": "V1H-CALIBRATION-EXTENSION-C4",
+        "pass": True,
+        "pathwise_claim": False,
+        "extends": {
+            "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+            "sha256": "a" * 64,
+            "path": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+        },
+        "faithfulness": {
+            "field_mismatches": 0,
+            "reproduced_limits": {
+                "wealth_gini": {"recomputed": 0.0014, "frozen": 0.0014, "bit_equal": True}
+            },
+        },
+        "numerical_resolution_limits": {"wealth_gini": 0.0014, "wealth_variance": 0.0568},
+    }
+    metrics = ("wealth_gini", "wealth_variance")
+
+    # Without the opt-in the extension is not the pristine artifact.
+    with pytest.raises(RuntimeError, match="requires V1F-NONFLAT-CALIBRATION-C4"):
+        run_landscape_study.validate_c4_calibration_coverage(
+            extension, scientific, metrics
+        )
+
+    thresholds = run_landscape_study.validate_c4_calibration_coverage(
+        extension, scientific, metrics, allow_extension=True
+    )
+    assert thresholds["wealth_variance"] == {
+        "numerical_resolution_limit": 0.0568,
+        "scientific_sesoi": 0.048,
+        "effective_claim_threshold": 0.0568,
+    }
+
+    # The opt-in relaxes *which artifact*, never *whether it is bound*: an
+    # extension that did not reproduce its source is rejected even here.
+    unfaithful = {
+        **extension,
+        "faithfulness": {**extension["faithfulness"], "field_mismatches": 2},
+    }
+    with pytest.raises(RuntimeError, match="bit-for-bit"):
+        run_landscape_study.validate_c4_calibration_coverage(
+            unfaithful, scientific, metrics, allow_extension=True
+        )
+    unbound = {**extension, "extends": {"experiment": "V1F-NONFLAT-CALIBRATION-C4"}}
+    with pytest.raises(RuntimeError, match="must pin its source's 64-character sha256"):
+        run_landscape_study.validate_c4_calibration_coverage(
+            unbound, scientific, metrics, allow_extension=True
+        )
+
+
 def test_e1_c4_steady_contract_requires_complete_disjoint_bounds():
     metrics = run_landscape_study.stationary_metrics_for_experiment(
         "E1-MATCHED-LANDSCAPES-C4"

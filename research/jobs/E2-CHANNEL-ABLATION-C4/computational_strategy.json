@@ -1,0 +1,21 @@
+{
+  "approach": "Run 80 simulations (5 frozen units x 16 seeds, one replicate per unit and seed) as 8 OMP=1 CPU reference processes on the calibrated reference binary, then analyse the five units under the frozen condition-ensemble two-window steady contract, the P1 isolation identity guard, the mandatory P4 comparability gate and Holm-corrected paired contrasts.",
+  "evidence_role": "confirmatory",
+  "evidence_boundary": "Synthetic generative mechanism only; no historical-state claim. The estimands are wealth_gini and wealth_variance on two claim-bearing contrasts. zero_wealth_fraction is a P4 non-degeneracy guard and mean_wealth a level audit, so neither carries a claim.",
+  "reference_method": "validated OpenMP-OFF C++ simulator binary, sha256-bound to the cycle 4 E2 parameter lock",
+  "validation_points": [
+    "the parameter lock is final, authorizes E2-CHANNEL-ABLATION-C4, and every locked parameter is compared against the config before any run",
+    "the calibration is the V1H extension, accepted only because it reproduced V1F's four limits bit for bit",
+    "the relative wealth_variance SESOI is checked against the checksum-bound pilot report it was derived from, including its level-drift floor",
+    "the seed battery is the smallest unused primes of the frozen window, verified against the seeds ledger"
+  ],
+  "agreement": {
+    "criterion": "the frozen analysis gate: the ensemble two-window steady contract passes, matched inputs hold, execution invariants hold, and the P4 comparability gate passes so no contrast is downgraded to inconclusive"
+  },
+  "reference_validation_required": true,
+  "validation_artifact": "channel_separation.json",
+  "supports_core_claim": true,
+  "claim_ids": [
+    "C3-CHANNELS-C4"
+  ]
+}

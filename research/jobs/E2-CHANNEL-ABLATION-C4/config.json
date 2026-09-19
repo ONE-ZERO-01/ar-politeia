@@ -1,0 +1,106 @@
+{
+  "experiment_id": "E2-CHANNEL-ABLATION-C4",
+  "summary_result": "research/jobs/E2-CHANNEL-ABLATION-C4/result.json",
+  "numerical_calibration": "research/jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json",
+  "numerical_calibration_sha256": "545363ea7ee01faf258482a2c4d135d77465ac5ffb79f7f8d097961288b2b00e",
+  "parameter_lock": "research/parameter_lock.e2.json",
+  "seeds": [
+    12391,
+    12401,
+    12409,
+    12413,
+    12421,
+    12433,
+    12437,
+    12451,
+    12457,
+    12473,
+    12479,
+    12487,
+    12491,
+    12497,
+    12503,
+    12511
+  ],
+  "population": 1000,
+  "grid_shape": [
+    64,
+    64
+  ],
+  "bounds": [
+    0.0,
+    100.0,
+    0.0,
+    100.0
+  ],
+  "dt": 0.005,
+  "total_time": 4500.0,
+  "output_time_interval": 5.0,
+  "steady_snapshots": 144,
+  "stationarity_max_normalized_drift": 0.1,
+  "stationarity_min_ess": 4.0,
+  "stationarity_reversal_span_sigma": 2.0,
+  "stationarity_gate_unit": "condition_ensemble_two_window",
+  "temperature": 0.5,
+  "friction": 1.0,
+  "social_strength": 0.0,
+  "interaction_range": 2.5,
+  "exchange_rate": 0.5,
+  "exchange_noise_strength": 0.05,
+  "exchange_reversion_rate": 1.0,
+  "epsilon_log_sigma": 0.5,
+  "consumption_rate": 0.0,
+  "terrain_force_scale": 1.0,
+  "terrain_production_scale": 1.0,
+  "strict_numerics": true,
+  "confirmative_mode": true,
+  "wealth_log_sigma": 0.01,
+  "mpi_enabled": false,
+  "ranks": 1,
+  "omp_threads": 1,
+  "parallel": 8,
+  "per_run_timeout_seconds": 10800,
+  "familywise_alpha": 0.05,
+  "bootstrap_samples": 10000,
+  "analysis_seed": 9173,
+  "scientific_sesoi": {
+    "wealth_gini": 0.025,
+    "wealth_variance": 0.3928389565912764
+  },
+  "independent_precision_absolute_half_widths": {
+    "density_morans_i": 0.05,
+    "occupancy_entropy": 0.025,
+    "wealth_gini": 0.025,
+    "zero_wealth_fraction": 0.01
+  },
+  "independent_precision_relative_half_widths": {
+    "wealth_variance": 0.2
+  },
+  "adjacent_window_absolute_bounds": {
+    "density_morans_i": 0.05,
+    "occupancy_entropy": 0.025,
+    "wealth_gini": 0.025,
+    "zero_wealth_fraction": 0.01
+  },
+  "adjacent_window_relative_bounds": {
+    "wealth_variance": 0.1
+  },
+  "ability_saturation_w": 5.0,
+  "comparability_zero_wealth_fraction_max": 0.01,
+  "comparability_wealth_variance_min": 0.056828569227561854,
+  "comparability_mean_wealth_relative_band": 0.1,
+  "scientific_sesoi_derivations": {
+    "wealth_variance": {
+      "metric": "wealth_variance",
+      "rule": "relative_to_reference_level",
+      "ratio": 0.5,
+      "reference_field": "wealth_variance_reference.P2_source_pattern.mean_wealth_variance",
+      "reference_report": "research/jobs/E2-C4-PILOT/pilot_variance_report.json",
+      "reference_report_sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776",
+      "resolved_value": 0.3928389565912764
+    }
+  },
+  "binary": "research/jobs/V0G-SIMULATOR-TESTS-C4/workspace/build-off/src/politeia",
+  "binary_sha256": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+  "parameter_lock_sha256": "517cc2246704239206a2d7ae4e0766e7559391127833f27af75088527667b708"
+}

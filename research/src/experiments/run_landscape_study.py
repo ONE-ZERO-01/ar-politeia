@@ -1413,9 +1413,21 @@ def validate_c4_calibration_coverage(
     calibration: Mapping[str, Any],
     scientific_sesoi: Mapping[str, Any],
     required_metrics: Sequence[str] = C4_EFFECT_METRICS,
+    *,
+    allow_extension: bool = False,
 ) -> Dict[str, Dict[str, float]]:
-    """Keep numerical resolution and scientific relevance thresholds separate."""
-    if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:
+    """Keep numerical resolution and scientific relevance thresholds separate.
+
+    ``allow_extension`` admits a V1H-style extension *after* the shared identity
+    check, and exists because V1F alone cannot cover E2-C4: it recorded but never
+    froze ``wealth_variance``, so requiring the pristine artifact would make the
+    extension pointless. The default stays strict, so E1-C4's accepted input set
+    is unchanged; identity is checked by exactly one function either way rather
+    than by two slightly different comparisons.
+    """
+    if allow_extension:
+        _require_cycle4_calibration_identity(calibration)
+    elif calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:
         raise RuntimeError(
             f"Cycle 4 requires {C4_CALIBRATION_EXPERIMENT} calibration"
         )
@@ -3763,6 +3775,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 calibration,
                 config.get("scientific_sesoi", {}),
                 confirmatory_metrics_for_experiment(args.experiment),
+                # E2-C4 needs wealth_variance, which only V1H froze; the loader
+                # has already bound that extension to the V1F artifact it
+                # re-derived, so the coverage check can accept it without
+                # weakening E1-C4's stricter default.
+                allow_extension=args.experiment == E2_C4_EXPERIMENT,
             )
         else:
             validate_calibration_coverage(

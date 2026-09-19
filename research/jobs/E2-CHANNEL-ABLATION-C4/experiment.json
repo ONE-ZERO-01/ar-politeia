@@ -1,0 +1,88 @@
+{
+  "id": "E2-CHANNEL-ABLATION-C4",
+  "type": "command",
+  "mode": "server",
+  "priority": "P1",
+  "claim_ids": [
+    "C3-CHANNELS-C4"
+  ],
+  "non_evidentiary": false,
+  "depends_on": [
+    "E2-C4-PILOT",
+    "V1H-CALIBRATION-EXTENSION-C4",
+    "V0G-SIMULATOR-TESTS-C4"
+  ],
+  "objective": "Separate spatial organisation from the explicitly named production-decay source-sink path under the frozen five-unit battery: the P2 source-pattern contrasts at a shared sink rate and the P3 sink-rate ladder on the clustered source.",
+  "role": "Confirmatory. The two claim-bearing contrasts are clustered-minus-shuffled and d0.04-minus-d0.01; their estimands are wealth_gini and wealth_variance at the frozen SESOI. The P4 comparability gate runs before any effect and can make a contrast inconclusive a priori, never null.",
+  "command": [
+    "/usr/bin/env",
+    "PYTHONPATH=src:research/src/experiments",
+    "OMP_NUM_THREADS=1",
+    "python3",
+    "research/src/experiments/run_landscape_study.py",
+    "--experiment",
+    "E2-CHANNEL-ABLATION-C4",
+    "--config",
+    "research/jobs/E2-CHANNEL-ABLATION-C4/config.json",
+    "--output-dir",
+    "research/jobs/E2-CHANNEL-ABLATION-C4/workspace"
+  ],
+  "config": "research/jobs/E2-CHANNEL-ABLATION-C4/config.json",
+  "config_sha256": "ee9daeabff145dcc5e4e23b2cac37cb4cc2bfc02180f4ac4018e4488ae09b41c",
+  "env_snapshot": "research/jobs/E2-CHANNEL-ABLATION-C4/env.txt",
+  "seeds": [
+    12391,
+    12401,
+    12409,
+    12413,
+    12421,
+    12433,
+    12437,
+    12451,
+    12457,
+    12473,
+    12479,
+    12487,
+    12491,
+    12497,
+    12503,
+    12511
+  ],
+  "data_checksums": {
+    "external_data": "none",
+    "generated_inputs": "unit terrain fields rebuilt from the frozen unit battery; every per-seed input digest is recorded in run_specs.json before execution",
+    "dependency_calibration": "545363ea7ee01faf258482a2c4d135d77465ac5ffb79f7f8d097961288b2b00e",
+    "parameter_lock": "517cc2246704239206a2d7ae4e0766e7559391127833f27af75088527667b708",
+    "reference_binary": "87eafa4e1e9b0ca24d45b49eb6508f45f07bcd4f67cc72f436210f0e8d7ddee3",
+    "reference_protocol_config": "9ad1be9cc183fcdfc4ab081e3a2bf4fafb434ee72296efe46861867695c58cbf"
+  },
+  "artifacts": [
+    "channel_separation.json",
+    "steady_estimand_report.json",
+    "isolation_identity_report.json",
+    "stationarity_report.json",
+    "replicate_metrics.csv"
+  ],
+  "timeout_seconds": 86400,
+  "gpu_count": 0,
+  "design": "research/e2-cycle4-channel-design.md",
+  "failure_policy": "A failed run, an analysis-gate failure or a P1 identity violation is an implementation problem, never a result. The P4 comparability gate may fail a priori: the affected contrast is then reported as pre-registered inconclusive, and no band, unit or delta may be adjusted from the outcome.",
+  "replicate_requirement": {
+    "source": "research/jobs/E2-C4-PILOT/r_requirement.json",
+    "source_sha256": "e2faf4a2c25e316c596b25cac9f3210c6c2fcf2ae2900a037aeefecbfde262e8",
+    "r_replicates": 16,
+    "worst_required_replicates": 12,
+    "note": "the full per-contrast, per-unit derivation lives in the cited file rather than here, so the same quantity has one home"
+  },
+  "replicate_count": 16,
+  "run_count": 80,
+  "scientific_sesoi": {
+    "wealth_gini": 0.025,
+    "wealth_variance": 0.3928389565912764
+  },
+  "pilot_reference": {
+    "experiment": "E2-C4-PILOT",
+    "path": "research/jobs/E2-C4-PILOT/pilot_variance_report.json",
+    "sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776"
+  }
+}

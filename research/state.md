@@ -424,6 +424,41 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   What remains before the E2 lock is the file itself: `research/parameter_lock.e2.json`
   with these frozen values and the E2 parameters, plus the E2-C4 declaration set for
   the 80-run battery.
+- **The E2 lock and the E2-C4 declaration set exist (2026-09-19), and generating them
+  found a start-up blocker.** `prepare_cycle4_confirmation.py prepare-e2` writes the
+  lock, the config and the seven jobctl declaration files in one pass, and every
+  number in them is re-derived rather than typed: R and the two deltas from the
+  pilot's recorded `r_requirement.json`, `Var_ref` from the pilot report's own field,
+  the P4 guards and the four steady bounds from the pilot's declaration (R was solved
+  *against* those inequalities, so a config with different bounds would carry a
+  replicate count nobody derived for it), and the seeds from the ledger. The result
+  is `research/parameter_lock.e2.json` (status `final`, authorizing only
+  `E2-CHANNEL-ABLATION-C4`) plus `research/jobs/E2-CHANNEL-ABLATION-C4/`. The battery
+  is 5 units x 16 seeds = 80 runs on `12391..12511`, the sixteen smallest unused
+  primes of the window; together with the pilot's eight those are the window's
+  smallest twenty-four primes, so no seed choice depended on what had already been
+  run. The generator is idempotent (a test asserts all seven files come out byte for
+  byte identical on a second run) and refuses a pilot recorded as unusable, an edited
+  pilot report, a ratio other than 0.50, an R below the worst family requirement, an
+  already-recorded E2 outcome, or a differing pre-existing declaration. Writing it
+  also exposed a defect that would have stopped the confirmatory run at start-up:
+  `validate_c4_calibration_coverage` hardcoded V1F as the only acceptable
+  calibration, while E2-C4 can only be calibrated by the V1H extension (V1F recorded
+  `wealth_variance` and never froze it). The check now takes an explicit
+  `allow_extension` flag that routes through the shared identity check, so E1-C4's
+  accepted input set is unchanged and an extension that did not reproduce its source
+  is still refused. The remaining step is to submit the 80-run battery.
+- Two conventions were tightened while landing the E2 declaration set. `audit_seeds`
+  gained an `exclude` parameter: a job directory that is being generated *right now*
+  must not be an input to its own seed choice, or else "the smallest unused primes"
+  quietly becomes "the smallest unused primes excluding whatever I already declared",
+  making the choice depend on whether the job had been prepared before. And a job's
+  own pre-registration is never edited after the fact: the pilot's
+  `experiment.json.failure_policy` still carries the wording that the design later had
+  to correct, because that file is the only record of what was expected at the time.
+  The correction lives in the design erratum and in `result.json`'s `criterion` block,
+  including a `declared_in_design` field that says outright that the design counted
+  per-run diagnostics as blocking.
 
 ## Cycle 3 E3 correction
 

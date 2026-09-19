@@ -881,8 +881,12 @@ R ∝ 1/ρ²，q = 0.5 时 ρ = 0.25/0.50 对应 R = 64/16，即算力降到四�
 
 pilot（`E2-C4-PILOT`，非证据）执行完毕并已记录，R 与两个 Δ 自此冻结。本节的数值是
 `research/parameter_lock.e2.json` 的 `design_contract` 与 `parameters` 的**权威来源**；
-lock 文件本身连同 E2-C4 的声明集在下一研究事件内生成（lock 的 `parameters` 必须与
-E2-C4 的 config 逐键相等，`audit_parameter_lock` 会强制这一点，故两者同批产出）。
+两者同批产出（lock 的 `parameters` 必须与 E2-C4 的 config 逐键相等，`audit_parameter_lock`
+会强制这一点）。2026-09-19 已生成：`prepare_cycle4_confirmation.py prepare-e2` 一个子命令
+写出 lock、config 与 jobctl 声明集，**所有数值都从记录在案的产物重导**——R 与两个 Δ 来自
+pilot 的 `r_requirement.json`（该文件本身由 `record-pilot` 从两份报告重算），`Var_ref` 来自
+pilot 报告的字段，P4 护栏与稳态界来自 pilot 自己的声明（R 就是对这些界解出来的，换界等于
+拿着一个没人解过的复本数），seed 来自 ledger 里窗口内最小未用的那些。
 
 | 冻结量 | 值 | 依据 |
 |---|---|---|
@@ -896,7 +900,40 @@ E2-C4 的 config 逐键相等，`audit_parameter_lock` 会强制这一点，故�
 | **R（每个单元）** | **16** | `next_power_of_two(12)`；正式批次 = 5 单元 × 16 seed = **80 runs** |
 | P4 护栏 | `zero_wealth_fraction_max = 0.01`、`wealth_variance_min = 0.056828569227561854`、`mean_wealth` 相对带 `±0.10` | §15.5；pilot 实测均大幅通过 |
 | pilot 参考 | 报告 `research/jobs/E2-C4-PILOT/pilot_variance_report.json`、推导 `r_requirement.json`（及其 sha256）、记录 `result.json` | `record-pilot` 产出 |
+| seed（16 个） | `12391, 12401, 12409, 12413, 12421, 12433, 12437, 12451, 12457, 12473, 12479, 12487, 12491, 12497, 12503, 12511` | 窗口 12300–13000 内"最小未用素数"，与 pilot 的 8 个不相交（两批合起来正好是该窗口最小的 24 个素数） |
 
 **顺序约束（不得违反）**：R 与两个 Δ 都在看到任何效应方向之前写下。pilot 的报告里
 不存在任何对比均值、方向、区间或 p 值（结构性禁止，见 pilot 设计 §3.4/§11），
 因此这一条不是承诺而是可核验的事实。
+
+### 18.1 落地期发现并修掉的一处启动期阻断（2026-09-19）
+
+`validate_c4_calibration_coverage` 里有一句硬编码：
+
+```
+if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:   # 即 V1F
+    raise RuntimeError(...)
+```
+
+而 E2-C4 的校准**只能**是 V1H 扩展（V1F 记录了 `wealth_variance` 却没有冻结它，
+见 §16/§17）。`load_e2_c4_calibration` 早就接受身份绑定的扩展，但这句检查会在
+`main()` 的执行前校验块里把扩展再拒一次——也就是说，**若不修，E2-C4 会在任何 run 开始前
+直接退出**（好在是 fail-fast，不会白烧 80 run 的算力，但无人值守下就是一次静默停摆）。
+
+修法是给这个函数一个显式的 `allow_extension` 关键字，为真时改调共享的
+`_require_cycle4_calibration_identity`，为假（默认）时逐字保持原来的严格比较：
+
+- E1-C4 的**被接受输入集不变**（仍只接受 V1F 本体），这条扩宽没有外溢；
+- 扩展的"绑定"没有被放松：不忠实（`faithfulness.field_mismatches != 0`）或不钉源的
+  扩展在 `allow_extension=True` 下依然被拒（测试里两条都覆盖）；
+- 身份判断从此只有一处实现，而不是两处措辞略有差别的比较。
+
+### 18.2 声明集自身的约束
+
+`prepare-e2` 是幂等的：对同一份记录在案的输入再跑一次，七个文件逐字节相同（有测试断言），
+因为整个声明集是输入的函数而不是随机选择。它同时拒斥：pilot 记录为不可用、pilot 报告被改过、
+`ratio != 0.50`、R 小于三族最严要求、E2 已有 outcome 产物、已有声明与本次不同。
+其中 seed 选择有一个自己咬自己的陷阱：`audit_seeds` 会把 `research/jobs/` 下**每个**目录都
+当作台账的一行，所以 job 目录一旦写出来，它自己声明的 seed 就会反过来缩小下一次的候选池，
+让"最小未用"变成"取决于是否跑过"。修法是给 `audit_seeds` 一个 `exclude` 参数，生成器把
+正在生成的 job 目录排除在自己的输入之外，并在选完后核对已有声明正是本次的选择。
