@@ -1301,6 +1301,35 @@ def test_audit_pool_rejects_an_impossible_proposal(tmp_path):
         _audit(tmp_path, pool_min=12300, pool_max=12310, propose=5)
 
 
+def test_a_scalar_seeds_field_is_a_count_not_a_seed(tmp_path):
+    """E2-C4's identity report says ``"seeds": 16``; that is a count, not seed 16.
+
+    Reading it as a drawn seed invented a seed no run had used and reported the
+    job's own declarations as disagreeing with each other -- a false alarm that
+    would have masked a genuine disagreement.
+    """
+    job_dir = _seed_job(tmp_path, "E2-CHANNEL-ABLATION-C4", seeds=[12391, 12401])
+    _write_json(
+        job_dir / "isolation_identity_report.json",
+        {"experiment": "E2-CHANNEL-ABLATION-C4", "seeds": 2, "pass": True},
+    )
+    record = promotion._harvest_job_seeds(job_dir)
+    assert record["seeds"] == [12391, 12401]
+    assert record["seed_counts"] == {"isolation_identity_report.json:seeds": 2}
+    _audit(tmp_path)
+
+
+def test_a_declared_seed_count_that_disagrees_with_the_battery_is_refused(tmp_path):
+    """A stale artifact under a passing verdict is what the ledger exists to refuse."""
+    job_dir = _seed_job(tmp_path, "E2-CHANNEL-ABLATION-C4", seeds=[12391, 12401])
+    _write_json(
+        job_dir / "isolation_identity_report.json",
+        {"experiment": "E2-CHANNEL-ABLATION-C4", "seeds": 8, "pass": True},
+    )
+    with pytest.raises(RuntimeError, match="declares 2 seeds but .* says 8"):
+        _audit(tmp_path)
+
+
 def test_repository_ledger_holds_no_unregistered_overlap(monkeypatch):
     """Integration guard: the real ledger must stay leak-free as jobs accrue.
 

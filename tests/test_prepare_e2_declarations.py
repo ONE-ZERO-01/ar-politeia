@@ -48,6 +48,17 @@ STUDY_SPEC.loader.exec_module(study)
 E2_ID = "E2-CHANNEL-ABLATION-C4"
 PILOT_ID = "E2-C4-PILOT"
 LOCK_RELATIVE = "research/parameter_lock.e2.json"
+OUTCOME_FILES = ("result.json", "channel_separation.json")
+# record-e2 promotes the run's declared artifacts into the job directory. They are
+# outcomes too: prepare_e2 ran before any of them existed.
+RECORDED_ARTIFACTS = (
+    "channel_separation.json",
+    "isolation_identity_report.json",
+    "matched_input_audit.json",
+    "replicate_metrics.csv",
+    "stationarity_report.json",
+    "steady_estimand_report.json",
+)
 CALIBRATION_RELATIVE = (
     "research/jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json"
 )
@@ -282,31 +293,67 @@ def test_e2_declaration_set_is_consistent_with_its_config_and_lock():
     ]["replicate_requirement"]["r_replicates"]
 
 
-def test_prepare_e2_is_idempotent_against_the_committed_declaration_set():
+def _pre_execution_root(tmp_path: Path) -> Path:
+    """Rebuild the state ``prepare_e2`` is allowed to run in.
+
+    The confirmatory run has been recorded, and ``prepare_e2`` refuses to write a
+    lock over recorded outcomes, so the pre-execution tree has to be reconstructed:
+    the pilot, the calibration extension, the Cycle 4 lock, and the declaration set
+    without the outcome files.
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    # The whole research tree comes along: seed selection audits every sibling job
+    # and every reuse component names the design document that justifies it, so a
+    # tree holding only the inputs of interest would not be the state prepare_e2
+    # actually runs in.
+    shutil.copytree(
+        REPO_ROOT / "research",
+        root / "research",
+        ignore=shutil.ignore_patterns("workspace", "__pycache__"),
+    )
+    for name in OUTCOME_FILES:
+        (root / "research" / "jobs" / E2_ID / name).unlink(missing_ok=True)
+    for name in RECORDED_ARTIFACTS:
+        (root / "research" / "jobs" / E2_ID / name).unlink(missing_ok=True)
+    return root
+
+
+def test_prepare_e2_is_idempotent_against_the_committed_declaration_set(tmp_path):
     """A second run must reproduce the files byte for byte.
 
     Anything else means the generator is not a function of the recorded inputs,
     which is the property that makes the declaration auditable at all.
     """
-    lock_path = REPO_ROOT / LOCK_RELATIVE
-    config_path = REPO_ROOT / "research" / "jobs" / E2_ID / "config.json"
-    experiment_path = REPO_ROOT / "research" / "jobs" / E2_ID / "experiment.json"
-    before = {
-        path: path.read_bytes()
-        for path in (
-            lock_path,
-            config_path,
-            experiment_path,
-            REPO_ROOT / "research" / "jobs" / E2_ID / "seeds.txt",
-            REPO_ROOT / "research" / "jobs" / E2_ID / "data_checksums.txt",
-            REPO_ROOT / "research" / "jobs" / E2_ID / "env.txt",
-            REPO_ROOT / "research" / "jobs" / E2_ID / "outputs.txt",
-            REPO_ROOT / "research" / "jobs" / E2_ID / "computational_strategy.json",
-        )
-    }
-    prepare.prepare_e2(REPO_ROOT)
-    for path, content in before.items():
-        assert path.read_bytes() == content, path
+    root = _pre_execution_root(tmp_path)
+    job_dir = root / "research" / "jobs" / E2_ID
+    lock_path = root / LOCK_RELATIVE
+    committed_job_dir = REPO_ROOT / "research" / "jobs" / E2_ID
+    committed_lock = (REPO_ROOT / LOCK_RELATIVE).read_bytes()
+
+    prepare.prepare_e2(root)
+
+    written_lock = lock_path.read_bytes()
+    assert written_lock == committed_lock
+    for name in sorted(path.name for path in committed_job_dir.iterdir() if path.is_file()):
+        if name in (*OUTCOME_FILES, *RECORDED_ARTIFACTS):
+            continue
+        assert (job_dir / name).read_bytes() == (committed_job_dir / name).read_bytes(), name
+
+    # Regenerating is a no-op, which is what "idempotent" has to mean here: the
+    # declaration the run was launched under is the one a fresh checkout produces.
+    before = {path.name: path.read_bytes() for path in job_dir.iterdir() if path.is_file()}
+    prepare.prepare_e2(root)
+    assert lock_path.read_bytes() == written_lock
+    for name, content in sorted(before.items()):
+        assert (job_dir / name).read_bytes() == content, name
+
+
+def test_prepare_e2_refuses_to_freeze_a_lock_over_recorded_outcomes():
+    """An outcome-informed freeze wearing a pre-registration's clothes is the one
+    thing the whole lock exists to make impossible."""
+    with pytest.raises(RuntimeError, match="refusing to write a lock over"):
+        prepare.prepare_e2(REPO_ROOT)
 
 
 # ── refusals ──

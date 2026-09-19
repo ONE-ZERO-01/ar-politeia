@@ -3141,6 +3141,7 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
     sentinels: list[str] = []
     channels: dict[str, list[int]] = {}
     references: dict[str, list[int]] = {}
+    counts: dict[str, int] = {}
     experiment_id: str | None = None
 
     seeds_file = job_dir / "seeds.txt"
@@ -3169,8 +3170,18 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
         consumed: list[int] = []
         referenced: list[int] = []
         if isinstance(payload, dict):
-            consumed.extend(_seed_values(payload.get("seeds")))
-            consumed.extend(_seed_values(payload.get("seed")))
+            for key in ("seeds", "seed"):
+                value = payload.get(key)
+                if isinstance(value, int) and not isinstance(value, bool):
+                    # A *scalar* ``seeds`` is a count, not a list of seed values:
+                    # E2-C4's isolation-identity report records "seeds": 16 for the
+                    # sixteen replicates it compared.  Folding it into the consumed
+                    # set invented a seed 16 that no run ever drew, which the ledger
+                    # then reported as a disagreement between seeds.txt and the
+                    # declarations -- a false alarm that hid the real check.
+                    counts[f"{path.name}:{key}"] = value
+                else:
+                    consumed.extend(_seed_values(value))
             referenced.extend(
                 _collect_nested_seeds(
                     {
@@ -3217,6 +3228,7 @@ def _harvest_job_seeds(job_dir: Path) -> dict[str, Any]:
         "seeds": sorted({seed for group in channels.values() for seed in group}),
         "channels": {name: list(group) for name, group in channels.items()},
         "references": references,
+        "seed_counts": counts,
         "reference_job": bool(reference_declaration),
         "has_seed_waiver": (job_dir / "seed_waiver.txt").is_file(),
         # A seed repeated inside one declaration list is a typo, because it
@@ -3361,6 +3373,19 @@ def audit_seeds(
                 f"{job} has non-numeric seeds.txt entries that are not registered "
                 f"sentinels: {unknown}"
             )
+
+    # A declared *count* of seeds must equal the declared battery: an artifact that
+    # says it compared sixteen replicates while the job declares a different battery
+    # is stale, and a stale artifact under a passing verdict is the thing this ledger
+    # exists to refuse.
+    for job, record in jobs.items():
+        for channel, count in record["seed_counts"].items():
+            declared_size = len(record["seeds"])
+            if declared_size and count != declared_size:
+                raise RuntimeError(
+                    f"{job} declares {declared_size} seeds but {channel} says {count}; "
+                    "one of the two is stale"
+                )
 
     # seeds.txt and the structured declarations must agree; a disagreement means
     # one of the two is stale and the ledger cannot be trusted.
