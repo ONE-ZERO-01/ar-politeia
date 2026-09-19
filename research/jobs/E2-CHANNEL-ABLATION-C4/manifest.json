@@ -1,0 +1,43 @@
+{
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 4455.134941987693,
+  "jobctl_reconcile": "completed",
+  "artifacts": [
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json",
+      "sha256": "a9c2334f7ae394d45c9e96f0a7c33b8aa8556aff8272977e17e0e89bac5727ef",
+      "size": 20123
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json",
+      "sha256": "1b0583b62d7a29e57d88a397742ddf8c9febac23fa719d07df88c495de422770",
+      "size": 673
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json",
+      "sha256": "ae6f291d855e8b1d64ac227b1b1c3d0cfebaa512d30903cadfa6cf3cf8e7b21f",
+      "size": 34465
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv",
+      "sha256": "65f481e54bfa38a686bb829529223609cd88e35597feb215c4aa56f125e0a726",
+      "size": 96783
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/result.json",
+      "sha256": "44356358402120dc865b8dc0c2234470f774ed8de0de545b3074851dd43504b1",
+      "size": 22918
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json",
+      "sha256": "8a52f5933583670a6d2409450a18cc4852ce52f3168aa74db33cc9d7bc0c25e5",
+      "size": 425670
+    },
+    {
+      "path": "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json",
+      "sha256": "c3d030cd8b5eb55312b47008d3b1b8a3d33c949849dbccfeae34e571f0160df6",
+      "size": 45656
+    }
+  ]
+}

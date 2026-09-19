@@ -1,0 +1,509 @@
+{
+  "experiment": "E2-CHANNEL-ABLATION-C4",
+  "design": "five-unit-source-pattern-by-sink-rate",
+  "design_reference": "research/e2-cycle4-channel-design.md",
+  "analysis_gate_pass": true,
+  "claim_supported": true,
+  "inconclusive": false,
+  "gates": {
+    "v1f_numerical_calibration": true,
+    "three_condition_inputs": true,
+    "isolation_identity": true,
+    "comparability": true,
+    "steady_estimand": true
+  },
+  "P1_isolation_identity": {
+    "role": "structural regression guard, not a scientific test: with terrain force off and social_strength zero, particle positions are exogenous to every wealth-family factor and must be bitwise identical across source patterns",
+    "metrics": [
+      "occupancy_entropy",
+      "density_morans_i"
+    ],
+    "units": [
+      "clustered-d0.02",
+      "shuffled-d0.02",
+      "flat-d0.02"
+    ],
+    "excluded_metrics": {
+      "resource_density_spearman_rho": "depends on the resource field, so it is allowed to differ and is undefined on the constant flat field"
+    },
+    "seeds": 16,
+    "checked_comparisons": 64,
+    "violations": [],
+    "pass": true
+  },
+  "P4_comparability": {
+    "pass": true,
+    "gate_role": "mandatory; a unit that fails comparability makes its contrast inconclusive, never null, and no unit may be dropped or re-banded",
+    "non_degenerate": true,
+    "levels_matched": true,
+    "frozen_policy": {
+      "zero_wealth_fraction_max": 0.01,
+      "wealth_variance_min": 0.056828569227561854,
+      "mean_wealth_relative_band": 0.1,
+      "target": "matched between units, not matched to ability_saturation_w"
+    },
+    "units": {
+      "clustered-d0.02": {
+        "replicates": 16,
+        "mean_wealth": 0.4980149710047278,
+        "wealth_scale_ratio": 0.09960299420094557,
+        "mean_zero_wealth_fraction": 2.1701388888888893e-06,
+        "mean_wealth_variance": 1.1279604090082813,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "shuffled-d0.02": {
+        "replicates": 16,
+        "mean_wealth": 0.5012051997539902,
+        "wealth_scale_ratio": 0.10024103995079806,
+        "mean_zero_wealth_fraction": 0.0,
+        "mean_wealth_variance": 0.6148726732088414,
+        "minimum_wealth_observed": 9.753900366058256e-12,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "flat-d0.02": {
+        "replicates": 16,
+        "mean_wealth": 0.5007951454765939,
+        "wealth_scale_ratio": 0.10015902909531878,
+        "mean_zero_wealth_fraction": 0.0,
+        "mean_wealth_variance": 0.6021269344834937,
+        "minimum_wealth_observed": 6.966033197170949e-06,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "clustered-d0.01": {
+        "replicates": 16,
+        "mean_wealth": 0.4981031688620459,
+        "wealth_scale_ratio": 0.09962063377240918,
+        "mean_zero_wealth_fraction": 1.7361111111111112e-06,
+        "mean_wealth_variance": 1.1450434847580946,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      },
+      "clustered-d0.04": {
+        "replicates": 16,
+        "mean_wealth": 0.49793297006528653,
+        "wealth_scale_ratio": 0.0995865940130573,
+        "mean_zero_wealth_fraction": 2.1701388888888893e-06,
+        "mean_wealth_variance": 1.0598929299519257,
+        "minimum_wealth_observed": 0.0,
+        "non_finite_metric_count": 0,
+        "non_degenerate": true
+      }
+    },
+    "group_level_matching": {
+      "P2_source_pattern": {
+        "group_mean_wealth": 0.5000051054117707,
+        "unit_mean_wealth": {
+          "clustered-d0.02": 0.4980149710047278,
+          "shuffled-d0.02": 0.5012051997539902,
+          "flat-d0.02": 0.5007951454765939
+        },
+        "relative_deviations": {
+          "clustered-d0.02": 0.0039802281726782265,
+          "shuffled-d0.02": 0.0024001641767862625,
+          "flat-d0.02": 0.0015800639958917424
+        },
+        "max_relative_deviation": 0.0039802281726782265,
+        "frozen_band": 0.1,
+        "pass": true
+      },
+      "P3_sink_rate": {
+        "group_mean_wealth": 0.49801703664402014,
+        "unit_mean_wealth": {
+          "clustered-d0.01": 0.4981031688620459,
+          "clustered-d0.02": 0.4980149710047278,
+          "clustered-d0.04": 0.49793297006528653
+        },
+        "relative_deviations": {
+          "clustered-d0.01": 0.00017295034444242814,
+          "clustered-d0.02": 4.147728170619466e-06,
+          "clustered-d0.04": 0.00016880261627214306
+        },
+        "max_relative_deviation": 0.00017295034444242814,
+        "frozen_band": 0.1,
+        "pass": true
+      }
+    }
+  },
+  "P2_source_pattern": {
+    "estimand": "effect of the spatial organisation of the source on wealth structure under one shared diffusion trajectory",
+    "primary_contrast": "clustered-minus-shuffled",
+    "reference_contrast": "clustered-minus-flat",
+    "primary": {
+      "wealth_gini::clustered-minus-shuffled": {
+        "mean_difference": 0.09519540023885555,
+        "ci95_low": 0.08184537941846469,
+        "ci95_high": 0.10959667926679356,
+        "sign_flip_p_value": 3.0517578125e-05,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_gini",
+        "claim_eligible": true,
+        "raw_p_value": 3.0517578125e-05,
+        "holm_adjusted_p_value": 6.103515625e-05,
+        "holm_reject": true,
+        "alpha": 0.05,
+        "family_size": 2,
+        "sesoi": 0.025,
+        "ci_excludes_equivalence_region": true,
+        "claim_threshold_pass": true,
+        "threshold_components": {
+          "numerical_resolution_limit": 0.0014407792015185721,
+          "scientific_sesoi": 0.025,
+          "effective_claim_threshold": 0.025
+        }
+      },
+      "wealth_variance::clustered-minus-shuffled": {
+        "mean_difference": 0.51308773579944,
+        "ci95_low": 0.41171449253057596,
+        "ci95_high": 0.6277832093778994,
+        "sign_flip_p_value": 3.0517578125e-05,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_variance",
+        "claim_eligible": true,
+        "raw_p_value": 3.0517578125e-05,
+        "holm_adjusted_p_value": 6.103515625e-05,
+        "holm_reject": true,
+        "alpha": 0.05,
+        "family_size": 2,
+        "sesoi": 0.3928389565912764,
+        "ci_excludes_equivalence_region": true,
+        "claim_threshold_pass": true,
+        "threshold_components": {
+          "numerical_resolution_limit": 0.056828569227561854,
+          "scientific_sesoi": 0.3928389565912764,
+          "effective_claim_threshold": 0.3928389565912764,
+          "derivation": {
+            "rule": "relative_to_reference_level",
+            "ratio": 0.5,
+            "reference_field": "wealth_variance_reference.P2_source_pattern.mean_wealth_variance",
+            "reference_report": "research/jobs/E2-C4-PILOT/pilot_variance_report.json",
+            "reference_report_sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776",
+            "reference_level": 0.7856779131825528,
+            "resolved_value": 0.3928389565912764,
+            "level_drift_floor": 0.3973509933774835,
+            "level_drift_floor_source": "comparability_mean_wealth_relative_band",
+            "level_drift_margin": 0.2583333333333333
+          }
+        }
+      },
+      "zero_wealth_fraction::clustered-minus-shuffled": {
+        "mean_difference": 2.1701388888888893e-06,
+        "ci95_low": 0.0,
+        "ci95_high": 4.7743055555555555e-06,
+        "sign_flip_p_value": 0.25,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "zero_wealth_fraction",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "no frozen numerical calibration and scientific SESOI pair exists for this metric; reported descriptively"
+      },
+      "mean_wealth::clustered-minus-shuffled": {
+        "mean_difference": -0.0031902287492625164,
+        "ci95_low": -0.008843344517072953,
+        "ci95_high": 0.0023898143696126093,
+        "sign_flip_p_value": 0.303436279296875,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "mean_wealth",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "no frozen numerical calibration and scientific SESOI pair exists for this metric; reported descriptively"
+      }
+    },
+    "reference": {
+      "wealth_gini::clustered-minus-flat": {
+        "mean_difference": 0.09789766649819209,
+        "ci95_low": 0.08409537975203166,
+        "ci95_high": 0.11281084121473792,
+        "sign_flip_p_value": 3.0517578125e-05,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_gini",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "the frozen design assigns this contrast a reference role only, so it never carries a claim"
+      },
+      "wealth_variance::clustered-minus-flat": {
+        "mean_difference": 0.5258334745247876,
+        "ci95_low": 0.4229311343672921,
+        "ci95_high": 0.6411170987990268,
+        "sign_flip_p_value": 3.0517578125e-05,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_variance",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "the frozen design assigns this contrast a reference role only, so it never carries a claim"
+      },
+      "zero_wealth_fraction::clustered-minus-flat": {
+        "mean_difference": 2.1701388888888893e-06,
+        "ci95_low": 0.0,
+        "ci95_high": 4.7743055555555555e-06,
+        "sign_flip_p_value": 0.25,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "zero_wealth_fraction",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "the frozen design assigns this contrast a reference role only, so it never carries a claim"
+      },
+      "mean_wealth::clustered-minus-flat": {
+        "mean_difference": -0.0027801744718660773,
+        "ci95_low": -0.008187103214973245,
+        "ci95_high": 0.002560090461473264,
+        "sign_flip_p_value": 0.348907470703125,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "mean_wealth",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "the frozen design assigns this contrast a reference role only, so it never carries a claim"
+      }
+    },
+    "prohibited_interpretation": "not a landscape-changes-population effect: positions are shared bitwise, so this is a same-trajectory source-organisation effect"
+  },
+  "P3_sink_rate": {
+    "estimand": "effect of the sink rate on wealth structure and time-correlation diagnostics at matched equilibrium level",
+    "ladder": {
+      "clustered-d0.01": {
+        "wealth_decay_rate": 0.01,
+        "base_production": 0.005,
+        "relaxation_time": 100.0,
+        "source_sink_ratio": 0.5
+      },
+      "clustered-d0.02": {
+        "wealth_decay_rate": 0.02,
+        "base_production": 0.01,
+        "relaxation_time": 50.0,
+        "source_sink_ratio": 0.5
+      },
+      "clustered-d0.04": {
+        "wealth_decay_rate": 0.04,
+        "base_production": 0.02,
+        "relaxation_time": 25.0,
+        "source_sink_ratio": 0.5
+      }
+    },
+    "matched_equilibrium": true,
+    "primary_contrast": "d0.04-minus-d0.01",
+    "contrasts": {
+      "wealth_gini::d0.04-minus-d0.01": {
+        "mean_difference": -0.012108555339841377,
+        "ci95_low": -0.01775769203251587,
+        "ci95_high": -0.006311169808372908,
+        "sign_flip_p_value": 0.00152587890625,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_gini",
+        "claim_eligible": true,
+        "raw_p_value": 0.00152587890625,
+        "holm_adjusted_p_value": 0.00152587890625,
+        "holm_reject": true,
+        "alpha": 0.05,
+        "family_size": 2,
+        "sesoi": 0.025,
+        "ci_excludes_equivalence_region": false,
+        "claim_threshold_pass": false,
+        "threshold_components": {
+          "numerical_resolution_limit": 0.0014407792015185721,
+          "scientific_sesoi": 0.025,
+          "effective_claim_threshold": 0.025
+        }
+      },
+      "wealth_variance::d0.04-minus-d0.01": {
+        "mean_difference": -0.08515055480616868,
+        "ci95_low": -0.11017195344952015,
+        "ci95_high": -0.06036821555753207,
+        "sign_flip_p_value": 3.0517578125e-05,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "wealth_variance",
+        "claim_eligible": true,
+        "raw_p_value": 3.0517578125e-05,
+        "holm_adjusted_p_value": 6.103515625e-05,
+        "holm_reject": true,
+        "alpha": 0.05,
+        "family_size": 2,
+        "sesoi": 0.3928389565912764,
+        "ci_excludes_equivalence_region": false,
+        "claim_threshold_pass": false,
+        "threshold_components": {
+          "numerical_resolution_limit": 0.056828569227561854,
+          "scientific_sesoi": 0.3928389565912764,
+          "effective_claim_threshold": 0.3928389565912764,
+          "derivation": {
+            "rule": "relative_to_reference_level",
+            "ratio": 0.5,
+            "reference_field": "wealth_variance_reference.P2_source_pattern.mean_wealth_variance",
+            "reference_report": "research/jobs/E2-C4-PILOT/pilot_variance_report.json",
+            "reference_report_sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776",
+            "reference_level": 0.7856779131825528,
+            "resolved_value": 0.3928389565912764,
+            "level_drift_floor": 0.3973509933774835,
+            "level_drift_floor_source": "comparability_mean_wealth_relative_band",
+            "level_drift_margin": 0.2583333333333333
+          }
+        }
+      },
+      "zero_wealth_fraction::d0.04-minus-d0.01": {
+        "mean_difference": 4.340277777777778e-07,
+        "ci95_low": 0.0,
+        "ci95_high": 1.3020833333333335e-06,
+        "sign_flip_p_value": 1.0,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "zero_wealth_fraction",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "no frozen numerical calibration and scientific SESOI pair exists for this metric; reported descriptively"
+      },
+      "mean_wealth::d0.04-minus-d0.01": {
+        "mean_difference": -0.0001701987967593771,
+        "ci95_low": -0.001593189560890795,
+        "ci95_high": 0.0011114887231029038,
+        "sign_flip_p_value": 0.814605712890625,
+        "pairs": 16,
+        "bootstrap_samples": 10000,
+        "metric": "mean_wealth",
+        "claim_eligible": false,
+        "claim_threshold_pass": false,
+        "descriptive_only": "no frozen numerical calibration and scientific SESOI pair exists for this metric; reported descriptively"
+      }
+    },
+    "time_correlation_diagnostics": {
+      "clustered-d0.01": {
+        "replicates": 16,
+        "mean_wealth": 0.4981031688620459,
+        "temporal_ess": {
+          "density_morans_i": 96.34467615774122,
+          "occupancy_entropy": 115.94796545589108,
+          "wealth_gini": 10.254004765696585,
+          "wealth_variance": 7.1986524208821,
+          "zero_wealth_fraction": 144.0
+        },
+        "integrated_autocorrelation_time": {
+          "density_morans_i": 1.6575153211014877,
+          "occupancy_entropy": 1.322749782689002,
+          "wealth_gini": 18.06438479898295,
+          "wealth_variance": 25.729129285134665,
+          "zero_wealth_fraction": 1.0
+        }
+      },
+      "clustered-d0.02": {
+        "replicates": 16,
+        "mean_wealth": 0.4980149710047278,
+        "temporal_ess": {
+          "density_morans_i": 96.34467615774122,
+          "occupancy_entropy": 115.94796545589108,
+          "wealth_gini": 9.26234515810682,
+          "wealth_variance": 7.240282916296284,
+          "zero_wealth_fraction": 144.0
+        },
+        "integrated_autocorrelation_time": {
+          "density_morans_i": 1.6575153211014877,
+          "occupancy_entropy": 1.322749782689002,
+          "wealth_gini": 18.609828283542765,
+          "wealth_variance": 24.80371967395331,
+          "zero_wealth_fraction": 1.0
+        }
+      },
+      "clustered-d0.04": {
+        "replicates": 16,
+        "mean_wealth": 0.49793297006528653,
+        "temporal_ess": {
+          "density_morans_i": 96.34467615774122,
+          "occupancy_entropy": 115.94796545589108,
+          "wealth_gini": 9.735947419135567,
+          "wealth_variance": 7.557977587291261,
+          "zero_wealth_fraction": 144.0
+        },
+        "integrated_autocorrelation_time": {
+          "density_morans_i": 1.6575153211014877,
+          "occupancy_entropy": 1.322749782689002,
+          "wealth_gini": 18.067587014094496,
+          "wealth_variance": 23.468719036380296,
+          "zero_wealth_fraction": 1.0
+        }
+      }
+    },
+    "scale_invariance_assessment": "not_falsified_within_thresholds",
+    "scale_invariance_limit": "with terrain force off the realized level is deep in the sub-saturated region (w/w_ref well below one), where the w_ref and share-clamping scale dependence is weak; this tests only that region (design §4 P3, P3b reserves the crossing scan)"
+  },
+  "source_total_accounting": {
+    "units": {
+      "clustered-d0.02": {
+        "replicates": 16,
+        "mean_source_rate": 0.00995612510627625,
+        "total_source_rate": 9.95612510627625,
+        "mean_resource_at_particles": 0.9922334145930625
+      },
+      "shuffled-d0.02": {
+        "replicates": 16,
+        "mean_source_rate": 0.010023826409679094,
+        "total_source_rate": 10.023826409679096,
+        "mean_resource_at_particles": 1.0004670884828704
+      },
+      "flat-d0.02": {
+        "replicates": 16,
+        "mean_source_rate": 0.010015902909531877,
+        "total_source_rate": 10.015902909531876,
+        "mean_resource_at_particles": 1.0
+      }
+    },
+    "max_relative_total_spread": 0.00677106600557312,
+    "expected_max_relative_total_spread": 0.0,
+    "interpretation": "The three source patterns share an exact resource histogram and are sampled at bitwise-identical particle positions, so the source total is matched by construction; this block shows the realized spread of that match instead of assuming it.",
+    "gate_role": "accounting only; never enters a gate"
+  },
+  "diagnostic_spatial_metrics": {
+    "clustered-d0.02": {
+      "resource_density_spearman_rho": -0.004093098749020909
+    },
+    "shuffled-d0.02": {
+      "resource_density_spearman_rho": -0.0005692872095295802
+    },
+    "flat-d0.02": {
+      "resource_density_spearman_rho": null
+    },
+    "clustered-d0.01": {
+      "resource_density_spearman_rho": -0.004093098749020909
+    },
+    "clustered-d0.04": {
+      "resource_density_spearman_rho": -0.004093098749020909
+    }
+  },
+  "threshold_provenance": {
+    "policy": "a contrast can only carry a claim when the metric has both a numerical resolution limit and a scientific SESOI frozen before the confirmatory run, and additionally has something to estimate: its limit must not be exactly zero and its values must not be constant across the analysed runs",
+    "claim_eligible_metrics": [
+      "wealth_gini",
+      "wealth_variance"
+    ],
+    "descriptive_only_metrics": [
+      "mean_wealth",
+      "zero_wealth_fraction"
+    ],
+    "ineligibility_reasons": {
+      "mean_wealth": [
+        "missing_numerical_resolution_limit",
+        "missing_scientific_sesoi"
+      ],
+      "zero_wealth_fraction": [
+        "missing_numerical_resolution_limit",
+        "missing_scientific_sesoi"
+      ]
+    }
+  },
+  "multiplicity": "Holm FWER within each block over its claim-eligible contrasts; ineligible metrics are reported descriptively and carry no claim",
+  "excluded_conclusions": [
+    "no pure-production or pure-decay effect is estimable; the sink makes a stationary distribution exist, it is not a switchable channel",
+    "P1 identity results are regression evidence, never a finding",
+    "no extrapolation to landscape-changes-population effects"
+  ]
+}

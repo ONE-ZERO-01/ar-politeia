@@ -1,0 +1,20 @@
+{
+  "experiment": "E2-CHANNEL-ABLATION-C4",
+  "role": "structural regression guard, not a scientific test: with terrain force off and social_strength zero, particle positions are exogenous to every wealth-family factor and must be bitwise identical across source patterns",
+  "metrics": [
+    "occupancy_entropy",
+    "density_morans_i"
+  ],
+  "units": [
+    "clustered-d0.02",
+    "shuffled-d0.02",
+    "flat-d0.02"
+  ],
+  "excluded_metrics": {
+    "resource_density_spearman_rho": "depends on the resource field, so it is allowed to differ and is undefined on the constant flat field"
+  },
+  "seeds": 16,
+  "checked_comparisons": 64,
+  "violations": [],
+  "pass": true
+}
