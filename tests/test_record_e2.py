@@ -41,6 +41,7 @@ CONFIG = json.loads(
 UNITS = list(study.E2_C4_UNIT_NAMES)
 SEEDS = [int(seed) for seed in CONFIG["seeds"]]
 RUNS = len(UNITS) * len(SEEDS)
+SOURCE_COMMIT = "b6d24b76a50529965469332644e7bed251c49eb1"
 
 
 def _root(tmp_path: Path) -> Path:
@@ -124,6 +125,8 @@ def _job(
     (job_dir / "seeds.txt").write_text(
         "".join(f"{seed}\n" for seed in SEEDS), encoding="utf-8"
     )
+    (job_dir / "commit.txt").write_text(f"{SOURCE_COMMIT}\n", encoding="utf-8")
+    (job_dir / "env.txt").write_text("host=umi\nomp_threads=1\n", encoding="utf-8")
     for index in range(runs_finished):
         run_dir = workspace / "runs" / f"run-{index:03d}"
         run_dir.mkdir()
@@ -153,15 +156,13 @@ def _job(
         "runs_executed_this_invocation": RUNS,
         "runs_reused_from_completion_markers": 0,
         "artifacts": sorted(
-            [*recorder.E2_REQUIRED_ARTIFACTS, "result.json", "run_specs.json"]
+            f"research/jobs/{E2_ID}/workspace/{name}"
+            for name in (*recorder.E2_REQUIRED_ARTIFACTS, "result.json", "run_specs.json")
         ),
         "config_sha256": recorder._sha256(job_dir / "config.json"),
         "parameter_lock_sha256": recorder._sha256(
             root / "research" / "parameter_lock.e2.json"
         ),
-        "binary_sha256": config["binary_sha256"],
-        "execution_host": "umi",
-        "source_commit": "0" * 40,
         "omp_threads": 1,
         "elapsed_seconds_executed_this_invocation": 1.0,
     }
@@ -213,6 +214,11 @@ def test_record_e2_promotes_every_artifact_verbatim(tmp_path):
     assert result["gates"] == dict.fromkeys(recorder.E2_GATE_KEYS, True)
     for name, entry in result["artifacts"].items():
         assert entry["sha256"] == recorder._sha256(job_dir / entry["path"]), name
+
+    assert result["execution_host"] == "umi"
+    assert result["source_commit"] == SOURCE_COMMIT
+    assert result["binary_sha256"] == CONFIG["binary_sha256"]
+    assert set(result["artifacts"]) == set(recorder.E2_REQUIRED_ARTIFACTS)
 
     manifest = json.loads((job_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["jobctl_reconcile"] == "completed"
@@ -324,6 +330,21 @@ def test_record_e2_counts_the_battery_from_the_run_markers(tmp_path):
     """A summary that claims 80 runs is not the same as 80 finished runs."""
     root, job_dir, jobctl = _job(tmp_path, runs_finished=RUNS - 1)
     with pytest.raises(RuntimeError, match="completed marker"):
+        recorder.record_e2(root, job_dir, jobctl)
+
+
+def test_record_e2_refuses_a_result_that_does_not_list_an_artifact(tmp_path):
+    """The run's own manifest must mention every artifact it is supposed to have."""
+    hidden = "matched_input_audit.json"
+    workspace_result = {
+        "artifacts": sorted(
+            f"research/jobs/{E2_ID}/workspace/{name}"
+            for name in (*recorder.E2_REQUIRED_ARTIFACTS, "result.json")
+            if name != hidden
+        )
+    }
+    root, job_dir, jobctl = _job(tmp_path, workspace_result=workspace_result)
+    with pytest.raises(RuntimeError, match=f"does not list {hidden}"):
         recorder.record_e2(root, job_dir, jobctl)
 
 

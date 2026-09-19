@@ -1063,8 +1063,12 @@ def record_e2(
         raise RuntimeError(
             f"executed + reused = {returns}, which is not the declared {expected_runs}"
         )
-    for name in E2_REQUIRED_ARTIFACTS:
-        if name not in (raw.get("artifacts") or []):
+    # The runner lists artifacts as project-relative paths, so compare basenames:
+    # a run whose own manifest does not mention an artifact it is supposed to have
+    # produced has not produced it, whatever the file happens to contain.
+    listed = {Path(str(entry)).name for entry in (raw.get("artifacts") or [])}
+    for name in (*E2_REQUIRED_ARTIFACTS, "result.json"):
+        if name not in listed:
             raise RuntimeError(f"the workspace result does not list {name}")
     if raw.get("parameter_lock_sha256") != _sha256(lock_path):
         raise RuntimeError("the workspace result was produced under another lock")
@@ -1192,9 +1196,9 @@ def record_e2(
         "replicates_per_unit": len(seeds),
         "units": units,
         "seeds": seeds,
-        "execution_host": raw.get("execution_host"),
-        "source_commit": raw.get("source_commit"),
-        "binary_sha256": raw.get("binary_sha256"),
+        "execution_host": _e2_host(job_dir),
+        "source_commit": _e2_source_commit(job_dir),
+        "binary_sha256": calibration_block.get("reference_binary_sha256"),
         "config_sha256": raw.get("config_sha256"),
         "parameter_lock_sha256": raw.get("parameter_lock_sha256"),
         "workspace_result_sha256": _sha256(workspace / "result.json"),
@@ -1602,6 +1606,22 @@ def _e2_pilot_artifacts(project_root: Path) -> dict[str, Any]:
         "reference_report": _relative(project_root, report),
         "source_commit": _e2_source_commit(job_dir),
     }
+
+
+def _e2_host(job_dir: Path) -> str:
+    """The host the declarations pinned, not the host the run reports.
+
+    A run's own account of where it executed is not evidence of where it was
+    authorized to execute; the declaration is.
+    """
+    path = job_dir / "env.txt"
+    if not path.is_file():
+        raise RuntimeError("the E2-C4 job has no env.txt to read its host from")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == "host" and value.strip():
+            return value.strip()
+    raise RuntimeError("the E2-C4 env.txt does not declare a host")
 
 
 def _e2_source_commit(job_dir: Path) -> str:
