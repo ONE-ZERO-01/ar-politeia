@@ -965,3 +965,31 @@ if calibration.get("experiment") != C4_CALIBRATION_EXPERIMENT:   # 即 V1F
 `result.json` **保持派生而不是拷贝**：它是本循环对这次 run 的记录，workspace 自己的
 `result.json` 的 sha256 被写进它的 `workspace_result_sha256` 字段，两者因此始终可区分——
 把两者混为一谈，就等于让"记录"和"测量"在事后无法分开。
+
+## 20. 结果→判定映射表：在任何 payload 之前写下（2026-09-19，批次运行中）
+
+**写入时的事实**：正式批次于 2026-09-19 22:04 提交，写作时 80 个 run 中 16 个已有完成标记，
+`workspace/channel_separation.json` **尚不存在**（`ls` 只见到 `run_specs.json`、
+`matched_input_audit.json`、`parameter_lock_audit.json`）。本节不含任何效应量、方向、区间，
+因为当时没有任何一个被算出来。
+
+写下它的理由很直接：让"看到数字之后再决定怎么读"在结构上不可能。下表不是新政策，
+而是把两处**早已冻结**的文本对上号——`plan.json` 里 C3 的 `falsification` 三个反例，
+与 §4 P4 已经写明的"任一单元未通过可比性 ⇒ 记 inconclusive，不得记为 null"。
+
+| 观察到什么（结构性事实） | 命中 C3 已冻结的哪条反例 | C3 判定 |
+|---|---|---|
+| P1 隔离恒等式有违例 → 执行器拒写 payload、jobctl 非零退出 | "a named disabled channel remains active"（按设计 force 关、`social_strength = 0` 时位置对财富的外生性被破坏） | **falsified**；同时是**实现缺陷**，先修再重跑——该批次不含任何可报告的估计 |
+| P4 可比性 Gate 对某承载主张的对比失败 | "a factorial contrast combines incomparable non-stationary cells" | 该对比 **inconclusive**（§4 P4 原文：不得记为 null、不得删单元、不得事后调带宽） |
+| `matched_input_audit` 不过（输入未真正匹配） | 同上：对比的单元在输入上就不可比 | 同上，**inconclusive** |
+| 稳态估计量 Gate 不过 | "the implemented causal paths do not match the registered estimands"（注册的估计量是**稳态**对比，无稳态即无可估对象） | **inconclusive**（不是 null：没有可估的对象，与"估出零"是两件事） |
+| 五门禁全过，且某个承载主张的对比越过有效阈值 | — | **supported** |
+| 五门禁全过，没有任何对比越过有效阈值 | — | **not supported（有效 null／等价证据）**，依据 E2 lock 的 `valid_null_policy` |
+
+两条读法上的纪律，一并预先写下：
+
+1. **门禁失败不得被重述为效应**。P4 或稳态门禁失败时，把结果写成"没有效应"就是 §4 P4
+   明令禁止的那一步；可写的是"该对比在冻结带下不可归因"。
+2. **`zero_wealth_fraction` 与 `mean_wealth` 的任何读数都不得进入结论句**。前者是 P4 的
+   非退化护栏、后者是水平审计量，两者 `claim_eligible = false`（§15），`record-e2` 会拒绝
+   任何把它们列为可达主张的 payload（§19）。
