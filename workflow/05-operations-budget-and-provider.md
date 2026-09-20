@@ -53,7 +53,19 @@ Agent 在相应 Stage 中调用：
 
 - `python3 -m autoresearcher.foundation.preflight`
 - `python3 -m autoresearcher.foundation.jobctl`
-- `python3 -m autoresearcher.foundation.audit`
+- `python3 -m autoresearcher.foundation.audit`（默认审 `research/`，用
+  `research/claims.json` 作为凭证台账）
+
+投稿前的 `audit` 用一条命令跑，不要手敲两个步骤：
+
+```bash
+scripts/verify-evidence.sh
+```
+
+它先从各 job 的运行记录重导台账（`python3 research/src/experiments/prepare_cycle4_confirmation.py
+derive-claims`），再跑 `audit` 并写出 `research/reproducibility-bundle.json`。重导不可省：
+`audit` 审的是导出的台账，不重导就是核验一份可能与记录不符的旧台账。派生步骤会拒绝——
+某条记录不佐证 plan 预注册的状态时它报错停下。
 
 科学判断仍由 Agent 完成；编排器和三个 Gate 只执行确定性控制。完整配置见
 [多 Agent 编排](07-multi-agent-orchestration.md)。

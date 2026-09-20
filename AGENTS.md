@@ -49,6 +49,7 @@ python -m pytest -q
 python3 -m autoresearcher.orchestration validate orchestration/research-graph.example.json
 python3 -m autoresearcher.orchestration run orchestration/research-graph.json
 python3 -m autoresearcher.orchestration timeline  # 研究历程 HTML → research/timeline.html
+scripts/verify-evidence.sh          # 投稿前：重导凭证台账 + audit（退出码 0 = 通过）
 ```
 
 ## 关键约定

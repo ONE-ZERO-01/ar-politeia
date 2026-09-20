@@ -2415,8 +2415,8 @@ def derive_claims(project_root: Path) -> dict[str, Any]:
         "claims": claims,
         "findings": findings,
     }
-    _write_json(run_dir / "claims.json", ledger)
-    _write_json(run_dir / "findings.json", record)
+    _write_ledger(run_dir / "claims.json", ledger)
+    _write_ledger(run_dir / "findings.json", record)
     return {
         "claims": len(claims),
         "verdicts": {finding["claim_id"]: finding["verdict"] for finding in findings},
@@ -2436,6 +2436,27 @@ def _verdict_for_status(status: str) -> str:
         "pending": "inconclusive",
         "blocked": "inconclusive",
     }[status]
+
+
+def _write_ledger(path: Path, payload: dict[str, Any]) -> None:
+    """Write a derived record, keeping the old stamp when nothing else changed.
+
+    The derive step is run by a *check* command, so it must not dirty the working
+    tree just because time passed.  ``generated_at`` therefore means "when this
+    record last changed", which is also the more useful reading: a stamp that moves
+    on every run tells you when someone last looked, not when the content moved.
+    """
+    if path.is_file():
+        try:
+            existing = _read_json(path)
+        except Exception:
+            existing = None
+        if isinstance(existing, dict) and "generated_at" in existing:
+            candidate = dict(payload)
+            candidate["generated_at"] = existing["generated_at"]
+            if candidate == existing:
+                return
+    _write_json(path, payload)
 
 
 def _relative(root: Path, path: Path) -> str:

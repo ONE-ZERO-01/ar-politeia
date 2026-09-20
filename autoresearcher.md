@@ -46,6 +46,11 @@ AutoResearcher 按七个 Stage 组织研究工作：`PLAN → EXPERIMENT → ANA
 - **提交实验前** → 必须跑代码对齐审查 + `preflight`，有一项不通过、不提交。
 - **实验完成后** → 必须跑 `jobctl reconcile` 确认产物完整，缺失/损坏就重跑。
 - **声称可以投稿前** → 必须跑 `audit`，不通过、不进入人类决策。
+  一条命令：`scripts/verify-evidence.sh`（先由运行记录重导 claim 台账，再跑 `audit`，
+  写出 `research/reproducibility-bundle.json`；退出码 0 = 通过）。两步不能拆开手敲：
+  `audit` 的输入是一份**导出**的凭证台账，不先重导就去审，等于在核验一份可能已经
+  与运行记录不符的旧台账。派生步骤本身会拒绝——某条记录不佐证 plan 预注册的状态时
+  它停下报错，那是关于"究竟发现了什么"的真实分歧，不是格式问题。
 
 > **Agent 做科学判断，Gate 做结构验证，人类只在边界介入。**
 > 详细规则见 [自主性与项目配置](workflow/01-autonomy-and-projects.md)。

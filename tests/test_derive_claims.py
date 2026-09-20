@@ -228,22 +228,62 @@ def _repo_tree(tmp_path: Path) -> Path:
 
 
 def test_the_committed_ledger_is_what_the_derivation_produces(tmp_path):
-    """Structural equality, so neither file can have been typed.
+    """Byte equality, so neither file can have been typed.
 
-    ``generated_at`` is the one field that legitimately differs between two runs;
-    everything a reader relies on has to match the committed bytes exactly.  If this
-    fails, research/claims.json or research/findings.json has been edited by hand or
-    the derivation changed, and the two are no longer the same thing.
+    The derivation keeps the existing ``generated_at`` when nothing else changed, so
+    this is an exact comparison and not a structural one.  If it fails,
+    research/claims.json or research/findings.json has been edited by hand or the
+    derivation changed, and the two are no longer the same thing.
     """
     root = _repo_tree(tmp_path)
     promotion.derive_claims(root)
     for name in ("claims.json", "findings.json"):
-        committed = json.loads((REPO_ROOT / "research" / name).read_text())
-        derived = json.loads((root / "research" / name).read_text())
-        stamp = committed.pop("generated_at")
-        derived.pop("generated_at")
-        assert committed == derived, name
-        assert isinstance(stamp, str) and "T" in stamp, name
+        assert (root / "research" / name).read_bytes() == (
+            REPO_ROOT / "research" / name
+        ).read_bytes(), name
+
+
+def test_the_stamp_does_not_move_when_the_content_does_not(tmp_path):
+    """The derive step is run by a check command, so it must not dirty the tree."""
+    root = _repo_tree(tmp_path)
+    promotion.derive_claims(root)
+    stamps = {
+        name: json.loads((root / "research" / name).read_text())["generated_at"]
+        for name in ("claims.json", "findings.json")
+    }
+    before = {name: (root / "research" / name).read_bytes() for name in stamps}
+
+    promotion.derive_claims(root)
+
+    for name, raw in before.items():
+        assert (root / "research" / name).read_bytes() == raw, name
+        assert (
+            json.loads((root / "research" / name).read_text())["generated_at"]
+            == stamps[name]
+        ), name
+
+
+def test_a_changed_record_does_move_the_stamp(tmp_path):
+    """...but a stamp that never moved would be a lie about when content changed."""
+    root = _repo_tree(tmp_path)
+    promotion.derive_claims(root)
+    stamps = {
+        name: json.loads((root / "research" / name).read_text())["generated_at"]
+        for name in ("claims.json", "findings.json")
+    }
+
+    plan_path = root / "research" / "plan.json"
+    plan = json.loads(plan_path.read_text())
+    plan["claims"][0]["text"] = "a restated claim"
+    _write_json(plan_path, plan)
+
+    promotion.derive_claims(root)
+
+    for name, before in stamps.items():
+        after = json.loads((root / "research" / name).read_text())
+        assert after["generated_at"] != before, name
+    findings = json.loads((root / "research" / "findings.json").read_text())
+    assert findings["findings"][0]["claim_text"] == "a restated claim"
 
 
 def test_the_derivation_is_idempotent(tmp_path):
@@ -255,13 +295,7 @@ def test_the_derivation_is_idempotent(tmp_path):
     }
     promotion.derive_claims(root)
     for name, raw in before.items():
-        # ``generated_at`` is the one field that moves; everything a reader relies
-        # on must not.
-        first = json.loads(raw)
-        second = json.loads((root / "research" / name).read_text())
-        first.pop("generated_at")
-        second.pop("generated_at")
-        assert first == second, name
+        assert (root / "research" / name).read_bytes() == raw, name
 
 
 def test_the_repository_ledger_covers_every_planned_claim():
