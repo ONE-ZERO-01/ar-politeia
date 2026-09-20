@@ -41,6 +41,12 @@ cd "$(dirname "$0")/.."
 
 DERIVER="research/src/experiments/prepare_cycle4_confirmation.py"
 
+# The server runs from a plain checkout with no editable install, so the package has
+# to be found through the source tree rather than through site-packages. Hard-coding
+# this is the difference between a command that works on every host and one that only
+# works on the machine it was written on.
+export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
+
 echo "== deriving the claim ledger from the run records =="
 # The derivation refuses when a record does not corroborate the status the plan
 # pre-registered, so a failure here is a real disagreement about what was found --

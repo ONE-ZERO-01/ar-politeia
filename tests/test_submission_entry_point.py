@@ -67,6 +67,22 @@ def test_the_gate_defaults_match_where_the_records_actually_are():
     assert (REPO_ROOT / "research" / "claims.json").is_file()
 
 
+def test_the_gate_is_invoked_with_the_source_tree_on_the_path():
+    """The server runs from a plain checkout with no editable install.
+
+    A bare `python3 -m autoresearcher...` works on a machine where the package was
+    pip-installed and fails on the one host that has to run it, which is exactly the
+    "command only I can run" problem this entry point exists to remove.
+    """
+    invocations = [
+        line
+        for line in WRAPPER.read_text(encoding="utf-8").splitlines()
+        if "python3 -m autoresearcher" in line
+    ]
+    assert invocations, "the script no longer invokes the gate"
+    assert any("PYTHONPATH" in line for line in WRAPPER.read_text(encoding="utf-8").splitlines())
+
+
 def test_the_derive_step_leaves_the_committed_records_untouched():
     """A check command must not dirty the tree, or nobody will run it as a check.
 
