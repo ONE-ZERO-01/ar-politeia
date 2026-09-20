@@ -563,6 +563,28 @@ Gate status: `audit --run-dir research --claims-file research/claims.json` exits
 4 claims, 22 evidence files, 1 adjudicated failure, 6 named jobs without manifests.
 Full suite: 493 passed.
 
+### 投稿前的门禁现在是"一条命令"，且在真正要跑它的主机上验过 (2026-09-20)
+
+`audit` 从不可过，而**没有任何测试或 CI 说过这件事**——失败模式不是门禁错了，是一道
+没人发现它不可能被满足的门禁。`scripts/verify-evidence.sh` 把"尝试通过"变成一条命令：
+先从运行记录重导 claim 台账，再跑 `audit`，不通过就非零退出。链起来不是图方便——
+`audit` 吃的是**导出的**台账，不先重导就审，等于核验一份可能已经与运行记录不符的旧台账。
+门禁本身仍是 foundation 代码、不知道台账怎么产生；这层知识留在脚本里。
+
+为了让"检查"值得当检查来跑，它不能脏工作树：派生步骤现在在内容没变时保留原
+`generated_at`，于是这个字段从"谁最后看了一眼"变成"内容最后变于何时"。副作用是"提交的
+台账等于派生结果"那条测试从结构比较升级成了**逐字节比较**。
+
+清单里原本只写了"确认 audit 已通过"而没有命令——规则在，命令不在。现在四处都指到了它：
+`autoresearcher.md` 的强制纪律、`SUBMISSION_CHECKLIST.md` 第 5 项（并写明通过时该**读**
+的两个字段）、`workflow/05` 的 Gate 列表、`AGENTS.md`。
+
+**在 umi 上跑才发现的缺陷**：`python3 -m autoresearcher.foundation.audit` 依赖 editable
+安装，而 umi 是普通 checkout。这正是这个入口要消灭的"只在我机器上能跑的命令"，而且从 mac
+上完全看不出来（本机装过）。脚本现在把 `src` 放进 `PYTHONPATH`，装不装都能跑。
+验证：`env -u PYTHONPATH bash scripts/verify-evidence.sh` 在 umi 上 exit 0，且
+`git status` 干净。Full suite: 517 passed。
+
 ## Cycle 3 E3 correction
 
 `E3-ROBUSTNESS-HOLDOUT` is not running. Inspection of its authoritative `umi`
