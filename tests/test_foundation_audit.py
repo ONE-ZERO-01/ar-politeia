@@ -194,3 +194,109 @@ def test_plan_claim_without_finding_is_rejected(run_dir):
     result = run(run_dir, run_dir / "claims.json")
     assert result["all_checks_passed"] is False
     assert any("no finding" in issue.lower() for issue in result["failed_checks"])
+
+
+# ── adjudicated failures ──
+#
+# A job that failed and was superseded is not the same as a job that failed, and
+# the gate's default is to reject the latter.  An exemption has to be earned by an
+# explicit record, and each of these tests removes one of the things that earns it.
+
+
+def _superseded_fixture(run_dir: Path, **overrides) -> None:
+    _write_result(run_dir, "V1-OLD", {"pass": False})
+    _write_result(run_dir, "V1B-NEW", {"pass": True})
+    _write(run_dir / "v1b-design.md", "the design that superseded V1\n")
+    manifest_path = run_dir / "jobs" / "V1-OLD" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["exit_code"] = 1
+    adjudication = {
+        "verdict": "superseded",
+        "superseded_by": ["V1B-NEW"],
+        "design": "v1b-design.md",
+        "reason": "the frozen storage-order bound was measured at the wrong tolerance",
+    }
+    adjudication.update(overrides)
+    if adjudication:
+        manifest["adjudicated"] = adjudication
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
+def test_a_superseded_failure_is_admitted_and_reported(run_dir):
+    _superseded_fixture(run_dir)
+    result = run(run_dir)
+    assert not any("exit_code" in issue for issue in result["failed_checks"])
+    assert result["adjudicated_failures"] == [
+        {
+            "job": "V1-OLD",
+            "exit_code": 1,
+            "verdict": "superseded",
+            "superseded_by": ["V1B-NEW"],
+            "design": "v1b-design.md",
+            "reason": "the frozen storage-order bound was measured at the wrong tolerance",
+        }
+    ]
+
+
+def test_a_failure_with_no_adjudication_still_fails_the_gate(run_dir):
+    _write_result(run_dir, "V1-OLD", {"pass": False})
+    manifest_path = run_dir / "jobs" / "V1-OLD" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["exit_code"] = 1
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    result = run(run_dir)
+    assert result["all_checks_passed"] is False
+    assert any("exit_code=1" in issue for issue in result["failed_checks"])
+    assert result["adjudicated_failures"] == []
+
+
+@pytest.mark.parametrize(
+    "overrides, fragment",
+    [
+        ({"verdict": "because i said so"}, "not one of"),
+        ({"superseded_by": []}, "non-empty list"),
+        ({"superseded_by": "V1B-NEW"}, "non-empty list"),
+        ({"superseded_by": ["NO-SUCH-JOB"]}, "has no manifest.json"),
+        ({"design": "no-such-design.md"}, "does not exist"),
+        ({"design": "../outside.md"}, "escapes the run directory"),
+        ({"reason": "   "}, "is empty"),
+    ],
+)
+def test_an_adjudication_that_does_not_hold_is_an_issue(run_dir, overrides, fragment):
+    _superseded_fixture(run_dir, **overrides)
+    result = run(run_dir)
+    assert result["all_checks_passed"] is False
+    assert any(fragment in issue for issue in result["failed_checks"]), result["failed_checks"]
+    assert result["adjudicated_failures"] == []
+
+
+def test_a_superseding_run_that_itself_failed_supersedes_nothing(run_dir):
+    _superseded_fixture(run_dir)
+    _write_result(run_dir, "V1B-NEW", {"pass": False})
+    manifest_path = run_dir / "jobs" / "V1B-NEW" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["exit_code"] = 2
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    result = run(run_dir)
+    assert any("supersedes nothing" in issue for issue in result["failed_checks"])
+
+
+def test_an_absent_adjudication_key_is_not_an_exemption(run_dir):
+    _write_result(run_dir, "V1-OLD", {"pass": False})
+    manifest_path = run_dir / "jobs" / "V1-OLD" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["exit_code"] = 1
+    manifest["adjudicated"] = None
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    result = run(run_dir)
+    assert any("is not an object" in issue for issue in result["failed_checks"])
+
+
+def test_a_job_with_a_result_but_no_manifest_is_named_not_ignored(run_dir):
+    """Reported, not failed: manufacturing a manifest now would invent an exit code."""
+    _write(run_dir / "jobs" / "OLD-JOB" / "result.json", {"pass": False})
+    _write_result(run_dir, "E1", {"pass": True})
+    _write(run_dir / "claims.json", {"claims": []})
+    result = run(run_dir, run_dir / "claims.json")
+    assert result["jobs_without_manifest"] == ["OLD-JOB"]
+    assert result["all_checks_passed"] is True

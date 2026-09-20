@@ -96,11 +96,79 @@ def _verify_evidence(evidence_path: str, run_dir: Path, recorded_sha: Optional[s
     return result
 
 
+_ADJUDICATION_VERDICTS = ("superseded",)
+
+
+def _check_adjudication(
+    adjudication: Any,
+    *,
+    manifest_path: Path,
+    run_dir: Path,
+    jobs_dir: Path,
+) -> Optional[str]:
+    """Validate an explicit adjudication of a non-zero exit code.
+
+    A job that failed and was superseded is not the same as a job that failed, and
+    this gate's default is to reject the latter.  Rather than let a hard-coded list
+    of excused jobs drift quietly out of view, a manifest may carry an
+    ``adjudicated`` record, and the record has to earn the exemption:
+
+    * the verdict must be one this gate knows;
+    * it must name the jobs that supersede it, each of which must exist *and* have
+      its own manifest recording a zero exit code -- a superseding run that also
+      failed supersedes nothing;
+    * it must cite the design document that decided the supersession, as a path
+      that resolves under the run directory;
+    * it must say why.
+
+    A marker that says nothing is not a marker, so anything missing is an issue
+    rather than a pass.
+    """
+    if not isinstance(adjudication, dict):
+        return "'adjudicated' is not an object"
+    verdict = adjudication.get("verdict")
+    if verdict not in _ADJUDICATION_VERDICTS:
+        return f"'adjudicated.verdict' is {verdict!r}, not one of {list(_ADJUDICATION_VERDICTS)}"
+    superseded_by = adjudication.get("superseded_by")
+    if (
+        not isinstance(superseded_by, list)
+        or not superseded_by
+        or not all(isinstance(item, str) and item for item in superseded_by)
+    ):
+        return "'adjudicated.superseded_by' is not a non-empty list of job ids"
+    for job_id in superseded_by:
+        superseding_manifest = jobs_dir / job_id / "manifest.json"
+        if not superseding_manifest.is_file():
+            return f"the superseding job {job_id} has no manifest.json"
+        try:
+            superseding = _read_json(superseding_manifest)
+        except Exception as exc:
+            return f"the superseding job {job_id} has an unreadable manifest: {exc}"
+        if superseding.get("exit_code") != 0:
+            return (
+                f"the superseding job {job_id} records exit_code="
+                f"{superseding.get('exit_code')!r}; a failed run supersedes nothing"
+            )
+    design = adjudication.get("design")
+    if not isinstance(design, str) or not design:
+        return "'adjudicated.design' is not a path"
+    design_path = (run_dir / design).resolve()
+    if run_dir not in design_path.parents:
+        return f"'adjudicated.design' {design} escapes the run directory"
+    if not design_path.is_file():
+        return f"'adjudicated.design' {design} does not exist"
+    reason = adjudication.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        return "'adjudicated.reason' is empty"
+    return None
+
+
 def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
     run_dir = run_dir.resolve()
     issues: List[str] = []
     claims_audit: List[Dict[str, Any]] = []
     paper_claim_ids: List[str] = []
+    adjudications: List[Dict[str, Any]] = []
 
     if claims_file and claims_file.exists():
         claims_data = _read_json(claims_file)
@@ -178,6 +246,7 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
 
     # check for manifest.json files in job dirs
     jobs_dir = run_dir / "jobs"
+    unattested_jobs: List[str] = []
     if jobs_dir.is_dir():
         manifest_paths = sorted(jobs_dir.glob("*/manifest.json"))
         if not manifest_paths:
@@ -193,7 +262,31 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
                 continue
             exit_code = manifest.get("exit_code")
             if exit_code != 0:
-                issues.append(f"{manifest_path.relative_to(run_dir)}: exit_code={exit_code}")
+                relative_manifest = manifest_path.relative_to(run_dir)
+                if "adjudicated" not in manifest:
+                    issues.append(
+                        f"{relative_manifest}: exit_code={exit_code}"
+                    )
+                else:
+                    problem = _check_adjudication(
+                        manifest["adjudicated"],
+                        manifest_path=manifest_path,
+                        run_dir=run_dir,
+                        jobs_dir=jobs_dir,
+                    )
+                    if problem is not None:
+                        issues.append(
+                            f"{relative_manifest}: exit_code={exit_code} and its "
+                            f"adjudication does not hold - {problem}"
+                        )
+                    else:
+                        adjudications.append(
+                            {
+                                "job": manifest_path.parent.name,
+                                "exit_code": exit_code,
+                                **manifest["adjudicated"],
+                            }
+                        )
             if manifest.get("mode") == "local":
                 preflight_path = manifest_path.parent / "preflight.json"
                 if not preflight_path.exists():
@@ -276,6 +369,14 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
         if not _is_finite(data):
             issues.append(f"{result_path.relative_to(run_dir)} contains NaN/Inf")
 
+    # A job that recorded a result but no manifest is invisible to the exit-code
+    # check above.  That is reported rather than failed: the six cases are all older
+    # than the manifest convention, and manufacturing a manifest for them now would
+    # mean inventing an exit code, which is exactly what this gate exists to stop.
+    for result_path in sorted(jobs_dir.glob("*/result.json")):
+        if not (result_path.parent / "manifest.json").is_file():
+            unattested_jobs.append(result_path.parent.name)
+
     all_checks_passed = len(issues) == 0
 
     return {
@@ -283,6 +384,8 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
         "all_checks_passed": all_checks_passed,
         "claims": claims_audit,
         "failed_checks": issues,
+        "adjudicated_failures": adjudications,
+        "jobs_without_manifest": unattested_jobs,
         "total_claims": len(claims_audit),
         "total_evidence_files": sum(len(c.get("evidence", [])) for c in claims_audit),
     }
