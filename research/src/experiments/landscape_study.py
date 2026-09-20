@@ -493,6 +493,73 @@ def density_grid(
     return histogram.astype(np.float64, copy=False)
 
 
+def measurement_lattice_plan(
+    resource_shape: Tuple[int, int],
+    measurement_shape: Tuple[int, int],
+) -> Dict[str, Any]:
+    """Describe how a run's resource grid maps onto a common measurement lattice.
+
+    The Cycle 4 spatial metrics are not resolution-invariant: ``morans_i`` uses a
+    four-neighbour weight matrix, so its neighbourhood is *one cell*, and
+    ``occupancy_entropy`` normalises by ``log(n_cells)``.  Comparing them across
+    grid resolutions therefore mixes a change of dynamics with a change of
+    measuring instrument.  Fixing the measurement lattice separates the two.
+
+    Only nested (integer-factor) coarsening is allowed: a finer measurement
+    lattice than the resource grid would need the resource field interpolated,
+    which is the opposite of the intended direction.
+    """
+
+    for name, shape in (("resource", resource_shape), ("measurement", measurement_shape)):
+        if len(shape) != 2 or min(int(size) for size in shape) < 2:
+            raise ValueError(f"{name} shape must be two dimensions of at least two")
+    rows, cols = (int(size) for size in resource_shape)
+    mrows, mcols = (int(size) for size in measurement_shape)
+    if mrows > rows or mcols > cols:
+        raise ValueError(
+            "measurement lattice must not be finer than the resource grid: "
+            f"{measurement_shape} vs {resource_shape}"
+        )
+    if rows % mrows or cols % mcols:
+        raise ValueError(
+            "measurement lattice must be nested in the resource grid: "
+            f"{measurement_shape} does not divide {resource_shape}"
+        )
+    return {
+        "resource_shape": [rows, cols],
+        "measurement_shape": [mrows, mcols],
+        "factor": [rows // mrows, cols // mcols],
+        "identical": (rows, cols) == (mrows, mcols),
+        "nested": True,
+    }
+
+
+def coarsen_field(field: Array, factor: Tuple[int, int]) -> Array:
+    """Block-mean a resource field onto a nested coarser lattice.
+
+    ESRI ASCII cell ``c`` covers ``[xmin + c·cellsize, xmin + (c+1)·cellsize)``,
+    so merging ``factor`` consecutive cells reproduces the coarser grid's cells
+    exactly when ``cellsize`` scales by the same factor.  Exact nesting is what
+    makes "the same landscape at two resolutions" well defined (see
+    ``e3-cycle4-design.md`` §6.3).
+    """
+
+    grid = np.asarray(field, dtype=np.float64)
+    if grid.ndim != 2:
+        raise ValueError("field must be two-dimensional")
+    rows, cols = grid.shape
+    factor_rows, factor_cols = (int(value) for value in factor)
+    if factor_rows < 1 or factor_cols < 1:
+        raise ValueError("coarsening factors must be at least one")
+    if rows % factor_rows or cols % factor_cols:
+        raise ValueError(
+            f"factor {factor} does not divide field shape {(rows, cols)}"
+        )
+    return grid.reshape(
+        rows // factor_rows, factor_rows, cols // factor_cols, factor_cols
+    ).mean(axis=(1, 3))
+
+
 def resource_at_particles(
     resource: Array,
     x: Array,
@@ -623,12 +690,31 @@ def snapshot_metrics(
     snapshot: Mapping[str, Array],
     resource: Array,
     bounds: Tuple[float, float, float, float],
+    *,
+    measurement_shape: Optional[Tuple[int, int]] = None,
 ) -> Dict[str, float]:
-    density = density_grid(snapshot["x"], snapshot["y"], resource.shape, bounds)
+    """Metrics for one snapshot, optionally on a fixed measurement lattice.
+
+    ``measurement_shape=None`` reproduces the historical behaviour of measuring on
+    the resource grid.  Passing a coarser nested lattice puts every level of a
+    resolution study on the same measuring instrument: particles are binned there,
+    and the resource field is block-meaned onto it, so only the dynamics differ
+    between levels.
+    """
+
+    if measurement_shape is None:
+        plan = None
+        measured_resource = np.asarray(resource, dtype=np.float64)
+        lattice = np.asarray(resource).shape
+    else:
+        plan = measurement_lattice_plan(tuple(np.asarray(resource).shape), measurement_shape)
+        measured_resource = coarsen_field(resource, tuple(plan["factor"]))
+        lattice = tuple(plan["measurement_shape"])
+    density = density_grid(snapshot["x"], snapshot["y"], lattice, bounds)
     wealth = snapshot["w"]
     n_wealth = max(1, wealth.size)
-    return {
-        "resource_density_spearman_rho": spearman_correlation(resource, density),
+    metrics = {
+        "resource_density_spearman_rho": spearman_correlation(measured_resource, density),
         "density_morans_i": morans_i(density),
         "occupancy_entropy": occupancy_entropy(density),
         "wealth_gini": gini(wealth),
@@ -643,6 +729,14 @@ def snapshot_metrics(
         "minimum_wealth": float(np.min(wealth)),
         "particle_count": float(np.sum(density)),
     }
+    # Only present when a lattice was imposed, so the historical payload of every
+    # existing caller stays unchanged.
+    if plan is not None:
+        metrics["measurement_lattice_rows"] = float(lattice[0])
+        metrics["measurement_lattice_cols"] = float(lattice[1])
+        metrics["measurement_lattice_factor_rows"] = float(plan["factor"][0])
+        metrics["measurement_lattice_factor_cols"] = float(plan["factor"][1])
+    return metrics
 
 
 def source_rate_metrics(

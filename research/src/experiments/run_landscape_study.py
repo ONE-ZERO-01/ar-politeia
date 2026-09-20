@@ -141,6 +141,38 @@ E2_C4_SESOI_DERIVATION_KEYS = (
 )
 
 
+def require_measurement_lattice(
+    config: Mapping[str, Any], *, experiment: Optional[str] = None
+) -> Optional[Tuple[int, int]]:
+    """Read the optional fixed measurement lattice from a job config.
+
+    The Cycle 4 spatial metrics are not resolution-invariant (``morans_i`` counts
+    four-neighbour cell pairs, ``occupancy_entropy`` divides by ``log(n_cells)``),
+    so a design that varies the grid must measure every level on one lattice.  The
+    key is optional: absent means the historical behaviour of measuring on the
+    run's own resource grid, which keeps every frozen Cycle 4 job byte-identical.
+
+    ``E2_C4_FAMILY_EXPERIMENTS`` is rejected because its source-rate accounting
+    samples the *native* resource field at particle positions; coarsening the
+    measured metrics while sampling the native field would mix two instruments
+    inside one report (``e3-cycle4-design.md`` §4.1).
+    """
+
+    raw = config.get("measurement_lattice")
+    if raw is None:
+        return None
+    if experiment in E2_C4_FAMILY_EXPERIMENTS:
+        raise ValueError(
+            "measurement_lattice is incompatible with E2-C4 source-rate accounting"
+        )
+    if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+        raise ValueError("measurement_lattice must be a two-element [rows, cols] list")
+    rows, cols = (int(value) for value in raw)
+    if rows < 2 or cols < 2:
+        raise ValueError("measurement_lattice dimensions must be at least two")
+    return (rows, cols)
+
+
 def require_umi() -> None:
     hostname = socket.gethostname().split(".", 1)[0]
     if hostname != "umi":
@@ -1256,6 +1288,7 @@ def mean_metrics_for_run(
     stationarity_reversal_span_sigma: float = 1.0,
     experiment: Optional[str] = None,
     terrain_production_scale: float = 1.0,
+    measurement_shape: Optional[Tuple[int, int]] = None,
 ) -> Dict[str, Any]:
     if experiment in E2_C4_FAMILY_EXPERIMENTS and "base_production" not in spec:
         # Checked before any filesystem work. Never fall back to a default: a
@@ -1277,7 +1310,7 @@ def mean_metrics_for_run(
     bounds_tuple = tuple(float(value) for value in bounds)
     snapshots_read = [read_snapshot_csv(snapshot) for snapshot in selected]
     rows = [
-        snapshot_metrics(snapshot, resource, bounds_tuple)
+        snapshot_metrics(snapshot, resource, bounds_tuple, measurement_shape=measurement_shape)
         for snapshot in snapshots_read
     ]
     if experiment in E2_C4_FAMILY_EXPERIMENTS:
@@ -2035,7 +2068,14 @@ def aggregate_e1_c4_steady_estimand(
                 project_path(spec["resource_npy"], must_exist=True), allow_pickle=False
             )
             metric_rows = [
-                snapshot_metrics(read_snapshot_csv(path), resource, bounds)
+                snapshot_metrics(
+                    read_snapshot_csv(path),
+                    resource,
+                    bounds,
+                    measurement_shape=require_measurement_lattice(
+                        config, experiment=experiment
+                    ),
+                )
                 for path in snapshots[-2 * window :]
             ]
             for metric in metrics:
@@ -3650,6 +3690,7 @@ def analyze_runs(
             ),
             experiment=experiment,
             terrain_production_scale=float(config.get("terrain_production_scale", 1.0)),
+            measurement_shape=require_measurement_lattice(config, experiment=experiment),
         )
         for spec in run_specs
     ]

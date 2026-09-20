@@ -641,7 +641,7 @@ def test_analyze_runs_records_wealth_scale_ratio(tmp_path, monkeypatch):
     # slightly across the three snapshots instead of returning a constant.
     call_count = {"value": 0}
 
-    def fake_snapshot_metrics(_snapshot, _resource, _bounds):
+    def fake_snapshot_metrics(_snapshot, _resource, _bounds, **_kwargs):
         call_count["value"] += 1
         step = 0.01 * call_count["value"]
         return {
@@ -691,7 +691,7 @@ def test_e1_c4_two_window_gate_uses_condition_ensembles(tmp_path, monkeypatch):
     monkeypatch.setattr(
         run_landscape_study,
         "snapshot_metrics",
-        lambda _snapshot, _resource, _bounds: {
+        lambda _snapshot, _resource, _bounds, **_kwargs: {
             "resource_density_spearman_rho": 0.2,
             "density_morans_i": 0.3,
             "occupancy_entropy": 0.7,
@@ -1206,7 +1206,7 @@ def test_e2_c4_two_window_gate_runs_on_five_units(tmp_path, monkeypatch):
     monkeypatch.setattr(
         run_landscape_study,
         "snapshot_metrics",
-        lambda _snapshot, _resource, _bounds: {
+        lambda _snapshot, _resource, _bounds, **_kwargs: {
             "resource_density_spearman_rho": 0.2,
             "density_morans_i": 0.3,
             "occupancy_entropy": 0.7,
@@ -1387,3 +1387,96 @@ def test_design_p2_accounts_for_every_metric_in_the_code_effect_family():
         "zero_wealth_fraction",
         "mean_wealth",
     )
+
+
+def test_require_measurement_lattice_is_optional_and_validated():
+    """The key is absent in every frozen job, so absent must stay the default."""
+
+    assert run_landscape_study.require_measurement_lattice({}) is None
+    assert run_landscape_study.require_measurement_lattice(
+        {"measurement_lattice": [64, 64]}
+    ) == (64, 64)
+    with pytest.raises(ValueError, match="two-element"):
+        run_landscape_study.require_measurement_lattice({"measurement_lattice": [64]})
+    with pytest.raises(ValueError, match="at least two"):
+        run_landscape_study.require_measurement_lattice({"measurement_lattice": [1, 8]})
+
+
+def test_measurement_lattice_is_rejected_where_the_source_rate_is_native():
+    """E2-C4 samples the native field, so it cannot also measure on a lattice."""
+
+    with pytest.raises(ValueError, match="incompatible with E2-C4"):
+        run_landscape_study.require_measurement_lattice(
+            {"measurement_lattice": [64, 64]},
+            experiment=run_landscape_study.E2_C4_EXPERIMENT,
+        )
+    assert run_landscape_study.require_measurement_lattice(
+        {"measurement_lattice": [64, 64]}, experiment="E1-MATCHED-LANDSCAPES-C4"
+    ) == (64, 64)
+
+
+def test_mean_metrics_for_run_forwards_the_measurement_lattice(tmp_path, monkeypatch):
+    """The instrument has to reach the metric computation, not just the config."""
+
+    import numpy as np
+
+    monkeypatch.setattr(
+        run_landscape_study,
+        "project_path",
+        lambda value, must_exist=False: Path(value),
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    np.save(tmp_path / "resource.npy", np.ones((4, 4)), allow_pickle=False)
+    (tmp_path / "initial.csv").write_text("x,y,w\n1.0,1.0,2.0\n", encoding="utf-8")
+    for index in range(1, 7):
+        (run_dir / f"snap_{index}.csv").write_text(
+            "x,y,w\n1.0,1.0,2.0\n", encoding="utf-8"
+        )
+    monkeypatch.setattr(
+        run_landscape_study,
+        "read_snapshot_csv",
+        lambda _path: {
+            "x": np.array([1.0]),
+            "y": np.array([1.0]),
+            "w": np.array([2.0]),
+        },
+    )
+    seen = {"calls": 0, "lattice": object()}
+
+    def fake_snapshot_metrics(_snapshot, _resource, _bounds, **kwargs):
+        seen["calls"] += 1
+        seen["lattice"] = kwargs.get("measurement_shape")
+        step = 0.01 * seen["calls"]
+        return {
+            "resource_density_spearman_rho": 0.2 + step,
+            "density_morans_i": 0.3 + step,
+            "occupancy_entropy": 0.7 + step,
+            "wealth_gini": 0.4 + step,
+            "wealth_variance": 1.5 + step,
+            "zero_wealth_fraction": 0.0,
+            "minimum_wealth": 0.1,
+            "mean_wealth": 2.0,
+            "particle_count": 1000.0,
+        }
+
+    monkeypatch.setattr(run_landscape_study, "snapshot_metrics", fake_snapshot_metrics)
+    spec = {
+        "run_id": "run",
+        "seed": 5,
+        "run_dir": str(run_dir),
+        "resource_npy": str(tmp_path / "resource.npy"),
+        "initial_conditions": str(tmp_path / "initial.csv"),
+    }
+    metrics = ("resource_density_spearman_rho", "density_morans_i", "occupancy_entropy")
+    run_landscape_study.mean_metrics_for_run(
+        spec,
+        bounds=[0.0, 100.0, 0.0, 100.0],
+        steady_snapshots=6,
+        stationarity_max_drift=0.1,
+        stationarity_min_ess=3.0,
+        stationary_metrics=metrics,
+        measurement_shape=(64, 64),
+    )
+    assert seen["calls"] == 6
+    assert seen["lattice"] == (64, 64)

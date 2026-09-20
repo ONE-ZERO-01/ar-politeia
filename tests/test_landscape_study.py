@@ -486,3 +486,92 @@ def test_source_rate_metrics_mirrors_production_term():
             base_production=0.01,
             terrain_production_scale=1.0,
         )
+
+
+def test_coarsen_field_is_the_exact_block_mean():
+    field = np.arange(16, dtype=np.float64).reshape(4, 4)
+    coarse = landscape_study.coarsen_field(field, (2, 2))
+    assert coarse.shape == (2, 2)
+    assert coarse[0, 0] == pytest.approx(np.mean([0.0, 1.0, 4.0, 5.0]))
+    assert coarse[1, 1] == pytest.approx(np.mean([10.0, 11.0, 14.0, 15.0]))
+    # The field is a resource *density* (the generators normalise its mean to
+    # one), so block-meaning preserves its meaning and its mean; the total
+    # resource over the fixed domain is therefore preserved too.
+    assert float(coarse.mean()) == pytest.approx(float(field.mean()))
+    assert float(coarse.sum()) == pytest.approx(
+        float(field.sum()) / 4.0
+    )
+    with pytest.raises(ValueError, match="does not divide"):
+        landscape_study.coarsen_field(field, (3, 1))
+
+
+def test_measurement_lattice_plan_requires_a_nested_coarser_lattice():
+    plan = landscape_study.measurement_lattice_plan((128, 128), (64, 64))
+    assert plan == {
+        "resource_shape": [128, 128],
+        "measurement_shape": [64, 64],
+        "factor": [2, 2],
+        "identical": False,
+        "nested": True,
+    }
+    assert landscape_study.measurement_lattice_plan((64, 64), (64, 64))["identical"] is True
+    with pytest.raises(ValueError, match="must not be finer"):
+        landscape_study.measurement_lattice_plan((64, 64), (128, 128))
+    with pytest.raises(ValueError, match="must be nested"):
+        landscape_study.measurement_lattice_plan((64, 64), (48, 48))
+
+
+def test_default_measurement_lattice_payload_is_unchanged():
+    """Existing callers must not see new keys, or their CSV columns would move."""
+
+    metrics = landscape_study.snapshot_metrics(
+        {"x": np.array([0.25]), "y": np.array([0.25]), "w": np.array([1.0])},
+        np.array([[0.0, 1.0], [2.0, 3.0]]),
+        bounds=(0.0, 2.0, 0.0, 2.0),
+    )
+    assert not [key for key in metrics if key.startswith("measurement_lattice")]
+
+
+def test_imposing_a_lattice_equals_coarsening_the_field():
+    """The discipline's semantics: bin particles and block-mean the resource.
+
+    Fixing the measurement lattice on a fine run must be equivalent to measuring
+    the fine run natively at that coarser lattice.  Anything else would mean the
+    study compares instruments rather than dynamics.
+    """
+
+    resource = np.arange(16, dtype=np.float64).reshape(4, 4)
+    snapshot = {
+        "x": np.array([0.25, 0.75, 1.25, 1.75, 2.25, 3.75]),
+        "y": np.array([0.25, 0.75, 1.25, 1.75, 2.25, 3.75]),
+        "w": np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0]),
+    }
+    bounds = (0.0, 4.0, 0.0, 4.0)
+    imposed = landscape_study.snapshot_metrics(
+        snapshot, resource, bounds, measurement_shape=(2, 2)
+    )
+    coarsened = landscape_study.snapshot_metrics(
+        snapshot, landscape_study.coarsen_field(resource, (2, 2)), bounds
+    )
+    for key in ("resource_density_spearman_rho", "density_morans_i", "occupancy_entropy"):
+        assert imposed[key] == pytest.approx(coarsened[key])
+    assert imposed["particle_count"] == coarsened["particle_count"] == 6.0
+    assert imposed["measurement_lattice_rows"] == 2.0
+    assert imposed["measurement_lattice_factor_cols"] == 2.0
+
+
+def test_a_coarser_lattice_changes_the_spatial_metrics_at_fixed_dynamics():
+    """This is the artefact F6/F7 measure; it must stay reproducible in-repo."""
+
+    resource = np.ones((32, 32), dtype=np.float64)
+    rng = np.random.default_rng(4242)
+    x = np.concatenate([rng.normal(10.0, 0.5, 200), rng.normal(22.0, 0.5, 200)])
+    y = np.concatenate([rng.normal(10.0, 0.5, 200), rng.normal(22.0, 0.5, 200)])
+    snapshot = {"x": x, "y": y, "w": np.ones(400)}
+    bounds = (0.0, 32.0, 0.0, 32.0)
+    native = landscape_study.snapshot_metrics(snapshot, resource, bounds)
+    coarse = landscape_study.snapshot_metrics(
+        snapshot, resource, bounds, measurement_shape=(8, 8)
+    )
+    assert native["density_morans_i"] != pytest.approx(coarse["density_morans_i"])
+    assert native["occupancy_entropy"] > coarse["occupancy_entropy"]
