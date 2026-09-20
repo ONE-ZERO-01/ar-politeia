@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from autoresearcher.foundation.audit import run
+from autoresearcher.foundation.audit import main, run
 
 
 def _write(path: Path, data) -> None:
@@ -300,3 +300,84 @@ def test_a_job_with_a_result_but_no_manifest_is_named_not_ignored(run_dir):
     result = run(run_dir, run_dir / "claims.json")
     assert result["jobs_without_manifest"] == ["OLD-JOB"]
     assert result["all_checks_passed"] is True
+
+
+# ── the claims file and findings.json must describe the same claims ──
+#
+# They are written at different times by different steps, so a disagreement means
+# one of them is stale and the bundle would cite a claim the record does not make.
+
+
+def _agreement_fixture(run_dir: Path, *, claim: dict, finding: dict) -> None:
+    _write_result(run_dir, "E1", {"loss": 0.25})
+    _write(run_dir / "claims.json", {"claims": [claim]})
+    _write(run_dir / "findings.json", {"findings": [finding]})
+
+
+def test_claims_and_findings_that_agree_pass(run_dir):
+    _agreement_fixture(
+        run_dir,
+        claim={"claim_id": "C1", "verdict": "supported", "evidence": ["jobs/E1/result.json"]},
+        finding={"claim_id": "C1", "verdict": "supported", "evidence": ["jobs/E1/result.json"]},
+    )
+    result = run(run_dir, run_dir / "claims.json")
+    assert result["all_checks_passed"] is True, result["failed_checks"]
+
+
+def test_a_disagreeing_verdict_is_an_issue(run_dir):
+    _agreement_fixture(
+        run_dir,
+        claim={"claim_id": "C1", "verdict": "supported", "evidence": ["jobs/E1/result.json"]},
+        finding={"claim_id": "C1", "verdict": "inconclusive", "evidence": ["jobs/E1/result.json"]},
+    )
+    result = run(run_dir, run_dir / "claims.json")
+    assert any("records verdict" in issue for issue in result["failed_checks"])
+
+
+def test_differing_evidence_is_an_issue(run_dir):
+    _agreement_fixture(
+        run_dir,
+        claim={"claim_id": "C1", "evidence": ["jobs/E1/result.json", "plan.json"]},
+        finding={"claim_id": "C1", "evidence": ["jobs/E1/result.json"]},
+    )
+    result = run(run_dir, run_dir / "claims.json")
+    assert any("different evidence" in issue for issue in result["failed_checks"])
+
+
+def test_a_paper_claim_with_no_verdict_is_not_failed_for_lacking_one(run_dir):
+    """A journal claims file may legitimately state a claim without a verdict."""
+    _agreement_fixture(
+        run_dir,
+        claim={"claim_id": "C1", "evidence": ["jobs/E1/result.json"]},
+        finding={"claim_id": "C1", "verdict": "supported", "evidence": ["jobs/E1/result.json"]},
+    )
+    result = run(run_dir, run_dir / "claims.json")
+    assert result["all_checks_passed"] is True, result["failed_checks"]
+
+
+# ── the command line ──
+
+
+def test_the_documented_bare_command_audits_the_run_directory(tmp_path, monkeypatch):
+    """The gate's own docs have always shown the bare command; it has to work."""
+    run_dir = tmp_path / "research"
+    _write_result(run_dir, "E1", {"loss": 0.25})
+    _write(
+        run_dir / "claims.json",
+        {"claims": [{"claim_id": "C1", "evidence": ["jobs/E1/result.json"]}]},
+    )
+    monkeypatch.chdir(tmp_path)
+    main([])  # exits with SystemExit(1) on failure, so no exception means it passed
+
+
+def test_the_bundle_records_what_it_audited(tmp_path):
+    """A bundle that does not say what it covers can be mistaken for another."""
+    run_dir = tmp_path / "research"
+    _write_result(run_dir, "E1", {"loss": 0.25})
+    _write(
+        run_dir / "claims.json",
+        {"claims": [{"claim_id": "C1", "evidence": ["jobs/E1/result.json"]}]},
+    )
+    result = run(run_dir, run_dir / "claims.json")
+    assert result["run_dir"] == str(run_dir.resolve())
+    assert result["claims_file"] == str((run_dir / "claims.json").resolve())

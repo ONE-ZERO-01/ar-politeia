@@ -204,7 +204,13 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
                 "evidence": evidence_records,
             })
     else:
-        issues.append("claims file is missing or not provided")
+        missing = (
+            f": {claims_file}" if claims_file is not None else ""
+        )
+        issues.append(
+            f"claims file is missing or not provided{missing} — the claim-to-evidence "
+            "bundle is a separate, derived record; see the pre-submission checklist"
+        )
     if len(paper_claim_ids) != len(set(paper_claim_ids)):
         issues.append("paper claim ids must be unique")
 
@@ -242,6 +248,51 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
             if unknown_findings:
                 issues.append(
                     f"findings reference unknown claims: {sorted(unknown_findings)}"
+                )
+
+    # A claims file and a findings file are two records of the same claims, written
+    # at different times by different steps.  If they disagree, at least one of them
+    # is stale and the bundle would be citing a claim the research record does not
+    # make.  Both are optional individually; agreement is only checked when both
+    # carry the field, so a paper that legitimately omits a verdict is not failed.
+    findings_path = run_dir / "findings.json"
+    if claims_file is not None and findings_path.exists():
+        findings_data = _read_json(findings_path)
+        findings = {
+            finding.get("claim_id"): finding
+            for finding in findings_data.get("findings", [])
+            if isinstance(finding, dict)
+        }
+        for claim in claims_data.get("claims", []):
+            claim_id = claim.get("claim_id")
+            finding = findings.get(claim_id)
+            if finding is None:
+                continue
+            if (
+                "verdict" in claim
+                and "verdict" in finding
+                and claim["verdict"] != finding["verdict"]
+            ):
+                issues.append(
+                    f"claim {claim_id}: the claims file records verdict "
+                    f"{claim['verdict']!r} and findings.json records "
+                    f"{finding['verdict']!r}"
+                )
+            claim_evidence = {
+                item if isinstance(item, str) else item.get("path")
+                for item in claim.get("evidence", [])
+            }
+            finding_evidence = {
+                item if isinstance(item, str) else item.get("path")
+                for item in finding.get("evidence", [])
+            }
+            if claim_evidence and finding_evidence and claim_evidence != finding_evidence:
+                only_claims = sorted(claim_evidence - finding_evidence)
+                only_findings = sorted(finding_evidence - claim_evidence)
+                issues.append(
+                    f"claim {claim_id}: the claims file and findings.json cite "
+                    f"different evidence (only in claims: {only_claims}; only in "
+                    f"findings: {only_findings})"
                 )
 
     # check for manifest.json files in job dirs
@@ -381,6 +432,8 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
 
     return {
         "timestamp": _now(),
+        "run_dir": str(run_dir),
+        "claims_file": str(claims_file) if claims_file is not None else None,
         "all_checks_passed": all_checks_passed,
         "claims": claims_audit,
         "failed_checks": issues,
@@ -393,13 +446,26 @@ def run(run_dir: Path, claims_file: Optional[Path] = None) -> Dict[str, Any]:
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description="Evidence-chain audit before submission")
-    parser.add_argument("--run-dir", required=True, help="Root of experiment results")
-    parser.add_argument("--claims-file", help="Path to paper claims.json")
+    parser.add_argument(
+        "--run-dir",
+        default="research",
+        help="Root of experiment results (default: research)",
+    )
+    parser.add_argument(
+        "--claims-file",
+        help="Path to the claim-evidence bundle (default: <run-dir>/claims.json)",
+    )
     parser.add_argument("--output", help="Write reproducibility bundle to file")
     args = parser.parse_args(argv)
 
     run_dir = Path(args.run_dir).resolve()
-    claims_file = Path(args.claims_file).resolve() if args.claims_file else None
+    if args.claims_file:
+        claims_file = Path(args.claims_file).resolve()
+    else:
+        # Defaulting here rather than requiring the flag matters: the gate's own
+        # documentation has always shown the bare command, so requiring the flag
+        # meant the documented invocation failed.
+        claims_file = run_dir / "claims.json"
 
     if not run_dir.is_dir():
         result = {"error": f"run_dir does not exist: {run_dir}"}
