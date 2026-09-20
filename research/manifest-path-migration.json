@@ -1,0 +1,330 @@
+{
+  "migration": "manifest artifact paths re-pointed at research-relative kept files",
+  "gate": "autoresearcher.foundation.audit resolves paths against its run directory",
+  "totals": {
+    "repointed": 0,
+    "already_correct": 39,
+    "unkept": 0,
+    "unkept_carried": 60,
+    "attested_kept": 0,
+    "jobs_changed": 0
+  },
+  "jobs": [
+    {
+      "job": "B0-DYNAMICS-PILOT-C3",
+      "dispositions": [
+        {
+          "from": "jobs/B0-DYNAMICS-PILOT-C3/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/B0-DYNAMICS-PILOT-C3/result.json"
+        },
+        {
+          "from": "jobs/B0-DYNAMICS-PILOT-C3/pilot_health.json",
+          "disposition": "already_correct",
+          "to": "jobs/B0-DYNAMICS-PILOT-C3/pilot_health.json"
+        }
+      ]
+    },
+    {
+      "job": "E0-NUMERICS-C3",
+      "dispositions": [
+        {
+          "from": "jobs/E0-NUMERICS-C3/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E0-NUMERICS-C3/result.json"
+        },
+        {
+          "from": "jobs/E0-NUMERICS-C3/numerical_calibration.json",
+          "disposition": "already_correct",
+          "to": "jobs/E0-NUMERICS-C3/numerical_calibration.json"
+        }
+      ]
+    },
+    {
+      "job": "E1-MATCHED-LANDSCAPES",
+      "dispositions": [
+        {
+          "from": "jobs/E1-MATCHED-LANDSCAPES/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E1-MATCHED-LANDSCAPES/result.json"
+        },
+        {
+          "from": "jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
+          "disposition": "already_correct",
+          "to": "jobs/E1-MATCHED-LANDSCAPES/paired_effects.json"
+        }
+      ]
+    },
+    {
+      "job": "E1-MATCHED-LANDSCAPES-C4",
+      "dispositions": [
+        {
+          "from": "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+          "disposition": "already_correct",
+          "to": "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json"
+        },
+        {
+          "from": "jobs/E1-MATCHED-LANDSCAPES-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E1-MATCHED-LANDSCAPES-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "E2-C4-PILOT",
+      "dispositions": [
+        {
+          "from": "jobs/E2-C4-PILOT/pilot_variance_report.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-C4-PILOT/pilot_variance_report.json"
+        },
+        {
+          "from": "jobs/E2-C4-PILOT/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-C4-PILOT/result.json"
+        }
+      ]
+    },
+    {
+      "job": "E2-CHANNEL-ABLATION",
+      "dispositions": [
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION/result.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION/channel_effects.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION/channel_effects.json"
+        }
+      ]
+    },
+    {
+      "job": "E2-CHANNEL-ABLATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/result.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json"
+        },
+        {
+          "from": "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json",
+          "disposition": "already_correct",
+          "to": "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json"
+        }
+      ]
+    },
+    {
+      "job": "V0B-SIMULATOR-TESTS-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V0B-SIMULATOR-TESTS-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V0B-SIMULATOR-TESTS-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V0C-SIMULATOR-TESTS-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V0C-SIMULATOR-TESTS-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V0C-SIMULATOR-TESTS-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V0D-SIMULATOR-TESTS-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V0D-SIMULATOR-TESTS-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V0D-SIMULATOR-TESTS-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V0E-SIMULATOR-TESTS-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V0E-SIMULATOR-TESTS-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V0E-SIMULATOR-TESTS-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V0F-SIMULATOR-TESTS-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V0F-SIMULATOR-TESTS-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V0F-SIMULATOR-TESTS-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1-NONFLAT-CALIBRATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1-NONFLAT-CALIBRATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1-NONFLAT-CALIBRATION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1B-NONFLAT-CALIBRATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1B-NONFLAT-CALIBRATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1B-NONFLAT-CALIBRATION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1BD-ENSEMBLE-DIAGNOSTIC-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1BD-ENSEMBLE-DIAGNOSTIC-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1BD-ENSEMBLE-DIAGNOSTIC-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1C-NONFLAT-CALIBRATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1C-NONFLAT-CALIBRATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1C-NONFLAT-CALIBRATION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1D-STATIONARITY-DIAGNOSTIC-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1E-NONFLAT-CALIBRATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1E-NONFLAT-CALIBRATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1E-NONFLAT-CALIBRATION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1ED-SAMPLING-DIAGNOSTIC-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1ED-SAMPLING-DIAGNOSTIC-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1ED-SAMPLING-DIAGNOSTIC-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1F-NONFLAT-CALIBRATION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json"
+        },
+        {
+          "from": "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1G-ORDER-THERMAL-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1G-ORDER-THERMAL-C4/order_thermal_report.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1G-ORDER-THERMAL-C4/order_thermal_report.json"
+        },
+        {
+          "from": "jobs/V1G-ORDER-THERMAL-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1G-ORDER-THERMAL-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1H-CALIBRATION-EXTENSION-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json"
+        },
+        {
+          "from": "jobs/V1H-CALIBRATION-EXTENSION-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1H-CALIBRATION-EXTENSION-C4/result.json"
+        }
+      ]
+    },
+    {
+      "job": "V1P-RUNTIME-PILOT-C4",
+      "dispositions": [
+        {
+          "from": "jobs/V1P-RUNTIME-PILOT-C4/result.json",
+          "disposition": "already_correct",
+          "to": "jobs/V1P-RUNTIME-PILOT-C4/result.json"
+        }
+      ]
+    }
+  ],
+  "report": "research/manifest-path-migration.json"
+}

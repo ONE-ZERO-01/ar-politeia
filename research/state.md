@@ -507,6 +507,62 @@ scope and remaining checks are recorded in `research/simulator-improvement-plan.
   including a `declared_in_design` field that says outright that the design counted
   per-run diagnostics as blocking.
 
+### The audit gate now passes, and what it cost to make it honest (2026-09-20)
+
+`audit` had never once passed on a Cycle 4 record: 70 issues, 66 of them the same
+manifest path convention. Three repairs, each chosen so that nothing is invented.
+
+**1. Manifest paths, migrated losslessly.** `research/manifest-path-migration.json`
+records every disposition. A manifest entry whose basename resolves inside its own job
+directory *and* hashes to the recorded value is re-pointed to `jobs/<id>/<name>` and
+given the `size` the gate compares — byte-identical by construction, because the
+recorded hash is what selected it. An entry that resolves to nothing, or to different
+bytes, is moved verbatim into the new top-level key `unkept_workspace_attestations`:
+6 re-pointed, 60 moved, 19 already correct. Those 60 are all `workspace/*` entries whose
+job kept a deliberately *compacted* record instead, so their hashes are still true
+statements about files that were deliberately not kept, and rewriting them would be
+inventing evidence. 14 jobs gained an entry for the `result.json` they had kept but
+never attested. The first draft of the migration dropped the moved-out entries on a
+second pass — the one direction a repair of recorded evidence must never move — which
+is what the "running it on the repository changes nothing" test caught.
+
+**2. One adjudicated failure.** `V1-NONFLAT-CALIBRATION-C4`'s manifest records
+`exit_code: 1`, which the gate rejects by default. Its own `note` already explained why
+(75/75 runs completed, 0 run failures, and `1` was the legacy runner's encoding of a
+valid negative result), but a note the gate cannot read is not an exemption. `audit`
+now accepts a manifest-level `adjudicated` record and validates it: a known verdict, the
+jobs that supersede it (each of which must exist and have its own zero-exit manifest — a
+failed run supersedes nothing), the design that decided it, and a reason. Anything
+missing is an issue. V1's record names the V1B→V1F chain and the reason states plainly
+that it changes no measurement and excuses no other job.
+
+**3. The ledger is derived, not typed.** `research/claims.json` and
+`research/findings.json` are now written by `derive-claims` from the run records. For
+each claim the plan names, it takes the last experiment on the plan's list that recorded
+a verdict as decisive and **refuses if that verdict does not corroborate the plan's
+pre-registered status** — so the plan's status stays the claim's status, and a
+disagreement stops the derivation instead of becoming a quiet edit. Evidence is the
+manifest artifact paths, which is why the manifests had to be migrated first: a path the
+gate cannot resolve cannot be evidence. A failed gate on a claim's list is excluded from
+evidence and carried as a named `negative_antecedent`, so C1's supported verdict cites
+12 artifacts and names V0, V1, V1B, V1C and V1E as the negatives it read but does not
+lean on. `C4-ROBUSTNESS-C4` is `inconclusive` and its evidence is `plan.json` — the
+pre-registration that records it as untested — because a claim nothing ran against still
+needs its reason in the chain. Two tests pin this: the committed ledger equals what the
+derivation produces, and the derivation is idempotent.
+
+**Residual, named not hidden.** Six job directories record a `result.json` and no
+manifest, so the exit-code check cannot see them: `B0-DYNAMICS-PILOT`,
+`B0-DYNAMICS-PILOT-C2`, `E0-NUMERICS`, `E0-NUMERICS-C2`, `E3-ROBUSTNESS-HOLDOUT`,
+`V0-SIMULATOR-TESTS-C4`. All six predate the manifest convention. `audit` now reports
+them as `jobs_without_manifest` instead of ignoring them, but does *not* fail on them:
+manufacturing manifests now would mean inventing their exit codes, which is exactly what
+this gate exists to prevent.
+
+Gate status: `audit --run-dir research --claims-file research/claims.json` exits 0,
+4 claims, 22 evidence files, 1 adjudicated failure, 6 named jobs without manifests.
+Full suite: 493 passed.
+
 ## Cycle 3 E3 correction
 
 `E3-ROBUSTNESS-HOLDOUT` is not running. Inspection of its authoritative `umi`

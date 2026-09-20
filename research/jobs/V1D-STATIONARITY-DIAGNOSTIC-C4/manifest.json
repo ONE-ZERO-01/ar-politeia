@@ -4,7 +4,17 @@
   "wall_seconds": 260.4275156520307,
   "jobctl_reconcile": "completed",
   "artifacts": [
-    {"path": "workspace/window_sensitivity.json", "sha256": "af478d8776474fd4e42b4b972af52d00fafd06fde34c5cbd1e2cc8b0f616c7f8", "valid": true},
-    {"path": "workspace/result.json", "sha256": "3ca3d2e9586d43e0d72e598e807eaf6280ae9fa6a4645cbc6c87c77838442627", "valid": true}
+    {
+      "path": "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json",
+      "sha256": "3ca3d2e9586d43e0d72e598e807eaf6280ae9fa6a4645cbc6c87c77838442627",
+      "size": 6848
+    }
+  ],
+  "unkept_workspace_attestations": [
+    {
+      "path": "workspace/window_sensitivity.json",
+      "sha256": "af478d8776474fd4e42b4b972af52d00fafd06fde34c5cbd1e2cc8b0f616c7f8",
+      "valid": true
+    }
   ]
 }

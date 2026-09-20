@@ -5,9 +5,14 @@
   "jobctl_reconcile": "completed",
   "artifacts": [
     {
-      "path": "workspace/numerical_calibration_extended.json",
+      "path": "jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json",
       "sha256": "545363ea7ee01faf258482a2c4d135d77465ac5ffb79f7f8d097961288b2b00e",
-      "valid": true
+      "size": 3997
+    },
+    {
+      "path": "jobs/V1H-CALIBRATION-EXTENSION-C4/result.json",
+      "sha256": "b5ce6ef173b96a1dee6c0db6361d6c47a6ac05aad7b9f6cb4ba2b209d77c791e",
+      "size": 1857
     }
   ]
 }

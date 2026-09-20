@@ -1590,8 +1590,21 @@ def test_v1g_record_is_rederivable_from_its_committed_report():
 
     manifest = json.loads((job_dir / "manifest.json").read_text())
     assert manifest["jobctl_reconcile"] == "completed"
-    assert manifest["artifacts"][0]["path"] == "workspace/order_thermal_report.json"
-    assert manifest["artifacts"][0]["sha256"] == record["conclusion_artifact_sha256"]
+    # The recorded path has to be the one the audit gate resolves, and the kept
+    # report has to be what the record cites.
+    assert manifest["artifacts"] == [
+        {
+            "path": "jobs/V1G-ORDER-THERMAL-C4/order_thermal_report.json",
+            "sha256": record["conclusion_artifact_sha256"],
+            "size": (job_dir / "order_thermal_report.json").stat().st_size,
+        },
+        {
+            "path": "jobs/V1G-ORDER-THERMAL-C4/result.json",
+            "sha256": _sha256(job_dir / "result.json"),
+            "size": (job_dir / "result.json").stat().st_size,
+        },
+    ]
+    assert_manifest_is_auditable(manifest, Path(__file__).parents[1])
 
 
 # ── record-calibration-extension ─────────────────────────────────────
@@ -2032,9 +2045,15 @@ def test_v1h_record_is_rederivable_from_its_committed_artifact():
     assert manifest["jobctl_reconcile"] == "completed"
     assert manifest["artifacts"] == [
         {
-            "path": "workspace/numerical_calibration_extended.json",
+            "path": "jobs/V1H-CALIBRATION-EXTENSION-C4/numerical_calibration_extended.json",
             "sha256": record["conclusion_artifact_sha256"],
-            "valid": True,
-        }
+            "size": (job_dir / "numerical_calibration_extended.json").stat().st_size,
+        },
+        {
+            "path": "jobs/V1H-CALIBRATION-EXTENSION-C4/result.json",
+            "sha256": _sha256(job_dir / "result.json"),
+            "size": (job_dir / "result.json").stat().st_size,
+        },
     ]
+    assert_manifest_is_auditable(manifest, root)
 

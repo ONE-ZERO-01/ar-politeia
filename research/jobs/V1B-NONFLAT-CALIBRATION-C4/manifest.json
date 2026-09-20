@@ -5,9 +5,32 @@
   "jobctl_reconcile": "completed",
   "workspace_size": "7.0G",
   "artifacts": [
-    {"path": "workspace/numerical_calibration.json", "sha256": "c8808491e1f1832408475c0114d770900ad70257719079fb524e12bf6fd9b89a", "valid": true},
-    {"path": "workspace/stationarity_report.json", "sha256": "8a5b3d608fd4b8ca90f3b4cfb8d3dbb3d1dc07e59c3c65b670f5d82438a5773a", "valid": true},
-    {"path": "workspace/replicate_metrics.csv", "sha256": "61bff1ecad71161aade592e0a734e7d3a67ec6c7712325bc959d266158e807db", "valid": true},
-    {"path": "workspace/result.json", "sha256": "e2dec4178f12ef963e8cc951bc9a7bf5dd1433984ea234e94d7e0cb2b0fc968a", "valid": true}
+    {
+      "path": "jobs/V1B-NONFLAT-CALIBRATION-C4/result.json",
+      "sha256": "0d039776e6fe780d1bbcf72a06e6691f056ce3c9b57b20aa4ee61cb32d43f78e",
+      "size": 3007
+    }
+  ],
+  "unkept_workspace_attestations": [
+    {
+      "path": "workspace/numerical_calibration.json",
+      "sha256": "c8808491e1f1832408475c0114d770900ad70257719079fb524e12bf6fd9b89a",
+      "valid": true
+    },
+    {
+      "path": "workspace/stationarity_report.json",
+      "sha256": "8a5b3d608fd4b8ca90f3b4cfb8d3dbb3d1dc07e59c3c65b670f5d82438a5773a",
+      "valid": true
+    },
+    {
+      "path": "workspace/replicate_metrics.csv",
+      "sha256": "61bff1ecad71161aade592e0a734e7d3a67ec6c7712325bc959d266158e807db",
+      "valid": true
+    },
+    {
+      "path": "workspace/result.json",
+      "sha256": "e2dec4178f12ef963e8cc951bc9a7bf5dd1433984ea234e94d7e0cb2b0fc968a",
+      "valid": true
+    }
   ]
 }

@@ -4,10 +4,37 @@
   "wall_seconds": 47.54147814773023,
   "jobctl_reconcile": "completed",
   "artifacts": [
-    {"path": "workspace/result.json", "sha256": "818b1584a0bf913a3b37f00d86ee6253ef71de9c60b07e9dd5d129a120b6c058", "valid": true},
-    {"path": "workspace/environment.json", "sha256": "c41fd19fbc7ec7efe13b1a5bf1f15e6e730c26414a1434020a4b18fbe5d8cdaf", "valid": true},
-    {"path": "workspace/pytest.log", "sha256": "6c42d70191b2742b31b18c85205926bc33b27a748ca87b677b67a05ba17e3f48", "valid": true},
-    {"path": "workspace/ctest-off.log", "sha256": "34cb0dba0d5a33670db0f90ed6c1272d48cde3f31831a5019cc95837e6e48371", "valid": true},
-    {"path": "workspace/ctest-on.log", "sha256": "5a66b3633f28bf2e8abbb3dc7ce916340ef8edade1757ac10daa0f9c3c8976f5", "valid": true}
+    {
+      "path": "jobs/V0D-SIMULATOR-TESTS-C4/result.json",
+      "sha256": "1374c770c4348b9d813dcec6c856908ed5e620edec3036f3d01f3a2af06ea9d2",
+      "size": 715
+    }
+  ],
+  "unkept_workspace_attestations": [
+    {
+      "path": "workspace/result.json",
+      "sha256": "818b1584a0bf913a3b37f00d86ee6253ef71de9c60b07e9dd5d129a120b6c058",
+      "valid": true
+    },
+    {
+      "path": "workspace/environment.json",
+      "sha256": "c41fd19fbc7ec7efe13b1a5bf1f15e6e730c26414a1434020a4b18fbe5d8cdaf",
+      "valid": true
+    },
+    {
+      "path": "workspace/pytest.log",
+      "sha256": "6c42d70191b2742b31b18c85205926bc33b27a748ca87b677b67a05ba17e3f48",
+      "valid": true
+    },
+    {
+      "path": "workspace/ctest-off.log",
+      "sha256": "34cb0dba0d5a33670db0f90ed6c1272d48cde3f31831a5019cc95837e6e48371",
+      "valid": true
+    },
+    {
+      "path": "workspace/ctest-on.log",
+      "sha256": "5a66b3633f28bf2e8abbb3dc7ce916340ef8edade1757ac10daa0f9c3c8976f5",
+      "valid": true
+    }
   ]
 }

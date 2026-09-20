@@ -5,6 +5,18 @@
   "jobctl_reconcile": "completed",
   "artifacts": [
     {
+      "path": "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+      "sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
+      "size": 15120
+    },
+    {
+      "path": "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json",
+      "sha256": "340f70cab97805d306d8ccf6c949bf4197e78ea95c211c713428b8b144837090",
+      "size": 2777
+    }
+  ],
+  "unkept_workspace_attestations": [
+    {
       "path": "workspace/run_specs.json",
       "sha256": "b32747ab0c22c32dfcb676fbfaa82f54434754221365ccea2b238eb74b60b7f5",
       "valid": true
@@ -32,11 +44,6 @@
     {
       "path": "workspace/steady_estimand_report.json",
       "sha256": "7727875cd6a206a651399cf5dff9bc9807268860e8c4c5120b4447bd64a7d777",
-      "valid": true
-    },
-    {
-      "path": "workspace/numerical_calibration.json",
-      "sha256": "143007f7778a303c9e313c8da5c48d272392e30127fa8aedcfa49626d6e7aef5",
       "valid": true
     },
     {

@@ -1,74 +1,224 @@
 {
   "project": "ar-politeia",
-  "cycle": 3,
-  "node": "analyze",
-  "generated_at": "2026-09-07T11:10:00+08:00",
+  "cycle": 4,
+  "generated_at": "2026-09-20T10:54:53+08:00",
+  "node": "claim_derivation",
+  "source": "research/plan.json and research/jobs/*/result.json",
   "reconciliation": {
-    "method": "jobctl reconcile semantics",
-    "results": {
-      "E0-NUMERICS-C3": "completed: pass=true, numerical_calibration.json pass with all four deterministic checks (conservation, non-negativity, dt-convergence, equal-state absorption)",
-      "B0-DYNAMICS-PILOT-C3": "completed: pass=true, pilot_health.json pass (non-negativity, fixed population, finite metrics, wealth/resource stationarity)",
-      "E1-MATCHED-LANDSCAPES": "completed: pass=true, claim_supported=true (clustered-minus-shuffled paired effect 4 metrics Holm-significant above frozen SESOI)",
-      "E2-CHANNEL-ABLATION": "completed: pass=true, claim_supported=true (movement single-channel attribution; production zero effect on spatial structure; interaction zero)",
-      "E3-ROBUSTNESS-HOLDOUT": "not yet executed (awaiting E3 budget decision after E2 evidence)"
+    "C1-NUM-C4": {
+      "plan_status": "supported",
+      "verdict": "supported",
+      "decisive": "V1F-NONFLAT-CALIBRATION-C4"
+    },
+    "C2-LANDSCAPE-C4": {
+      "plan_status": "supported",
+      "verdict": "supported",
+      "decisive": "E1-MATCHED-LANDSCAPES-C4"
+    },
+    "C3-CHANNELS-C4": {
+      "plan_status": "supported",
+      "verdict": "supported",
+      "decisive": "E2-CHANNEL-ABLATION-C4"
+    },
+    "C4-ROBUSTNESS-C4": {
+      "plan_status": "deferred",
+      "verdict": "inconclusive",
+      "decisive": null
     }
   },
+  "claims": [
+    {
+      "claim_id": "C1-NUM-C4",
+      "verdict": "supported",
+      "claim_text": "The remediated simulator has a declared and testable numerical process: exchange preserves total wealth and non-negativity, invalid state fails explicitly, random streams are seed- and stable-ID-keyed, controls execute the process named in the design, and required metrics have valid stationarity and precision diagnostics.",
+      "evidence": [
+        "jobs/V0B-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0C-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0D-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0E-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0F-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V1BD-ENSEMBLE-DIAGNOSTIC-C4/result.json",
+        "jobs/V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4/result.json",
+        "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json",
+        "jobs/V1ED-SAMPLING-DIAGNOSTIC-C4/result.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json",
+        "jobs/V1P-RUNTIME-PILOT-C4/result.json"
+      ]
+    },
+    {
+      "claim_id": "C2-LANDSCAPE-C4",
+      "verdict": "supported",
+      "claim_text": "Under matched resource totals, histograms, accessible area, population, and initial wealth, clustered versus shuffled resource landscapes produce a numerically resolvable difference in preregistered steady-window spatial metrics.",
+      "evidence": [
+        "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+        "jobs/E1-MATCHED-LANDSCAPES-C4/result.json"
+      ]
+    },
+    {
+      "claim_id": "C3-CHANNELS-C4",
+      "verdict": "supported",
+      "claim_text": "The movement path and the production-decay source-sink path can be described without attributing a structurally impossible spatial feedback to production.",
+      "evidence": [
+        "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv",
+        "jobs/E2-CHANNEL-ABLATION-C4/result.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json"
+      ]
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS-C4",
+      "verdict": "inconclusive",
+      "claim_text": "Any supported Cycle 4 landscape effect retains direction under separately designed system-size, density, grid-discretization, and holdout-landscape checks.",
+      "evidence": [
+        "plan.json"
+      ]
+    }
+  ],
   "findings": [
     {
-      "claim_id": "C1-NUM",
+      "claim_id": "C1-NUM-C4",
       "verdict": "supported",
-      "claim_text": "候选 C 连续时间均值回归交换核在非退化小扰动初值与异质能力下保持财富守恒和非负性，主要观测量对时间步收敛，且相等状态是吸收态；稳态窗口内财富分布通过漂移与有效样本诊断。",
-      "interpretation": "E0-NUMERICS-C3 passed all four deterministic checks: max absolute total-wealth drift 1.72e-9 (<=1e-8), minimum wealth 0.0 (>= -1e-12), dt/2-vs-dt/4 wealth_gini mean absolute change 0.0037 (<=0.02), equal-exchange max wealth variance 0.0 (<=1e-20). Stationarity is reported separately and does not block the Cycle-3 calibration gate (per the revised policy). The exchange kernel refactor resolved the model-level non-stationarity that falsified C1-NUM in Cycles 1-2.",
+      "claim_text": "The remediated simulator has a declared and testable numerical process: exchange preserves total wealth and non-negativity, invalid state fails explicitly, random streams are seed- and stable-ID-keyed, controls execute the process named in the design, and required metrics have valid stationarity and precision diagnostics.",
+      "claim_type": "calibration",
+      "plan_status": "supported",
+      "interpretation": "The plan records C1-NUM-C4 as supported. Its decisive record is V1F-NONFLAT-CALIBRATION-C4, whose own verdict reads 'the run completed and reports a calibration verdict' (completed), which is what the plan's status requires. The claim's list also names V0-SIMULATOR-TESTS-C4, V1-NONFLAT-CALIBRATION-C4, V1B-NONFLAT-CALIBRATION-C4, V1C-NONFLAT-CALIBRATION-C4, V1E-NONFLAT-CALIBRATION-C4, whose own records are negative; they are read as antecedents and carry no part of this verdict.",
       "falsification_check": {
-        "wealth_conservation": {"passed": true, "observed": "1.72e-9", "threshold": "<= 1e-8"},
-        "wealth_nonnegative": {"passed": true, "observed": "0.0", "threshold": ">= -1e-12"},
-        "dt_convergence": {"passed": true, "observed": "wealth_gini 0.00370221556953394", "threshold": "<= 0.02"},
-        "equal_state_is_absorbing": {"passed": true, "observed": "0.0", "threshold": "<= 1e-20"},
-        "stationarity": {"passed": null, "observed": "reported separately; does not block the Cycle-3 gate", "threshold": "drift<=0.1 and ESS>=4"}
+        "criterion": "Any required invariant or control-semantics test fails; a required metric is invalid/undefined without a preregistered not-applicable status; or non-flat timestep results do not converge within the frozen numerical tolerance.",
+        "conditions": {
+          "adjacent_window_stability": true,
+          "independent_replicate_precision": true,
+          "invariants": true,
+          "storage_order_sensitivity": true,
+          "tail_stationarity": true,
+          "timestep_convergence": true
+        }
       },
       "evidence": [
-        "research/jobs/E0-NUMERICS-C3/result.json",
-        "research/jobs/E0-NUMERICS-C3/numerical_calibration.json",
-        "research/jobs/E0-NUMERICS-C3/workspace/stationarity_report.json",
-        "research/jobs/E0-NUMERICS-C3/workspace/replicate_metrics.csv"
+        "jobs/V0B-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0C-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0D-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0E-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0F-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V1BD-ENSEMBLE-DIAGNOSTIC-C4/result.json",
+        "jobs/V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4/result.json",
+        "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json",
+        "jobs/V1ED-SAMPLING-DIAGNOSTIC-C4/result.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json",
+        "jobs/V1P-RUNTIME-PILOT-C4/result.json"
+      ],
+      "decisive_record": {
+        "experiment": "V1F-NONFLAT-CALIBRATION-C4",
+        "standing": "completed",
+        "result": "research/jobs/V1F-NONFLAT-CALIBRATION-C4/result.json"
+      },
+      "negative_antecedents": [
+        {
+          "experiment": "V0-SIMULATOR-TESTS-C4",
+          "standing": "failed_gate",
+          "role": "a negative record on this claim's list; it carries no part of this verdict and is cited as no evidence"
+        },
+        {
+          "experiment": "V1-NONFLAT-CALIBRATION-C4",
+          "standing": "failed_gate",
+          "role": "a negative record on this claim's list; it carries no part of this verdict and is cited as no evidence"
+        },
+        {
+          "experiment": "V1B-NONFLAT-CALIBRATION-C4",
+          "standing": "failed_gate",
+          "role": "a negative record on this claim's list; it carries no part of this verdict and is cited as no evidence"
+        },
+        {
+          "experiment": "V1C-NONFLAT-CALIBRATION-C4",
+          "standing": "failed_gate",
+          "role": "a negative record on this claim's list; it carries no part of this verdict and is cited as no evidence"
+        },
+        {
+          "experiment": "V1E-NONFLAT-CALIBRATION-C4",
+          "standing": "failed_gate",
+          "role": "a negative record on this claim's list; it carries no part of this verdict and is cited as no evidence"
+        }
       ]
     },
     {
-      "claim_id": "C2-LANDSCAPE",
+      "claim_id": "C2-LANDSCAPE-C4",
       "verdict": "supported",
-      "claim_text": "在资源总量、像素值直方图和可达面积匹配后，聚集型资源景观相对空间打乱景观产生超过数值噪声界限的人口空间结构差异。",
-      "interpretation": "E1-MATCHED-LANDSCAPES completed 80/80 runs (20 seeds x 4 conditions; 68 executed + 12 reused, 48091s). All three gates passed: e0_calibration (E0 SHA bound), stationarity (confirmatory clustered+shuffled conditions), matched_inputs. The clustered-minus-shuffled paired effect (20 seed pairs, 10000 bootstrap samples, Holm correction) is strongly significant on all confirmatory spatial metrics and exceeds the E0-frozen SESOI: resource_density_spearman_rho +0.182 [0.151, 0.210] p=3e-5; density_morans_i +0.436 [0.386, 0.487] p=3e-5; occupancy_entropy -0.038 [-0.048, -0.029] p=3e-5; secondary wealth_gini +0.042 [0.032, 0.053] p=1e-5. Diagnostic controls: flat passed stationarity (finite Gini, no polarization); clustered-no-exchange failed stationarity (3 true drift failures + 17 ESS slow-mixing from deterministic no-noise dynamics), which is positive evidence that the exchange kernel is necessary for fast convergence to steady state rather than a falsification of C2. Stationarity judgment was refined: drift is decisive, ESS is auxiliary (24-point short-series IAT has high variance).",
+      "claim_text": "Under matched resource totals, histograms, accessible area, population, and initial wealth, clustered versus shuffled resource landscapes produce a numerically resolvable difference in preregistered steady-window spatial metrics.",
+      "claim_type": "core",
+      "plan_status": "supported",
+      "interpretation": "The plan records C2-LANDSCAPE-C4 as supported. Its decisive record is E1-MATCHED-LANDSCAPES-C4, whose own verdict reads 'the analysis gate passed and a contrast cleared its effective threshold' (passed_gate_claim_supported), which is what the plan's status requires.",
+      "falsification_check": {
+        "criterion": "After a valid non-flat calibration, paired effects are within the frozen numerical equivalence region, fail multiplicity control, or required runs fail stationarity/precision requirements.",
+        "conditions": {
+          "adjacent_window_stability": true,
+          "execution_invariants": true,
+          "independent_replicate_precision": true,
+          "matched_inputs": true,
+          "tail_stationarity": true,
+          "v1f_numerical_calibration": true
+        }
+      },
       "evidence": [
-        "research/jobs/E1-MATCHED-LANDSCAPES/result.json",
-        "research/jobs/E1-MATCHED-LANDSCAPES/paired_effects.json",
-        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/stationarity_report.json",
-        "research/jobs/E1-MATCHED-LANDSCAPES/workspace/replicate_metrics.csv",
-        "research/parameter_lock.json"
-      ]
+        "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+        "jobs/E1-MATCHED-LANDSCAPES-C4/result.json"
+      ],
+      "decisive_record": {
+        "experiment": "E1-MATCHED-LANDSCAPES-C4",
+        "standing": "passed_gate_claim_supported",
+        "result": "research/jobs/E1-MATCHED-LANDSCAPES-C4/result.json"
+      }
     },
     {
-      "claim_id": "C3-CHANNELS",
+      "claim_id": "C3-CHANNELS-C4",
       "verdict": "supported",
-      "claim_text": "景观效应可通过移动通道×生产通道的 2×2 因子消融分解为可量化的主效应和交互效应。",
-      "interpretation": "E2-CHANNEL-ABLATION completed 160/160 runs under parameter lock v3 (movement x production 2x2 ablation, production-decay pairing). All three gates passed (e0_calibration, stationarity, matched_inputs). movement is the sole channel through which the landscape acts on spatial structure: resource_density_spearman_rho +0.237 [0.223, 0.250] p=9e-5; density_morans_i +0.353 [0.301, 0.406] p=9e-5; occupancy_entropy -0.051 [-0.065, -0.038] p=9e-5, all exceeding frozen SESOI. production has exactly zero effect on spatial structure (0.0, p=1.0) — physically necessary since production changes wealth not particle positions — and interaction is zero. The secondary wealth_gini::production effect is significant, showing production acts on wealth structure. Mechanism attribution: landscape → movement channel → spatial structure; production channel → wealth structure; channels do not interact. Two judgment-logic refinements were applied on pre-observed physical/statistical grounds (not outcome-driven): (1) an absolute-drift tolerance in stationarity_diagnostics fixes a normalisation degeneracy for metrics whose steady value is physically ~0 (f0 rho); (2) wealth_variance was dropped from the E2 stationarity gate (wealth_gini already covers wealth stationarity; 4/160 boundary slow-relaxation runs).",
+      "claim_text": "The movement path and the production-decay source-sink path can be described without attributing a structurally impossible spatial feedback to production.",
+      "claim_type": "mechanism",
+      "plan_status": "supported",
+      "interpretation": "The plan records C3-CHANNELS-C4 as supported. Its decisive record is E2-CHANNEL-ABLATION-C4, whose own verdict reads 'the analysis gate passed and a contrast cleared its effective threshold' (passed_gate_claim_supported), which is what the plan's status requires.",
+      "falsification_check": {
+        "criterion": "The implemented causal paths do not match the registered estimands, a named disabled channel remains active, or a factorial contrast combines incomparable non-stationary cells.",
+        "conditions": {
+          "comparability": true,
+          "isolation_identity": true,
+          "steady_estimand": true,
+          "three_condition_inputs": true,
+          "v1f_numerical_calibration": true
+        }
+      },
       "evidence": [
-        "research/jobs/E2-CHANNEL-ABLATION/result.json",
-        "research/jobs/E2-CHANNEL-ABLATION/channel_effects.json",
-        "research/jobs/E2-CHANNEL-ABLATION/workspace/stationarity_report.json",
-        "research/jobs/E2-CHANNEL-ABLATION/workspace/replicate_metrics.csv",
-        "research/parameter_lock.json"
-      ]
+        "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv",
+        "jobs/E2-CHANNEL-ABLATION-C4/result.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json"
+      ],
+      "decisive_record": {
+        "experiment": "E2-CHANNEL-ABLATION-C4",
+        "standing": "passed_gate_claim_supported",
+        "result": "research/jobs/E2-CHANNEL-ABLATION-C4/result.json"
+      }
     },
     {
-      "claim_id": "C4-ROBUSTNESS",
+      "claim_id": "C4-ROBUSTNESS-C4",
       "verdict": "inconclusive",
-      "claim_text": "核心效应在预注册的人口规模、网格分辨率和未用于参数选择的景观家族上保持方向一致。",
-      "interpretation": "E3-ROBUSTNESS-HOLDOUT has not been executed; it is gated on the E3 budget decision after E2 evidence. No scale or held-out-landscape evidence exists.",
-      "blocked_reason": "awaiting E3 budget decision.",
+      "claim_text": "Any supported Cycle 4 landscape effect retains direction under separately designed system-size, density, grid-discretization, and holdout-landscape checks.",
+      "claim_type": "robustness",
+      "plan_status": "deferred",
+      "interpretation": "The plan records C4-ROBUSTNESS-C4 as deferred and no experiment on its list has recorded a verdict, so there is nothing to support and nothing to contradict.",
+      "falsification_check": {
+        "criterion": "Effect direction reverses, falls inside the frozen equivalence region, or depends on conflated scale/density/grid changes.",
+        "conditions": {}
+      },
       "evidence": [
-        "research/jobs/E3-ROBUSTNESS-HOLDOUT/result.json",
-        "research/parameter_lock.json"
-      ]
+        "plan.json"
+      ],
+      "blocked_reason": "C1-NUM-C4 and C2-LANDSCAPE-C4; compute is authorized."
     }
   ]
 }

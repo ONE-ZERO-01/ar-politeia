@@ -5,10 +5,17 @@
   "jobctl_reconcile": "completed",
   "artifacts": [
     {
-      "path": "workspace/pilot_variance_report.json",
+      "path": "jobs/E2-C4-PILOT/pilot_variance_report.json",
       "sha256": "88eaee7cbbb938dfaf86427e2ede5d06a2e3aabd6582acc29df6b8a0aec33776",
-      "valid": true
+      "size": 14900
     },
+    {
+      "path": "jobs/E2-C4-PILOT/result.json",
+      "sha256": "13a98be083398b112ee147c1344526a7b7e0e0406914ef0761c008beeac00750",
+      "size": 26373
+    }
+  ],
+  "unkept_workspace_attestations": [
     {
       "path": "workspace/steady_estimand_report.json",
       "sha256": "c5d0d68d7ed3bb63f2dddd07f3af0c5dd206fc13fbe5729e1bd49b95d60f65e0",

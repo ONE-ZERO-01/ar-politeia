@@ -6,6 +6,21 @@
   "archived_after_run": true,
   "artifacts": [
     {
+      "path": "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+      "sha256": "25cc74a24839b41d85377163b86184890e5079e8fcb3302c7f96943c16ff177b",
+      "size": 4674
+    },
+    {
+      "path": "jobs/E1-MATCHED-LANDSCAPES-C4/result.json",
+      "sha256": "bdee5df8b99f04cf7a5f03e8e57c9cb4840f189d044a2e814bde0d572983289c",
+      "size": 2314
+    }
+  ],
+  "undeclared_provenance_sha256": {
+    "ensemble_stationarity_report.json": "ccb5cf3c133f914558ee7422d1c47949ef0f67e71260b019a0fd516a8b0cab75"
+  },
+  "unkept_workspace_attestations": [
+    {
       "path": "workspace/result.json",
       "sha256": "6ce9bb8c43f90a9c544d1a7f10d046f4ce17e645ff0fc462ecf3ad5f4b208733",
       "valid": true
@@ -13,11 +28,6 @@
     {
       "path": "workspace/replicate_metrics.csv",
       "sha256": "890965be4c1edc60c7012b10c203f25c95abc7584733dd54c5251a4425a2501a",
-      "valid": true
-    },
-    {
-      "path": "workspace/paired_effects.json",
-      "sha256": "25cc74a24839b41d85377163b86184890e5079e8fcb3302c7f96943c16ff177b",
       "valid": true
     },
     {
@@ -45,8 +55,5 @@
       "sha256": "a59b80155037a6572b95e1ed6b6d40e96a169b70c5e56e1f8f967c0da5d7b379",
       "valid": true
     }
-  ],
-  "undeclared_provenance_sha256": {
-    "ensemble_stationarity_report.json": "ccb5cf3c133f914558ee7422d1c47949ef0f67e71260b019a0fd516a8b0cab75"
-  }
+  ]
 }

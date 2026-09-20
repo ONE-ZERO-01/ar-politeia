@@ -5,12 +5,47 @@
   "jobctl_reconcile": "completed",
   "workspace_size": "25G",
   "artifacts": [
-    {"path": "workspace/run_specs.json", "sha256": "9ad11ed59a7dc4153874c695cde68c29f46bacdb739e909cf617d47da1247176", "valid": true},
-    {"path": "workspace/matched_input_audit.json", "sha256": "3be1caa72b7ed5aafed8cd918b25cb0a18cf7834ed99e506d0c75dcd1cf483ed", "valid": true},
-    {"path": "workspace/replicate_metrics.csv", "sha256": "65191b5fbc1f032c261c9a2ec843f95e6ecc1c5bc3e8fd037474d4b2b1da4056", "valid": true},
-    {"path": "workspace/stationarity_report.json", "sha256": "ee5a6ae1d8d7f20722cd2ea552a327cb127c47d96cff6d0c986554d7b22b4d88", "valid": true},
-    {"path": "workspace/ensemble_stationarity_report.json", "sha256": "370deac79253ccc07ac7ebe67bbcdd3f00a3f1ddb41608ead634dd7024f8e201", "valid": true},
-    {"path": "workspace/numerical_calibration.json", "sha256": "551fec4d2bb26940a258ba1c61800137aa8e4cfa789a3040e91f3e050fc0341b", "valid": true},
-    {"path": "workspace/result.json", "sha256": "a5b36f4869a8c520fdbf74d9386dccc699ec92866ac2e1ae74cc0f4430995ec6", "valid": true}
+    {
+      "path": "jobs/V1C-NONFLAT-CALIBRATION-C4/result.json",
+      "sha256": "ea9aa7c018bf7479f2d7278f56ea4c3b30f2c5180f33c90eb7fadfeeea8255c7",
+      "size": 3272
+    }
+  ],
+  "unkept_workspace_attestations": [
+    {
+      "path": "workspace/run_specs.json",
+      "sha256": "9ad11ed59a7dc4153874c695cde68c29f46bacdb739e909cf617d47da1247176",
+      "valid": true
+    },
+    {
+      "path": "workspace/matched_input_audit.json",
+      "sha256": "3be1caa72b7ed5aafed8cd918b25cb0a18cf7834ed99e506d0c75dcd1cf483ed",
+      "valid": true
+    },
+    {
+      "path": "workspace/replicate_metrics.csv",
+      "sha256": "65191b5fbc1f032c261c9a2ec843f95e6ecc1c5bc3e8fd037474d4b2b1da4056",
+      "valid": true
+    },
+    {
+      "path": "workspace/stationarity_report.json",
+      "sha256": "ee5a6ae1d8d7f20722cd2ea552a327cb127c47d96cff6d0c986554d7b22b4d88",
+      "valid": true
+    },
+    {
+      "path": "workspace/ensemble_stationarity_report.json",
+      "sha256": "370deac79253ccc07ac7ebe67bbcdd3f00a3f1ddb41608ead634dd7024f8e201",
+      "valid": true
+    },
+    {
+      "path": "workspace/numerical_calibration.json",
+      "sha256": "551fec4d2bb26940a258ba1c61800137aa8e4cfa789a3040e91f3e050fc0341b",
+      "valid": true
+    },
+    {
+      "path": "workspace/result.json",
+      "sha256": "a5b36f4869a8c520fdbf74d9386dccc699ec92866ac2e1ae74cc0f4430995ec6",
+      "valid": true
+    }
   ]
 }

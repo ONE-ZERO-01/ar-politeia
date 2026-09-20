@@ -1,0 +1,58 @@
+{
+  "project": "ar-politeia",
+  "cycle": 4,
+  "generated_at": "2026-09-20T10:54:53+08:00",
+  "source": "research/plan.json and research/jobs/*/result.json",
+  "claims": [
+    {
+      "claim_id": "C1-NUM-C4",
+      "verdict": "supported",
+      "claim_text": "The remediated simulator has a declared and testable numerical process: exchange preserves total wealth and non-negativity, invalid state fails explicitly, random streams are seed- and stable-ID-keyed, controls execute the process named in the design, and required metrics have valid stationarity and precision diagnostics.",
+      "evidence": [
+        "jobs/V0B-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0C-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0D-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0E-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V0F-SIMULATOR-TESTS-C4/result.json",
+        "jobs/V1BD-ENSEMBLE-DIAGNOSTIC-C4/result.json",
+        "jobs/V1CD-STEADY-ESTIMAND-DIAGNOSTIC-C4/result.json",
+        "jobs/V1D-STATIONARITY-DIAGNOSTIC-C4/result.json",
+        "jobs/V1ED-SAMPLING-DIAGNOSTIC-C4/result.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/numerical_calibration.json",
+        "jobs/V1F-NONFLAT-CALIBRATION-C4/result.json",
+        "jobs/V1P-RUNTIME-PILOT-C4/result.json"
+      ]
+    },
+    {
+      "claim_id": "C2-LANDSCAPE-C4",
+      "verdict": "supported",
+      "claim_text": "Under matched resource totals, histograms, accessible area, population, and initial wealth, clustered versus shuffled resource landscapes produce a numerically resolvable difference in preregistered steady-window spatial metrics.",
+      "evidence": [
+        "jobs/E1-MATCHED-LANDSCAPES-C4/paired_effects.json",
+        "jobs/E1-MATCHED-LANDSCAPES-C4/result.json"
+      ]
+    },
+    {
+      "claim_id": "C3-CHANNELS-C4",
+      "verdict": "supported",
+      "claim_text": "The movement path and the production-decay source-sink path can be described without attributing a structurally impossible spatial feedback to production.",
+      "evidence": [
+        "jobs/E2-CHANNEL-ABLATION-C4/channel_separation.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/isolation_identity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/matched_input_audit.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/replicate_metrics.csv",
+        "jobs/E2-CHANNEL-ABLATION-C4/result.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/stationarity_report.json",
+        "jobs/E2-CHANNEL-ABLATION-C4/steady_estimand_report.json"
+      ]
+    },
+    {
+      "claim_id": "C4-ROBUSTNESS-C4",
+      "verdict": "inconclusive",
+      "claim_text": "Any supported Cycle 4 landscape effect retains direction under separately designed system-size, density, grid-discretization, and holdout-landscape checks.",
+      "evidence": [
+        "plan.json"
+      ]
+    }
+  ]
+}

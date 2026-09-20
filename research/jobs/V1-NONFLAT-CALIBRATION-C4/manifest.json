@@ -8,5 +8,16 @@
       "size": 2037
     }
   ],
-  "note": "All 75 runs and analysis artifacts completed. Exit code 1 represented the negative numerical gate; the runner now returns zero for valid negative results."
+  "note": "All 75 runs and analysis artifacts completed. Exit code 1 represented the negative numerical gate; the runner now returns zero for valid negative results.",
+  "adjudicated": {
+    "verdict": "superseded",
+    "superseded_by": [
+      "V1B-NONFLAT-CALIBRATION-C4",
+      "V1C-NONFLAT-CALIBRATION-C4",
+      "V1E-NONFLAT-CALIBRATION-C4",
+      "V1F-NONFLAT-CALIBRATION-C4"
+    ],
+    "design": "v1b-nonflat-calibration-design.md",
+    "reason": "The non-zero exit code is the legacy runner's encoding of a valid negative result, not a failed run: the result records all 75 runs completed with 0 run failures, and its only negative layers are stationarity and precision, which is what the follow-up diagnostics were launched to explain. The calibration was then re-derived by V1B, V1C and V1E and passed under V1F, whose gate is the one the C1-NUM-C4 calibration claim now rests on. This adjudication only makes the note already recorded above machine-checkable; it changes no measurement and excuses no other job."
+  }
 }

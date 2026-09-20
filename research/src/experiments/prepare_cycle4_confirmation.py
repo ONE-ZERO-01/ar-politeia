@@ -11,9 +11,13 @@ or has any authority to relax a gate.  ``record-pilot`` promotes the E2-C4
 pilot's reports, recomputes its replicate requirement, and records the criterion
 actually applied next to the verdict the run produced.  ``record-e2`` promotes a
 finished E2-C4 confirmatory run: it re-derives the composition of that payload's
-own gates and copies the artifacts into git unchanged.  ``seeds-audit`` builds the
-bookkeeping ledger of every seed any job has consumed and refuses to let a new
-experiment reuse one silently.
+own gates and copies the artifacts into git unchanged.  ``derive-claims`` writes
+``research/claims.json`` and ``research/findings.json`` from the run records,
+refusing when a record does not corroborate the status the plan pre-registered;
+``migrate-manifest-paths`` is the one-time repair of recorded manifests whose
+artifact paths the audit gate could not resolve, and it can only ever re-point at
+byte-identical files.  ``seeds-audit`` builds the bookkeeping ledger of every seed
+any job has consumed and refuses to let a new experiment reuse one silently.
 """
 
 from __future__ import annotations
@@ -26,7 +30,8 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from datetime import datetime, timezone
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -2032,7 +2037,459 @@ def _tracked_manifest(
     }
 
 
+MIGRATION_REPORT_RELATIVE = "research/manifest-path-migration.json"
+
+
+def migrate_manifest_paths(project_root: Path) -> dict[str, Any]:
+    """Re-point recorded manifests at the files they can actually attest.
+
+    This repairs a whole cycle of recorded evidence, so it is deliberately the
+    narrowest edit that makes the records consistent with the audit gate:
+
+    * an entry whose basename resolves inside its own job directory *and* hashes to
+      the recorded value is re-pointed to ``jobs/<id>/<name>`` and given the
+      ``size`` the gate compares.  The target is byte-identical by construction,
+      because the recorded hash is what selected it;
+    * an entry that resolves to nothing, or to a file whose bytes are not the ones
+      it records, is moved verbatim into ``unkept_workspace_attestations``: its
+      ``path`` and ``sha256`` are not touched, because they are a true statement
+      about a workspace file that was deliberately not kept, and rewriting them
+      would be inventing evidence.  The 11 of these are all ``workspace/result.json``
+      entries whose job kept a deliberately *compacted* record instead;
+    * a job whose kept ``result.json`` is attested by nothing gets an entry for it,
+      which is what every recorder now writes.
+
+    Nothing is inferred about content: a hash mismatch never silently becomes a
+    re-point.  The operation is idempotent, and the report it returns names every
+    disposition so the change can be reviewed or reverted in git.
+    """
+    run_dir = (project_root / "research").resolve()
+    jobs_root = run_dir / "jobs"
+    if not jobs_root.is_dir():
+        raise RuntimeError(f"{jobs_root} is not a directory")
+
+    report: dict[str, Any] = {
+        "migration": "manifest artifact paths re-pointed at research-relative kept files",
+        "gate": "autoresearcher.foundation.audit resolves paths against its run directory",
+        "totals": {
+            "repointed": 0,
+            "already_correct": 0,
+            "unkept": 0,
+            "unkept_carried": 0,
+            "attested_kept": 0,
+            "jobs_changed": 0,
+        },
+        "jobs": [],
+    }
+
+    for manifest_path in sorted(jobs_root.glob("*/manifest.json")):
+        job_dir = manifest_path.parent
+        job = job_dir.name
+        payload = _read_json(manifest_path)
+        artifacts = payload.get("artifacts")
+        if not isinstance(artifacts, list):
+            raise RuntimeError(f"{job}: the manifest has no artifact list to migrate")
+        dispositions: list[dict[str, Any]] = []
+        kept: list[dict[str, Any]] = []
+        # Attestations a previous pass already moved out of ``artifacts`` are read
+        # back and carried forward.  Leaving them out would make the second pass
+        # *delete* them, which is the one direction this migration must never move:
+        # they are the only surviving statement about those workspace files.
+        carried = payload.get("unkept_workspace_attestations") or []
+        if not isinstance(carried, list):
+            raise RuntimeError(
+                f"{job}: unkept_workspace_attestations is not a list"
+            )
+        unkept: list[dict[str, Any]] = [dict(entry) for entry in carried]
+        report["totals"]["unkept_carried"] += len(carried)
+        for entry in artifacts:
+            old = entry.get("path")
+            if not isinstance(old, str) or not old:
+                raise RuntimeError(f"{job}: an artifact record has no path")
+            if old.startswith("jobs/"):
+                target = run_dir / old
+                if not target.is_file() or target.stat().st_size == 0:
+                    raise RuntimeError(
+                        f"{job}: {old} is already research-relative but does not resolve"
+                    )
+                fresh = _tracked_evidence(job_dir, Path(old).name)
+                if fresh["sha256"] != entry.get("sha256"):
+                    raise RuntimeError(
+                        f"{job}: {old} hashes to {fresh['sha256']}, not the recorded "
+                        f"{entry.get('sha256')}"
+                    )
+                kept.append(fresh)
+                dispositions.append(
+                    {"from": old, "disposition": "already_correct", "to": old}
+                )
+                report["totals"]["already_correct"] += 1
+                continue
+
+            name = Path(old).name
+            candidate = job_dir / name
+            recorded = entry.get("sha256")
+            if (
+                candidate.is_file()
+                and candidate.stat().st_size > 0
+                and recorded
+                and _sha256(candidate) == recorded
+            ):
+                fresh = _tracked_evidence(job_dir, name)
+                kept.append(fresh)
+                dispositions.append(
+                    {"from": old, "disposition": "repointed", "to": fresh["path"]}
+                )
+                report["totals"]["repointed"] += 1
+                continue
+
+            unkept.append(dict(entry))
+            dispositions.append(
+                {"from": old, "disposition": "unkept", "reason": _unkept_reason(candidate, recorded)}
+            )
+            report["totals"]["unkept"] += 1
+
+        attested = {entry["path"] for entry in kept}
+        kept_result = f"jobs/{job}/result.json"
+        if kept_result not in attested:
+            if not (job_dir / "result.json").is_file():
+                raise RuntimeError(f"{job}: the job kept no result.json to attest")
+            kept.append(_tracked_evidence(job_dir, "result.json"))
+            dispositions.append(
+                {
+                    "from": None,
+                    "disposition": "attested_kept",
+                    "to": kept_result,
+                    "reason": "the kept record was attested by nothing",
+                }
+            )
+            report["totals"]["attested_kept"] += 1
+
+        updated = dict(payload)
+        # The original order is preserved.  The gate does not read order, so
+        # re-sorting would churn records that were already correct and bury the real
+        # repair under noise in git blame.
+        updated["artifacts"] = kept
+        if unkept:
+            updated["unkept_workspace_attestations"] = unkept
+        else:
+            updated.pop("unkept_workspace_attestations", None)
+        if updated != payload:
+            _write_json(manifest_path, updated)
+            report["totals"]["jobs_changed"] += 1
+        report["jobs"].append({"job": job, "dispositions": dispositions})
+
+    return report
+
+
+CLAIMS_RELATIVE = "research/claims.json"
+FINDINGS_RELATIVE = "research/findings.json"
+
+# What a claim's plan status must be corroborated by, read off the decisive run's
+# own record. A calibration claim is carried by a calibration gate; a scientific
+# claim is carried by an analysis gate. Keeping the two apart is what stops a
+# passing calibration from being read as a passing experiment.
+CLAIM_STANDINGS = {
+    "passed_gate_claim_supported": "the analysis gate passed and a contrast cleared its effective threshold",
+    "passed_gate_valid_null": "the analysis gate passed and no contrast cleared its threshold",
+    "failed_gate": "the analysis gate did not pass",
+    "completed": "the run completed and reports a calibration verdict",
+    "not_recorded": "no run has recorded a verdict",
+}
+PLAN_STATUS_REQUIRES = {
+    "supported": ("passed_gate_claim_supported", "completed"),
+    "refuted": ("passed_gate_valid_null", "failed_gate"),
+    "contradicted": ("passed_gate_valid_null", "failed_gate"),
+    "deferred": ("not_recorded",),
+    "pending": ("not_recorded",),
+    "blocked": ("not_recorded",),
+}
+
+
+def _record_standing(result: Mapping[str, Any]) -> str:
+    """Read a run's own verdict, in the vocabulary the plan is checked against."""
+    if result.get("analysis_gate_pass") is True:
+        return (
+            "passed_gate_claim_supported"
+            if result.get("claim_supported") is True
+            else "passed_gate_valid_null"
+        )
+    if result.get("analysis_gate_pass") is False:
+        return "failed_gate"
+    if result.get("pass") is True:
+        return "completed"
+    if result.get("pass") is False:
+        return "failed_gate"
+    return "not_recorded"
+
+
+def _falsification_conditions(result: Mapping[str, Any]) -> Dict[str, bool]:
+    """The named conditions that had to hold, as the run itself recorded them.
+
+    Read, never judged: whichever set of gates the record carries is the set the
+    claim is checked against, so a claim cannot be written against conditions that
+    were not actually evaluated.
+    """
+    for key in ("gates", "gate_layers"):
+        value = result.get(key)
+        if isinstance(value, Mapping) and value:
+            return {str(name): bool(flag) for name, flag in sorted(value.items())}
+    if isinstance(result.get("pass"), bool):
+        return {"pass": result["pass"]}
+    return {}
+
+
+def derive_claims(project_root: Path) -> dict[str, Any]:
+    """Derive the cycle's claim ledger and finding record from the run artifacts.
+
+    Both files are *derived*, never typed. For every claim in ``research/plan.json``
+    this reads the records of the experiments the plan names for it, takes the last
+    one that recorded a verdict as decisive, and refuses if that verdict does not
+    corroborate the plan's status. So the pre-registered status stays the claim's
+    status -- the generator's job is to prove the records agree with it, not to
+    overrule it -- and a disagreement stops the derivation instead of becoming a
+    quiet edit.
+
+    Evidence is the manifest artifact paths of the claim's experiments, which is why
+    the manifests have to be migrated first: a path that the audit gate cannot
+    resolve cannot be evidence. Experiments whose record is a failed gate are not
+    evidence; they are carried as named antecedents with their standing, so the
+    record shows they were read and why they do not carry the verdict.
+    """
+    run_dir = (project_root / "research").resolve()
+    plan = _read_json(run_dir / "plan.json")
+    jobs_dir = run_dir / "jobs"
+    findings: list[dict[str, Any]] = []
+    claims: list[dict[str, Any]] = []
+
+    for claim in plan.get("claims", []):
+        claim_id = claim.get("id")
+        status = claim.get("status")
+        if not isinstance(claim_id, str) or not claim_id:
+            raise RuntimeError("a planned claim has no id")
+        if status not in PLAN_STATUS_REQUIRES:
+            raise RuntimeError(
+                f"{claim_id} has plan status {status!r}, which has no registered "
+                "corroboration rule"
+            )
+
+        # The decisive record is the last experiment on the claim's list that
+        # recorded a verdict: the plan lists them in investigative order, so the
+        # last one is the most downstream. It is only a heuristic, which is why the
+        # corroboration check below refuses if its standing disagrees with the plan.
+        decisive: dict[str, Any] | None = None
+        for experiment in claim.get("experiments", []):
+            result_path = jobs_dir / experiment / "result.json"
+            if not result_path.is_file():
+                continue
+            standing = _record_standing(_read_json(result_path))
+            if standing == "not_recorded":
+                continue
+            decisive = {
+                "experiment": experiment,
+                "standing": standing,
+                "result": str(_relative(project_root, result_path)),
+            }
+
+        evidence: list[str] = []
+        negative_antecedents: list[dict[str, Any]] = []
+        for experiment in claim.get("experiments", []):
+            result_path = jobs_dir / experiment / "result.json"
+            if not result_path.is_file():
+                continue
+            standing = _record_standing(_read_json(result_path))
+            is_decisive = decisive is not None and experiment == decisive["experiment"]
+            if not is_decisive and standing == "failed_gate":
+                # A negative record on this claim's list is read and named, but it
+                # is not evidence *for* the claim -- including it would mean citing
+                # a failed gate in support of a supported one.
+                negative_antecedents.append(
+                    {
+                        "experiment": experiment,
+                        "standing": standing,
+                        "role": (
+                            "a negative record on this claim's list; it carries no "
+                            "part of this verdict and is cited as no evidence"
+                        ),
+                    }
+                )
+                continue
+            manifest_path = jobs_dir / experiment / "manifest.json"
+            if not manifest_path.is_file():
+                if is_decisive:
+                    raise RuntimeError(
+                        f"{claim_id}: the decisive experiment {experiment} has no "
+                        "manifest, so its artifacts cannot be cited as evidence"
+                    )
+                continue
+            for entry in _read_json(manifest_path).get("artifacts") or []:
+                relative = entry.get("path")
+                target = run_dir / str(relative)
+                if not target.is_file() or target.stat().st_size == 0:
+                    raise RuntimeError(
+                        f"{claim_id}: {relative} is cited as evidence but does not "
+                        "resolve under the run directory"
+                    )
+                if entry.get("sha256") and _sha256(target) != entry["sha256"]:
+                    raise RuntimeError(
+                        f"{claim_id}: {relative} does not match the hash its manifest "
+                        "records; the ledger would cite unattested evidence"
+                    )
+                if str(relative) not in evidence:
+                    evidence.append(str(relative))
+
+        if decisive is None:
+            # A claim nothing ran against is not a claim with no evidence; the
+            # pre-registration that records it as untested is the evidence.
+            evidence = ["plan.json"]
+
+        required = PLAN_STATUS_REQUIRES[status]
+        standing = "not_recorded" if decisive is None else decisive["standing"]
+        if standing not in required:
+            raise RuntimeError(
+                f"{claim_id}: the plan records status {status!r}, which requires a "
+                f"decisive record with standing {required}, but "
+                + (
+                    "no experiment recorded a verdict"
+                    if decisive is None
+                    else f"{decisive['experiment']} records {standing!r}"
+                )
+            )
+
+        finding: dict[str, Any] = {
+            "claim_id": claim_id,
+            "verdict": _verdict_for_status(status),
+            "claim_text": claim.get("text"),
+            "claim_type": claim.get("type"),
+            "plan_status": status,
+            "interpretation": _interpretation(
+                claim_id, status, decisive, negative_antecedents
+            ),
+            "falsification_check": {
+                "criterion": claim.get("falsification"),
+                "conditions": (
+                    _falsification_conditions(_read_json(jobs_dir / decisive["experiment"] / "result.json"))
+                    if decisive is not None
+                    else {}
+                ),
+            },
+            "evidence": sorted(evidence),
+        }
+        if decisive is None:
+            finding["blocked_reason"] = claim.get("blocked_by")
+        else:
+            finding["decisive_record"] = decisive
+            if negative_antecedents:
+                finding["negative_antecedents"] = negative_antecedents
+        findings.append(finding)
+        claims.append(
+            {
+                "claim_id": claim_id,
+                "verdict": finding["verdict"],
+                "claim_text": claim.get("text"),
+                "evidence": sorted(evidence),
+            }
+        )
+
+    generated_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    ledger = {
+        "project": plan.get("project_id"),
+        "cycle": plan.get("cycle"),
+        "generated_at": generated_at,
+        "source": "research/plan.json and research/jobs/*/result.json",
+        "claims": claims,
+    }
+    record = {
+        "project": plan.get("project_id"),
+        "cycle": plan.get("cycle"),
+        "generated_at": generated_at,
+        "node": "claim_derivation",
+        "source": "research/plan.json and research/jobs/*/result.json",
+        "reconciliation": {
+            finding["claim_id"]: {
+                "plan_status": finding["plan_status"],
+                "verdict": finding["verdict"],
+                "decisive": (finding.get("decisive_record") or {}).get("experiment"),
+            }
+            for finding in findings
+        },
+        "claims": claims,
+        "findings": findings,
+    }
+    _write_json(run_dir / "claims.json", ledger)
+    _write_json(run_dir / "findings.json", record)
+    return {
+        "claims": len(claims),
+        "verdicts": {finding["claim_id"]: finding["verdict"] for finding in findings},
+        "evidence_files": sum(len(claim["evidence"]) for claim in claims),
+        "ledger": CLAIMS_RELATIVE,
+        "findings": FINDINGS_RELATIVE,
+    }
+
+
+def _verdict_for_status(status: str) -> str:
+    """The plan's own status, in the vocabulary a finding is recorded with."""
+    return {
+        "supported": "supported",
+        "refuted": "not_supported",
+        "contradicted": "contradicted",
+        "deferred": "inconclusive",
+        "pending": "inconclusive",
+        "blocked": "inconclusive",
+    }[status]
+
+
 def _relative(root: Path, path: Path) -> str:
+    resolved_root = root.resolve()
+    resolved_path = path.resolve()
+    if resolved_path != resolved_root and resolved_root not in resolved_path.parents:
+        raise ValueError(f"path escapes project root: {path}")
+    return resolved_path.relative_to(resolved_root).as_posix()
+
+
+def _interpretation(
+    claim_id: str,
+    status: str,
+    decisive: Optional[Mapping[str, Any]],
+    negative_antecedents: Sequence[Mapping[str, Any]],
+) -> str:
+    if decisive is None:
+        return (
+            f"The plan records {claim_id} as {status} and no experiment on its list "
+            "has recorded a verdict, so there is nothing to support and nothing to "
+            "contradict."
+        )
+    text = (
+        f"The plan records {claim_id} as {status}. Its decisive record is "
+        f"{decisive['experiment']}, whose own verdict reads "
+        f"'{CLAIM_STANDINGS[decisive['standing']]}' ({decisive['standing']}), which "
+        "is what the plan's status requires."
+    )
+    if negative_antecedents:
+        named = ", ".join(item["experiment"] for item in negative_antecedents)
+        text += (
+            f" The claim's list also names {named}, whose own records are negative; "
+            "they are read as antecedents and carry no part of this verdict."
+        )
+    return text
+
+
+
+    resolved_root = root.resolve()
+    resolved_path = path.resolve()
+    if resolved_path != resolved_root and resolved_root not in resolved_path.parents:
+        raise ValueError(f"path escapes project root: {path}")
+    return resolved_path.relative_to(resolved_root).as_posix()
+
+
+def _unkept_reason(candidate: Path, recorded: Any) -> str:
+    if not candidate.is_file():
+        return "no file of that name is kept in the job directory"
+    if candidate.stat().st_size == 0:
+        return "the file of that name is empty"
+    return "the kept file of that name has different bytes than the entry records"
+
+
+
     resolved_root = root.resolve()
     resolved_path = path.resolve()
     if resolved_path != resolved_root and resolved_root not in resolved_path.parents:
@@ -3750,6 +4207,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     pilot_parser.add_argument("--conclusion-artifact", default=None)
     pilot_parser.add_argument("--workspace-artifact", action="append", default=[])
     subparsers.add_parser("prepare-e2")
+    subparsers.add_parser(
+        "derive-claims",
+        help=(
+            "derive research/claims.json and research/findings.json from the run "
+            "artifacts; refuses if a record does not corroborate the plan"
+        ),
+    )
+    subparsers.add_parser(
+        "migrate-manifest-paths",
+        help=(
+            "one-time repair of recorded manifests whose artifact paths the audit "
+            "gate cannot resolve; writes research/manifest-path-migration.json"
+        ),
+    )
     record_e2_parser = subparsers.add_parser("record-e2")
     record_e2_parser.add_argument("--job-dir", default=f"research/jobs/{E2_ID}")
     record_e2_parser.add_argument("--jobctl-dir", default=f".autoresearcher/jobs/{E2_ID}")
@@ -3849,6 +4320,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 indent=2,
             )
         )
+    elif args.command == "derive-claims":
+        print(json.dumps(derive_claims(PROJECT_ROOT), ensure_ascii=False, indent=2))
+    elif args.command == "migrate-manifest-paths":
+        report = migrate_manifest_paths(PROJECT_ROOT)
+        report_path = PROJECT_ROOT / MIGRATION_REPORT_RELATIVE
+        report["report"] = MIGRATION_REPORT_RELATIVE
+        _write_json(report_path, report)
+        print(json.dumps(report["totals"], ensure_ascii=False, indent=2))
     elif args.command == "record-e2":
         print(
             json.dumps(
